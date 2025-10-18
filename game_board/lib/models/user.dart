@@ -3,16 +3,14 @@ class User {
   final String username;
   final String email;
   final double bankroll;
-  final int playerWins;
-  final int dealerWins;
+  final Map<String, dynamic> stats; // Changed to support multi-game
 
   User({
     required this.id,
     required this.username,
     required this.email,
     required this.bankroll,
-    required this.playerWins,
-    required this.dealerWins,
+    required this.stats,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -21,8 +19,15 @@ class User {
       username: json['username'],
       email: json['email'],
       bankroll: (json['bankroll'] ?? 1000).toDouble(),
-      playerWins: json['playerWins'] ?? 0,
-      dealerWins: json['dealerWins'] ?? 0,
+      stats: json['stats'] ?? {
+        'blackjack': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
+        'uno': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
+        'checkers': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
+      },
     );
   }
+
+  // Helper getters for backwards compatibility
+  int get playerWins => (stats['blackjack']?['wins'] ?? 0) as int;
+  int get dealerWins => (stats['blackjack']?['losses'] ?? 0) as int;
 }
