@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'blackjack_screen.dart';
+import 'multiplayer_lobby_screen.dart';
 import '../models/user.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -90,7 +91,17 @@ class HomeScreen extends StatelessWidget {
                         ),
                         SizedBox(height: spacing * 2),
                         
-                        // Game Buttons
+                        // Single Player Section
+                        Text(
+                          'Single Player',
+                          style: TextStyle(
+                            fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber,
+                          ),
+                        ),
+                        SizedBox(height: spacing),
+                        
                         _GameButton(
                           title: 'Blackjack',
                           icon: Icons.casino,
@@ -125,6 +136,76 @@ class HomeScreen extends StatelessWidget {
                           enabled: false,
                           width: buttonWidth,
                           height: buttonHeight,
+                        ),
+                        
+                        SizedBox(height: spacing * 2),
+                        
+                        // Multiplayer Section
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.amber,
+                              width: 2,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.people, color: Colors.amber, size: 24),
+                              SizedBox(width: 8),
+                              Text(
+                                'Multiplayer',
+                                style: TextStyle(
+                                  fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'ONLINE',
+                                  style: TextStyle(
+                                    fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: spacing),
+                        
+                        _GameButton(
+                          title: 'Play Online',
+                          icon: Icons.wifi,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MultiplayerLobbyScreen(user: user),
+                              ),
+                            );
+                          },
+                          enabled: true,
+                          width: buttonWidth,
+                          height: buttonHeight,
+                          isMultiplayer: true,
                         ),
                       ],
                     ),
@@ -165,6 +246,7 @@ class _GameButton extends StatelessWidget {
   final bool enabled;
   final double width;
   final double height;
+  final bool isMultiplayer;
 
   const _GameButton({
     required this.title,
@@ -173,6 +255,7 @@ class _GameButton extends StatelessWidget {
     required this.enabled,
     required this.width,
     required this.height,
+    this.isMultiplayer = false,
   });
 
   @override
@@ -186,7 +269,9 @@ class _GameButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: enabled ? const Color(0xFF2F5233) : Colors.grey.shade700,
+          backgroundColor: enabled 
+              ? (isMultiplayer ? const Color(0xFF1976D2) : const Color(0xFF2F5233))
+              : Colors.grey.shade700,
           disabledBackgroundColor: Colors.grey.shade700,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
