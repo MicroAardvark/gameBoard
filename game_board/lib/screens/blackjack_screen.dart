@@ -6,7 +6,7 @@ import '../models/user.dart';
 class BlackjackScreen extends StatefulWidget {
   final User user;
 
-  const BlackjackScreen({Key? key, required this.user}) : super(key: key);
+  const BlackjackScreen({super.key, required this.user});
 
   @override
   State<BlackjackScreen> createState() => _BlackjackScreenState();

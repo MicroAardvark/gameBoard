@@ -8,10 +8,10 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback onLogout;
 
   const HomeScreen({
-    Key? key,
+    super.key,
     required this.user,
     required this.onLogout,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

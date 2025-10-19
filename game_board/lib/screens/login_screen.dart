@@ -5,7 +5,7 @@ import '../models/user.dart';
 class LoginScreen extends StatefulWidget {
   final Function(User) onLoginSuccess;
 
-  const LoginScreen({Key? key, required this.onLoginSuccess}) : super(key: key);
+  const LoginScreen({super.key, required this.onLoginSuccess});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();

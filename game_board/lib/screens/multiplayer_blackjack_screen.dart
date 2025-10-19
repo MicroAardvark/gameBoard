@@ -13,7 +13,7 @@ import 'multiplayer_blackjack_game_screen.dart';
 class MultiplayerBlackjackScreen extends StatefulWidget {
   final User user;
 
-  const MultiplayerBlackjackScreen({Key? key, required this.user}) : super(key: key);
+  const MultiplayerBlackjackScreen({super.key, required this.user});
 
   @override
   State<MultiplayerBlackjackScreen> createState() => _MultiplayerBlackjackScreenState();

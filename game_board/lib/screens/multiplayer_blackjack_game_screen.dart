@@ -15,11 +15,11 @@ class MultiplayerBlackjackGameScreen extends StatefulWidget {
   final bool isHost;
 
   const MultiplayerBlackjackGameScreen({
-    Key? key,
+    super.key,
     required this.user,
     required this.roomId,
     required this.isHost,
-  }) : super(key: key);
+  });
 
   @override
   State<MultiplayerBlackjackGameScreen> createState() => _MultiplayerBlackjackGameScreenState();

@@ -9,7 +9,7 @@ import 'multiplayer_blackjack_screen.dart';
 class MultiplayerLobbyScreen extends StatelessWidget {
   final User user;
 
-  const MultiplayerLobbyScreen({Key? key, required this.user}) : super(key: key);
+  const MultiplayerLobbyScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
