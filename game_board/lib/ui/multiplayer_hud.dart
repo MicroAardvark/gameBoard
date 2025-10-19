@@ -77,8 +77,8 @@ class MultiplayerHudManager {
       text: '',
       position: Vector2(game.screenWidth / 2, 50),
       fontSize: game.largeFontSize,
-      anchor: Anchor.center,
     );
+    turnIndicatorText!.anchor = Anchor.center;
 
     // Game result (top left)
     gameResultText = InfoTextComponent(
@@ -280,7 +280,7 @@ class MultiplayerHudManager {
   void updateTurnIndicator() {
     if (game.isMyTurn) {
       turnIndicatorText?.text = '🎯 YOUR TURN';
-      turnIndicatorText?.textPaint = TextPaint(
+      turnIndicatorText?.textRenderer = TextPaint(
         style: TextStyle(
           color: Colors.greenAccent,
           fontSize: game.largeFontSize,
@@ -291,7 +291,7 @@ class MultiplayerHudManager {
       final currentPlayer = game.otherPlayers[game.currentTurnPlayerId];
       if (currentPlayer != null) {
         turnIndicatorText?.text = '⏳ ${currentPlayer.username}\'s turn';
-        turnIndicatorText?.textPaint = TextPaint(
+        turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
             color: Colors.orangeAccent,
             fontSize: game.largeFontSize,
@@ -300,7 +300,7 @@ class MultiplayerHudManager {
         );
       } else {
         turnIndicatorText?.text = '⏳ Waiting...';
-        turnIndicatorText?.textPaint = TextPaint(
+        turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
             color: Colors.white70,
             fontSize: game.largeFontSize,
@@ -309,7 +309,7 @@ class MultiplayerHudManager {
       }
     } else if (game.gameState == GameState.dealerTurn) {
       turnIndicatorText?.text = '🎰 Dealer\'s Turn';
-      turnIndicatorText?.textPaint = TextPaint(
+      turnIndicatorText?.textRenderer = TextPaint(
         style: TextStyle(
           color: Colors.redAccent,
           fontSize: game.largeFontSize,
@@ -338,7 +338,7 @@ class MultiplayerHudManager {
       resultColor = Colors.white;
     }
 
-    gameResultText?.textPaint = TextPaint(
+    gameResultText?.textRenderer = TextPaint(
       style: TextStyle(
         color: resultColor,
         fontSize: game.largeFontSize,
@@ -346,7 +346,7 @@ class MultiplayerHudManager {
         shadows: [
           Shadow(
             blurRadius: 10.0,
-            color: Colors.black.withOpacity(0.7),
+            color: Colors.black.withValues(alpha:(0.7)),
             offset: const Offset(2, 2),
           ),
         ],
@@ -384,8 +384,8 @@ class HudPanel extends PositionComponent {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.black.withOpacity(0.3),
-        Colors.black.withOpacity(0.6),
+        Colors.black.withValues(alpha:(0.3)),
+        Colors.black.withValues(alpha:(0.6)),
       ],
     );
     
@@ -397,7 +397,7 @@ class HudPanel extends PositionComponent {
     
     // Top border line
     final borderPaint = Paint()
-      ..color = Colors.amber.withOpacity(0.3)
+      ..color = Colors.amber.withValues(alpha:(0.3))
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     
@@ -428,7 +428,7 @@ class ConnectionIndicator extends PositionComponent {
 
     // Circle background
     final bgPaint = Paint()
-      ..color = Colors.black.withOpacity(0.5)
+      ..color = Colors.black.withValues(alpha:(0.5))
       ..style = PaintingStyle.fill;
     canvas.drawCircle(position, radius + 4, bgPaint);
 
@@ -441,7 +441,7 @@ class ConnectionIndicator extends PositionComponent {
     // Pulse effect when connected
     if (isConnected) {
       final pulsePaint = Paint()
-        ..color = Colors.green.withOpacity(0.3)
+        ..color = Colors.green.withValues(alpha:(0.3))
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawCircle(position, radius + 6, pulsePaint);

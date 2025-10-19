@@ -127,8 +127,8 @@ class MultiplayerPlayerUI extends PositionComponent {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.black.withOpacity(0.6),
-        Colors.black.withOpacity(0.8),
+        Colors.black.withValues(alpha: (0.6)),
+        Colors.black.withValues(alpha: (0.8)),
       ],
     );
     
@@ -140,7 +140,7 @@ class MultiplayerPlayerUI extends PositionComponent {
     
     // Border
     final borderPaint = Paint()
-      ..color = isCurrentTurn ? Colors.amber : Colors.white.withOpacity(0.3)
+      ..color = isCurrentTurn ? Colors.amber : Colors.white.withValues(alpha: (0.3))
       ..style = PaintingStyle.stroke
       ..strokeWidth = isCurrentTurn ? 3 : 2;
     
@@ -245,12 +245,12 @@ class MultiplayerPlayerUI extends PositionComponent {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.black.withOpacity(0.5);
+      ..color = Colors.black.withValues(alpha: (0.5));
     canvas.drawRRect(rrect, borderPaint);
     
     // Pattern
     final patternPaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: (0.15))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     
@@ -263,7 +263,7 @@ class MultiplayerPlayerUI extends PositionComponent {
     
     // Pulsing circle
     final pulsePaint = Paint()
-      ..color = Colors.amber.withOpacity(0.4)
+      ..color = Colors.amber.withValues(alpha: (0.4))
       ..style = PaintingStyle.fill;
     canvas.drawCircle(position, radius + 4, pulsePaint);
     

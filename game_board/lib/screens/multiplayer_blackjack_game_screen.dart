@@ -238,7 +238,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.6),
+                        Colors.black.withValues(alpha: (0.6)),
                         Colors.transparent,
                       ],
                     ),
@@ -259,7 +259,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           }
                         },
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.black.withOpacity(0.5),
+                          backgroundColor: Colors.black.withValues(alpha: (0.5)),
                           padding: EdgeInsets.all(buttonSize * 0.25),
                         ),
                       ),
@@ -276,7 +276,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           boxShadow: [
                             if (_isConnected)
                               BoxShadow(
-                                color: Colors.green.withOpacity(0.5),
+                                color: Colors.green.withValues(alpha: (0.5)),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -297,7 +297,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             shadows: [
                               Shadow(
                                 blurRadius: 4,
-                                color: Colors.black.withOpacity(0.7),
+                                color: Colors.black.withValues(alpha: (0.7)),
                               ),
                             ],
                           ),
@@ -312,10 +312,10 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: (0.5)),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.amber.withOpacity(0.5),
+                            color: Colors.amber.withValues(alpha: (0.5)),
                             width: 2,
                           ),
                         ),
@@ -349,7 +349,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             if (!_isConnected)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: (0.7)),
                   child: Center(
                     child: Card(
                       margin: EdgeInsets.all(32),

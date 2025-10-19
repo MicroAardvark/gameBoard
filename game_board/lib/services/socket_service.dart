@@ -2,6 +2,8 @@
 // lib/services/socket_service.dart
 // Universal multiplayer socket service for all games
 // ====================================
+// ignore_for_file: avoid_print
+
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'dart:async';
 

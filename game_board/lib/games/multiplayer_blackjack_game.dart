@@ -120,6 +120,13 @@ class MultiplayerBlackjackGame extends FlameGame {
   // ===========================================
   // SOCKET EVENT HANDLING
   // ===========================================
+
+
+  int _getCardValue(String rank) {
+    if (rank == 'A') return 11;
+    if (['J', 'Q', 'K'].contains(rank)) return 10;
+    return int.parse(rank);
+  }
   
   void _setupSocketListeners() {
     _gameActionSub = socketService.onGameAction.listen((event) {
@@ -131,7 +138,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final type = event['type'];
     final data = event['data'];
 
-    print('🎮 Socket event: $type');
+    debugPrint('🎮 Socket event: $type');
 
     switch (type) {
       case 'bet_placed':
@@ -174,7 +181,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final betAmount = data['betAmount'];
 
-    print('💰 Bet placed: $betAmount by $userId');
+    debugPrint('💰 Bet placed: $betAmount by $userId');
 
     // Update other player's bet display
     if (userId != user.id && otherPlayers.containsKey(userId)) {
@@ -183,7 +190,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   void _handleRoundStarted(Map<String, dynamic> data) {
-    print('🎲 Round started!');
+    debugPrint('🎲 Round started!');
     
     gameState = GameState.playing;
     final room = data['room'];
@@ -206,8 +213,9 @@ class MultiplayerBlackjackGame extends FlameGame {
     if (myHandData != null) {
       for (final cardData in myHandData) {
         final card = PlayingCard(
-          suit: cardData['suit'],
-          rank: cardData['rank'],
+          cardData['suit'],
+          cardData['rank'],
+          _getCardValue(cardData['rank'])
         );
         myHand.add(card);
         
@@ -227,8 +235,9 @@ class MultiplayerBlackjackGame extends FlameGame {
     if (dealerHandData != null) {
       for (final cardData in dealerHandData) {
         final card = PlayingCard(
-          suit: cardData['suit'],
-          rank: cardData['rank'],
+          cardData['suit'],
+          cardData['rank'],
+          _getCardValue(cardData['rank'])
         );
         dealerHand.add(card);
         
@@ -274,13 +283,14 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final cardData = data['card'];
     
-    print('🃏 Card dealt to: $userId');
+    debugPrint('🃏 Card dealt to: $userId');
     
     if (userId == user.id) {
       // Card dealt to me
       final card = PlayingCard(
-        suit: cardData['suit'],
-        rank: cardData['rank'],
+        cardData['suit'],
+        cardData['rank'],
+        _getCardValue(cardData['rank'])
       );
       myHand.add(card);
       
@@ -306,7 +316,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final username = data['username'];
     
-    print('💥 $username busted!');
+    debugPrint('💥 $username busted!');
     
     if (userId == user.id) {
       gameResult = 'Busted!';
@@ -322,7 +332,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final username = data['username'];
     
-    print('✋ $username stood');
+    debugPrint('✋ $username stood');
     
     if (otherPlayers.containsKey(userId)) {
       otherPlayers[userId]!.setStatus('Stood');
@@ -338,7 +348,7 @@ class MultiplayerBlackjackGame extends FlameGame {
       currentTurnPlayerId = players[currentIndex]['userId'];
       isMyTurn = (currentTurnPlayerId == user.id);
       
-      print('➡️ Next turn: ${players[currentIndex]['username']}');
+      debugPrint('➡️ Next turn: ${players[currentIndex]['username']}');
     } else {
       isMyTurn = false;
       gameState = GameState.dealerTurn;
@@ -350,7 +360,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   void _handleDealerReveal(Map<String, dynamic> data) {
-    print('👁️ Dealer reveals hidden card');
+    debugPrint('👁️ Dealer reveals hidden card');
     
     gameState = GameState.dealerTurn;
     
@@ -368,11 +378,12 @@ class MultiplayerBlackjackGame extends FlameGame {
   void _handleDealerCard(Map<String, dynamic> data) {
     final cardData = data['card'];
     
-    print('🎴 Dealer hits');
+    debugPrint('🎴 Dealer hits');
     
     final card = PlayingCard(
-      suit: cardData['suit'],
-      rank: cardData['rank'],
+      cardData['suit'],
+      cardData['rank'],
+      _getCardValue(cardData['rank'])
     );
     dealerHand.add(card);
     
@@ -390,7 +401,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   void _handleRoundEnded(Map<String, dynamic> data) {
-    print('🏁 Round ended!');
+    debugPrint('🏁 Round ended!');
     
     gameState = GameState.gameOver;
     final results = data['results'];
@@ -432,7 +443,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final username = data['username'];
     
-    print('💰x2 $username doubled down');
+    debugPrint('💰x2 $username doubled down');
     
     if (otherPlayers.containsKey(userId)) {
       otherPlayers[userId]!.setStatus('Doubled');
@@ -443,7 +454,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     final userId = data['userId'];
     final username = data['username'];
     
-    print('🎰 $username has BLACKJACK!');
+    debugPrint('🎰 $username has BLACKJACK!');
     
     if (userId == user.id) {
       gameResult = 'BLACKJACK!';
@@ -468,24 +479,26 @@ class MultiplayerBlackjackGame extends FlameGame {
       final x = baseX + (i * horizontalSpacing);
 
       final plusBtn = ChipButton(
+        symbol: '+',
+        onPressed: () => _addChipToStaging(value),
         position: Vector2(x, startY - verticalSpacing),
         radius: chipRadius * 0.5,
-        label: '+',
-        onTap: () => _addChipToStaging(value),
+        bgColor: Colors.yellow
       )..priority = layerChips;
 
       final chip = PaletteChip(
         position: Vector2(x, startY),
         radius: chipRadius,
         value: value,
-        onTap: () => _addChipToStaging(value),
+        chipColor: Colors.red
       )..priority = layerChips;
 
       final minusBtn = ChipButton(
         position: Vector2(x, startY + verticalSpacing),
         radius: chipRadius * 0.5,
-        label: '-',
-        onTap: () => _removeChipFromStaging(value),
+        symbol: '-',
+        onPressed: () => _removeChipFromStaging(value),
+        bgColor: Colors.red
       )..priority = layerChips;
 
       add(plusBtn);
@@ -507,6 +520,7 @@ class MultiplayerBlackjackGame extends FlameGame {
       position: position,
       radius: chipRadius,
       value: value,
+      chipColor: Colors.blue
     )..priority = layerChips;
 
     stagedChips.add(chip);
@@ -595,14 +609,14 @@ class MultiplayerBlackjackGame extends FlameGame {
     if (!isHost) return;
     if (currentBet <= 0) return;
     
-    print('🎲 Starting round...');
+    debugPrint('🎲 Starting round...');
     socketService.startRound(roomId: roomId);
   }
 
   void hit() {
     if (!isMyTurn || gameState != GameState.playing) return;
     
-    print('🃏 Hit!');
+    debugPrint('🃏 Hit!');
     socketService.hit(
       roomId: roomId,
       userId: user.id,
@@ -612,7 +626,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   void stand() {
     if (!isMyTurn || gameState != GameState.playing) return;
     
-    print('✋ Stand');
+    debugPrint('✋ Stand');
     socketService.stand(
       roomId: roomId,
       userId: user.id,
@@ -624,7 +638,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     if (myHand.length != 2) return;
     if (bankroll < currentBet) return;
     
-    print('💰x2 Double down');
+    debugPrint('💰x2 Double down');
     socketService.doubleDown(
       roomId: roomId,
       userId: user.id,
@@ -715,7 +729,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     }
   }
 
-  void _updateCardsPositions({bool animated = true}) {
+  void _updateCardsPositions() {
     final spacing = cardWidth * 1.15;
 
     // My cards
@@ -744,11 +758,11 @@ class MultiplayerBlackjackGame extends FlameGame {
       ..strokeWidth = 4.0;
 
     potFillPaint = Paint()
-      ..color = Colors.green[900]!.withOpacity(0.3)
+      ..color = Colors.green[900]!.withValues(alpha: (0.3))
       ..style = PaintingStyle.fill;
 
     innerBorderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: (0.2))
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
   }

@@ -212,7 +212,7 @@ class HudPanel extends PositionComponent {
       game.hudPanelHeight,
     );
     final paint = Paint()
-      ..color = Colors.black.withOpacity(0.4)
+      ..color = Colors.black.withValues(alpha:(0.4))
       ..style = PaintingStyle.fill;
     canvas.drawRect(rect, paint);
   }

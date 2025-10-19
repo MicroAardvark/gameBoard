@@ -112,6 +112,7 @@ class AuthService {
 
       return response.statusCode == 200;
     } catch (e) {
+      // ignore: avoid_print
       print('Update stats error: $e');
       return false;
     }

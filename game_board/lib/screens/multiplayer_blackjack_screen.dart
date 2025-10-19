@@ -44,7 +44,10 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
   void _connectToSocket() {
     setState(() => _isConnecting = true);
     
-    _socketService.connect();
+    _socketService.connect(
+      widget.user.id,
+      widget.user.username,
+    );
     
     // Give it a moment to connect
     Future.delayed(Duration(seconds: 2), () {
@@ -130,7 +133,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         throw Exception('Failed to load rooms');
       }
     } catch (e) {
-      print('Error loading rooms: $e');
+      debugPrint('Error loading rooms: $e');
       if (mounted) {
         setState(() {
           _isLoadingRooms = false;
@@ -279,8 +282,8 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final buttonSize = (size.height * 0.06).clamp(32.0, 48.0);
+    //final size = MediaQuery.of(context).size;
+    //final buttonSize = (size.height * 0.06).clamp(32.0, 48.0);
     
     return Scaffold(
       body: Container(
@@ -306,7 +309,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                       icon: Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.3),
+                        backgroundColor: Colors.black.withValues(alpha: (0.3)),
                       ),
                     ),
                     SizedBox(width: 16),
@@ -355,7 +358,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                       icon: Icon(Icons.refresh, color: Colors.white),
                       onPressed: _isLoadingRooms ? null : _loadAvailableRooms,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.3),
+                        backgroundColor: Colors.black.withValues(alpha: (0.3)),
                       ),
                     ),
                   ],
@@ -518,7 +521,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
       margin: EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.amber.withOpacity(0.3), width: 2),
+        side: BorderSide(color: Colors.amber.withValues(alpha: (0.3)), width: 2),
       ),
       color: Color(0xFF1E4A2D),
       child: InkWell(
@@ -559,7 +562,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
+                      color: Colors.amber.withValues(alpha: (0.2)),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.amber, width: 2),
                     ),
@@ -592,7 +595,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                     return Container(
                       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
+                        color: Colors.black.withValues(alpha: (0.3)),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(

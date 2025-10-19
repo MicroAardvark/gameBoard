@@ -48,7 +48,7 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
                   Navigator.pop(context);
                 },
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withOpacity(0.5),
+                  backgroundColor: Colors.black.withValues(alpha: (0.5)),
                   padding: EdgeInsets.all(buttonSize * 0.25),
                 ),
               ),

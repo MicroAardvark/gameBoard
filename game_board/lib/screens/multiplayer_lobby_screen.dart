@@ -45,7 +45,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       icon: Icon(Icons.arrow_back, color: Colors.white),
                       onPressed: () => Navigator.pop(context),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.3),
+                        backgroundColor: Colors.black.withValues(alpha: (0.3)),
                       ),
                     ),
                     SizedBox(width: 16),
@@ -81,10 +81,10 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                 margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: (0.3)),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.amber.withOpacity(0.3),
+                    color: Colors.amber.withValues(alpha: (0.3)),
                     width: 2,
                   ),
                 ),
@@ -275,7 +275,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
-            color: isAvailable ? color.withOpacity(0.5) : Colors.grey.withOpacity(0.3),
+            color: isAvailable ? color.withValues(alpha: (0.5)) : Colors.grey.withValues(alpha: (0.3)),
             width: 3,
           ),
         ),
@@ -291,7 +291,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   child: CustomPaint(
                     painter: _CardPatternPainter(
-                      color: color.withOpacity(isAvailable ? 0.1 : 0.05),
+                      color: color.withValues(alpha: (isAvailable ? 0.1 : 0.05)),
                     ),
                   ),
                 ),
@@ -310,8 +310,8 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isAvailable 
-                            ? color.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.2),
+                            ? color.withValues(alpha: (0.2))
+                            : Colors.grey.withValues(alpha: (0.2)),
                         border: Border.all(
                           color: isAvailable ? color : Colors.grey,
                           width: 3,
@@ -355,8 +355,8 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
                         color: isAvailable
-                            ? color.withOpacity(0.3)
-                            : Colors.grey.withOpacity(0.3),
+                            ? color.withValues(alpha: (0.3))
+                            : Colors.grey.withValues(alpha: (0.3)),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isAvailable ? color : Colors.grey,
