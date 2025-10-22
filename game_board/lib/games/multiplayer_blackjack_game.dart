@@ -1,11 +1,13 @@
 // ====================================
 // lib/games/multiplayer_blackjack_game.dart
-// Multiplayer Flame game with socket integration
+// Multiplayer Flame game with socket integration - FIXED VERSION
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../models/playing_card.dart';
 import '../models/enums.dart';
@@ -91,6 +93,7 @@ class MultiplayerBlackjackGame extends FlameGame {
 
   // Socket event subscriptions
   StreamSubscription? _gameActionSub;
+  StreamSubscription? _newRoundSub;
 
   @override
   Future<void> onLoad() async {
@@ -114,13 +117,13 @@ class MultiplayerBlackjackGame extends FlameGame {
   @override
   void onRemove() {
     _gameActionSub?.cancel();
+    _newRoundSub?.cancel();
     super.onRemove();
   }
 
   // ===========================================
   // SOCKET EVENT HANDLING
   // ===========================================
-
 
   int _getCardValue(String rank) {
     if (rank == 'A') return 11;
@@ -131,6 +134,13 @@ class MultiplayerBlackjackGame extends FlameGame {
   void _setupSocketListeners() {
     _gameActionSub = socketService.onGameAction.listen((event) {
       handleSocketEvent(event);
+    });
+    
+    _newRoundSub = socketService.onNewRoundStarting.listen((data) {
+      debugPrint('🔄 New round starting - all players ready!');
+      // Server has reset room state, ready to start betting again
+      gameState = GameState.betting;
+      hud.updateHudVisibility();
     });
   }
 
@@ -183,18 +193,19 @@ class MultiplayerBlackjackGame extends FlameGame {
 
     debugPrint('💰 Bet placed: $betAmount by $userId');
 
-    // Update other player's bet display
     if (userId != user.id && otherPlayers.containsKey(userId)) {
       otherPlayers[userId]!.updateBet(betAmount.toDouble());
     }
   }
 
+  // FIXED: Now properly renders initial cards
   void _handleRoundStarted(Map<String, dynamic> data) {
     debugPrint('🎲 Round started!');
     
     gameState = GameState.playing;
     final room = data['room'];
     final gameData = room['gameState']['data'];
+    final players = room['players'] as List;
 
     // Clear previous cards
     for (final card in myCards) {
@@ -208,25 +219,14 @@ class MultiplayerBlackjackGame extends FlameGame {
     myHand.clear();
     dealerHand.clear();
 
+    // Create other player UI components if they don't exist
+    _createOtherPlayers(players);
+
     // Deal my cards
     final myHandData = gameData['playerHands'][user.id];
     if (myHandData != null) {
       for (final cardData in myHandData) {
-        final card = PlayingCard(
-          cardData['suit'],
-          cardData['rank'],
-          _getCardValue(cardData['rank'])
-        );
-        myHand.add(card);
-        
-        final cardComp = CardComponent(
-          position: deckPosition,
-          size: Vector2(cardWidth, cardHeight),
-          card: card,
-          isHidden: false,
-        )..priority = layerCards;
-        myCards.add(cardComp);
-        add(cardComp);
+        _addCardToMyHand(cardData, false);
       }
     }
 
@@ -234,26 +234,11 @@ class MultiplayerBlackjackGame extends FlameGame {
     final dealerHandData = gameData['dealerHand'];
     if (dealerHandData != null) {
       for (final cardData in dealerHandData) {
-        final card = PlayingCard(
-          cardData['suit'],
-          cardData['rank'],
-          _getCardValue(cardData['rank'])
-        );
-        dealerHand.add(card);
-        
-        final cardComp = CardComponent(
-          position: deckPosition,
-          size: Vector2(cardWidth, cardHeight),
-          card: card,
-          isHidden: cardData['hidden'] ?? false,
-        )..priority = layerCards;
-        dealerCards.add(cardComp);
-        add(cardComp);
+        _addCardToDealerHand(cardData, cardData['hidden'] ?? false);
       }
     }
 
-    // Update other players' card counts
-    final players = room['players'] as List;
+    // Deal cards to other players (visual count only)
     for (final player in players) {
       final playerId = player['userId'];
       if (playerId != user.id && otherPlayers.containsKey(playerId)) {
@@ -264,59 +249,117 @@ class MultiplayerBlackjackGame extends FlameGame {
       }
     }
 
-    // Position cards
-    _updateCardsPositions();
-    
-    // Check whose turn it is
-    final currentIndex = room['gameState']['currentTurn'];
-    if (currentIndex < players.length) {
-      currentTurnPlayerId = players[currentIndex]['userId'];
+    // Set first player's turn
+    if (players.isNotEmpty) {
+      currentTurnPlayerId = players[0]['userId'];
       isMyTurn = (currentTurnPlayerId == user.id);
     }
 
+    _updateCardsPositions();
     _updateHUDTexts();
     hud.updateHudVisibility();
     hud.updateTurnIndicator();
   }
 
+  // FIXED: Now handles both my cards and other players' cards
   void _handleCardDealt(Map<String, dynamic> data) {
     final userId = data['userId'];
     final cardData = data['card'];
     
     debugPrint('🃏 Card dealt to: $userId');
-    
+
     if (userId == user.id) {
-      // Card dealt to me
-      final card = PlayingCard(
-        cardData['suit'],
-        cardData['rank'],
-        _getCardValue(cardData['rank'])
-      );
-      myHand.add(card);
-      
-      final cardComp = CardComponent(
-        position: deckPosition,
-        size: Vector2(cardWidth, cardHeight),
-        card: card,
-        isHidden: false,
-      )..priority = layerCards;
-      myCards.add(cardComp);
-      add(cardComp);
-      
-      _updateCardsPositions();
+      // My hit card
+      _addCardToMyHand(cardData, false);
     } else if (otherPlayers.containsKey(userId)) {
-      // Card dealt to other player
+      // Other player hit
       otherPlayers[userId]!.addCard();
     }
-    
+
+    _updateCardsPositions();
     _updateHUDTexts();
+  }
+
+  void _addCardToMyHand(Map<String, dynamic> cardData, bool hidden) {
+    final card = PlayingCard(
+      cardData['suit'],
+      cardData['rank'],
+      _getCardValue(cardData['rank'])
+    );
+    myHand.add(card);
+    
+    final cardComp = CardComponent(
+      position: deckPosition,
+      size: Vector2(cardWidth, cardHeight),
+      card: card,
+      isHidden: hidden,
+    )..priority = layerCards;
+    myCards.add(cardComp);
+    add(cardComp);
+  }
+
+  void _addCardToDealerHand(Map<String, dynamic> cardData, bool hidden) {
+    final card = PlayingCard(
+      cardData['suit'],
+      cardData['rank'],
+      _getCardValue(cardData['rank'])
+    );
+    dealerHand.add(card);
+    
+    final cardComp = CardComponent(
+      position: deckPosition,
+      size: Vector2(cardWidth, cardHeight),
+      card: card,
+      isHidden: hidden,
+    )..priority = layerCards;
+    dealerCards.add(cardComp);
+    add(cardComp);
+  }
+
+  // NEW: Create visual UI for other players
+  void _createOtherPlayers(List<dynamic> players) {
+    // Clear existing
+    for (final player in otherPlayers.values) {
+      player.removeFromParent();
+    }
+    otherPlayers.clear();
+
+    int otherPlayerIndex = 0;
+    for (final playerData in players) {
+      final playerId = playerData['userId'];
+      if (playerId == user.id) continue;
+
+      final username = playerData['username'];
+      final bankroll = playerData['bankroll']?.toDouble() ?? 0.0;
+      
+      // Position players on left and right
+      final isRightSide = otherPlayerIndex % 2 == 0;
+      final xPos = isRightSide ? screenWidth * 0.85 : screenWidth * 0.15;
+      final yPos = screenHeight * 0.40;
+
+      final playerUI = MultiplayerPlayerUI(
+        playerId: playerId,
+        username: username,
+        bankroll: bankroll,
+        anchorPos: Vector2(xPos, yPos),
+        cardsCenter: Vector2(xPos, yPos - 50),
+        cardSize: Vector2(cardWidth * 0.6, cardHeight * 0.6),
+        rightSide: isRightSide,
+      )..priority = layerHud;
+
+      otherPlayers[playerId] = playerUI;
+      add(playerUI);
+      otherPlayerIndex++;
+    }
+
+    playerCount = players.length;
   }
 
   void _handlePlayerBusted(Map<String, dynamic> data) {
     final userId = data['userId'];
     final username = data['username'];
     
-    debugPrint('💥 $username busted!');
+    debugPrint('💥 $username busted');
     
     if (userId == user.id) {
       gameResult = 'Busted!';
@@ -364,7 +407,6 @@ class MultiplayerBlackjackGame extends FlameGame {
     
     gameState = GameState.dealerTurn;
     
-    // Reveal all dealer cards
     for (final cardComp in dealerCards) {
       if (cardComp.isHidden) {
         cardComp.flip();
@@ -380,26 +422,12 @@ class MultiplayerBlackjackGame extends FlameGame {
     
     debugPrint('🎴 Dealer hits');
     
-    final card = PlayingCard(
-      cardData['suit'],
-      cardData['rank'],
-      _getCardValue(cardData['rank'])
-    );
-    dealerHand.add(card);
-    
-    final cardComp = CardComponent(
-      position: deckPosition,
-      size: Vector2(cardWidth, cardHeight),
-      card: card,
-      isHidden: false,
-    )..priority = layerCards;
-    dealerCards.add(cardComp);
-    add(cardComp);
-    
+    _addCardToDealerHand(cardData, false);
     _updateCardsPositions();
     _updateHUDTexts();
   }
 
+  // FIXED: Now syncs bankroll to database
   void _handleRoundEnded(Map<String, dynamic> data) {
     debugPrint('🏁 Round ended!');
     
@@ -431,12 +459,40 @@ class MultiplayerBlackjackGame extends FlameGame {
       }
       
       hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
+      
+      // NEW: Sync bankroll to database
+      _syncBankrollToDatabase();
     }
     
     currentBet = 0;
     _clearBetChips();
     _updateHUDTexts();
     hud.updateHudVisibility();
+  }
+
+  // NEW: Persist bankroll to database
+  Future<void> _syncBankrollToDatabase() async {
+    try {
+      // You'll need to implement token storage/retrieval
+      final response = await http.put(
+        Uri.parse('${socketService.baseUrl}/api/game/update-stats'),
+        headers: {
+          'Content-Type': 'application/json',
+          // 'Authorization': 'Bearer ${await _getToken()}', // Implement token storage
+        },
+        body: jsonEncode({
+          'gameType': 'blackjack',
+          'bankroll': bankroll,
+          'result': gameResult.contains('win') ? 'win' : 'loss',
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        debugPrint('✅ Bankroll synced to database');
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to sync bankroll: $e');
+    }
   }
 
   void _handleDoubledDown(Map<String, dynamic> data) {
@@ -549,7 +605,6 @@ class MultiplayerBlackjackGame extends FlameGame {
 
     currentBet += stagedBet;
     
-    // Send bet to server
     socketService.placeBet(
       roomId: roomId,
       userId: user.id,
@@ -646,6 +701,13 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   void newRound() {
+    // Signal to server that this player is ready for next round
+    socketService.playerReadyNextRound(
+      roomId: roomId,
+      userId: user.id,
+    );
+    
+    // Clear local state (server will send new_round_starting when all ready)
     gameState = GameState.betting;
     gameResult = '';
     isMyTurn = false;
@@ -661,7 +723,6 @@ class MultiplayerBlackjackGame extends FlameGame {
     myHand.clear();
     dealerHand.clear();
 
-    // Clear other players' cards
     for (final player in otherPlayers.values) {
       player.clearCards();
       player.setStatus('Waiting');
@@ -677,6 +738,48 @@ class MultiplayerBlackjackGame extends FlameGame {
       roomId: roomId,
       userId: user.id,
     );
+  }
+
+  // ===========================================
+  // PLAYER MANAGEMENT
+  // ===========================================
+
+  void addOtherPlayer(String playerId, String username, double bankroll, int position) {
+    if (otherPlayers.containsKey(playerId)) return;
+
+    Vector2 anchorPos;
+    Vector2 cardsCenter;
+    bool rightSide = false;
+
+    // Position players around the table
+    if (position == 0) {
+      // Left player
+      anchorPos = Vector2(screenWidth * 0.08, screenHeight * 0.62);
+      cardsCenter = Vector2(screenWidth * 0.22, screenHeight * 0.62);
+    } else {
+      // Right player
+      anchorPos = Vector2(screenWidth * 0.92, screenHeight * 0.62);
+      cardsCenter = Vector2(screenWidth * 0.78, screenHeight * 0.62);
+      rightSide = true;
+    }
+
+    final player = MultiplayerPlayerUI(
+      playerId: playerId,
+      username: username,
+      bankroll: bankroll,
+      anchorPos: anchorPos,
+      cardsCenter: cardsCenter,
+      cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
+      rightSide: rightSide,
+    )..priority = layerHud;
+
+    otherPlayers[playerId] = player;
+    add(player);
+  }
+
+  void removeOtherPlayer(String playerId) {
+    final player = otherPlayers.remove(playerId);
+    player?.removeFromParent();
   }
 
   // ===========================================
@@ -720,25 +823,19 @@ class MultiplayerBlackjackGame extends FlameGame {
 
     if (dealerHand.isNotEmpty && gameState != GameState.playing) {
       hud.dealerHandText?.text = 'Dealer: ${_handValue(dealerHand)}';
-    } else if (dealerHand.isNotEmpty) {
-      // During play, only show visible cards
-      final visibleCards = dealerCards.where((c) => !c.isHidden).map((c) => c.card).toList();
-      hud.dealerHandText?.text = 'Dealer: ${_handValue(visibleCards)}';
     } else {
       hud.dealerHandText?.text = 'Dealer Hand';
     }
   }
 
-  void _updateCardsPositions() {
+  void _updateCardsPositions({bool animated = true}) {
     final spacing = cardWidth * 1.15;
 
-    // My cards
     for (int i = 0; i < myCards.length; i++) {
       final offset = (i - (myCards.length - 1) / 2) * spacing;
       myCards[i].position = Vector2(screenWidth / 2 + offset, myCardY);
     }
 
-    // Dealer cards
     for (int i = 0; i < dealerCards.length; i++) {
       final offset = (i - (dealerCards.length - 1) / 2) * spacing;
       dealerCards[i].position = Vector2(screenWidth / 2 + offset, dealerCardY);
@@ -748,84 +845,51 @@ class MultiplayerBlackjackGame extends FlameGame {
   // ===========================================
   // RENDERING
   // ===========================================
-  
-  late Paint outerPaint, potFillPaint, innerBorderPaint;
-  
+
+  late Paint outerPaint, potFillPaint, innerBorderPaint, hudPanelPaint;
+  Shader? greenGradientShader;
+
   void _buildCachedPaintsAndShaders() {
     outerPaint = Paint()
-      ..color = Colors.amber[700]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-
+      ..color = const Color(0xFF1A1A1A)
+      ..style = PaintingStyle.fill;
+    
     potFillPaint = Paint()
-      ..color = Colors.green[900]!.withValues(alpha: (0.3))
+      ..color = const Color(0xFF0F3D1F)
       ..style = PaintingStyle.fill;
 
     innerBorderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: (0.2))
+      ..color = const Color(0xFF8B4513)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
+      ..strokeWidth = 3;
+
+    hudPanelPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+
+    greenGradientShader = const LinearGradient(
+      colors: [Color(0xFF0A5A1E), Color(0xFF1A8C3A)],
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+    ).createShader(Rect.fromLTWH(0, 0, screenWidth, screenHeight));
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
 
-    // Draw table felt
-    final feltRect = Rect.fromLTWH(0, 0, screenWidth, screenHeight);
-    final feltPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.green[900]!,
-          Colors.green[700]!,
-        ],
-      ).createShader(feltRect);
-    canvas.drawRect(feltRect, feltPaint);
+    final bgPaint = Paint()..shader = greenGradientShader;
+    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
 
-    // Draw betting area
-    canvas.drawCircle(bettingCenter.toOffset(), potRadius, potFillPaint);
-    canvas.drawCircle(bettingCenter.toOffset(), potRadius, outerPaint);
-    canvas.drawCircle(bettingCenter.toOffset(), potRadius * 0.85, innerBorderPaint);
-  }
-
-  // Add other players dynamically
-  void addOtherPlayer(String playerId, String username, double bankroll, int position) {
-    if (otherPlayers.containsKey(playerId)) return;
-
-    Vector2 anchorPos;
-    Vector2 cardsCenter;
-    bool rightSide = false;
-
-    // Position players around the table
-    if (position == 0) {
-      // Left player
-      anchorPos = Vector2(screenWidth * 0.08, screenHeight * 0.62);
-      cardsCenter = Vector2(screenWidth * 0.22, screenHeight * 0.62);
-    } else {
-      // Right player
-      anchorPos = Vector2(screenWidth * 0.92, screenHeight * 0.62);
-      cardsCenter = Vector2(screenWidth * 0.78, screenHeight * 0.62);
-      rightSide = true;
-    }
-
-    final player = MultiplayerPlayerUI(
-      playerId: playerId,
-      username: username,
-      bankroll: bankroll,
-      anchorPos: anchorPos,
-      cardsCenter: cardsCenter,
-      cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
-      rightSide: rightSide,
-    )..priority = layerHud;
-
-    otherPlayers[playerId] = player;
-    add(player);
-  }
-
-  void removeOtherPlayer(String playerId) {
-    final player = otherPlayers.remove(playerId);
-    player?.removeFromParent();
+    canvas.drawCircle(
+      Offset(bettingCenter.x, bettingCenter.y),
+      potRadius,
+      potFillPaint,
+    );
+    canvas.drawCircle(
+      Offset(bettingCenter.x, bettingCenter.y),
+      potRadius,
+      innerBorderPaint,
+    );
   }
 }
