@@ -25,10 +25,10 @@ class MultiplayerHudManager {
   InfoTextComponent? turnIndicatorText;
   InfoTextComponent? roomInfoText;
   InfoTextComponent? playerCountText;
-  InfoTextComponent? waitingStatusText; // NEW
+  InfoTextComponent? waitingStatusText;
 
   // Button groups
-  late List<GameButton> _waitingBtns; // NEW
+  late List<GameButton> _waitingBtns;
   late List<GameButton> _bettingBtns;
   late List<GameButton> _playingBtns;
   late List<GameButton> _gameOverBtns;
@@ -49,7 +49,7 @@ class MultiplayerHudManager {
       return;
     }
 
-    debugPrint('🎨 [HUD] Creating HUD...'); // ADD THIS
+    debugPrint('🎨 [HUD] Creating HUD...');
 
     hudPanel = HudPanel(game: game)..priority = MultiplayerBlackjackGame.layerHudPanel;
     game.add(hudPanel!);
@@ -81,7 +81,7 @@ class MultiplayerHudManager {
       fontSize: game.fontSize * 0.8,
     );
 
-    // Waiting status text (center of screen) - NEW
+    // Waiting status text (center of screen)
     waitingStatusText = InfoTextComponent(
       text: 'Waiting for players to ready up...',
       position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
@@ -122,7 +122,7 @@ class MultiplayerHudManager {
       betText!,
       roomInfoText!,
       playerCountText!,
-      waitingStatusText!, // NEW
+      waitingStatusText!,
       turnIndicatorText!,
       gameResultText!,
       myHandText!,
@@ -131,7 +131,7 @@ class MultiplayerHudManager {
     debugPrint('🎨 [HUD] Info texts added');
 
     // ===========================================
-    // WAITING BUTTONS - NEW
+    // WAITING BUTTONS - Fixed with priority (must be > layerHudPanel)
     // ===========================================
     _waitingBtns = [
       GameButton(
@@ -144,7 +144,7 @@ class MultiplayerHudManager {
             userId: game.user.id,
           );
         },
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
     // ===========================================
@@ -160,7 +160,7 @@ class MultiplayerHudManager {
             game.cancelStaged();
           }
         },
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
         position: Vector2(game.screenWidth * 0.45, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -168,7 +168,7 @@ class MultiplayerHudManager {
         onTap: () async {
           await game.confirmStagedToPot();
         },
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
         position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -176,7 +176,7 @@ class MultiplayerHudManager {
         onTap: () {
           game.startRound();
         },
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
     // ===========================================
@@ -188,19 +188,19 @@ class MultiplayerHudManager {
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
         position: Vector2(game.screenWidth * 0.45, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
         position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
     // ===========================================
@@ -212,27 +212,27 @@ class MultiplayerHudManager {
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Next Round',
         onTap: () => game.newRound(),
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
         position: Vector2(game.screenWidth * 0.55, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Leave',
         onTap: () => game.leaveRoom(),
-      ),
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
-    debugPrint('🎨 [HUD] Waiting buttons count: ${_waitingBtns.length}'); // ADD THIS
-    debugPrint('🎨 [HUD] Adding all buttons to hudPanel'); // ADD THIS
+    debugPrint('🎨 [HUD] Waiting buttons count: ${_waitingBtns.length}');
+    debugPrint('🎨 [HUD] Adding all buttons to hudPanel');
 
     hudPanel!.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
-    debugPrint('🎨 [HUD] Calling updateHudVisibility'); // ADD THIS
-    debugPrint('🎨 [HUD] Current game state: ${game.gameState}'); // ADD THIS
+    debugPrint('🎨 [HUD] Calling updateHudVisibility');
+    debugPrint('🎨 [HUD] Current game state: ${game.gameState}');
 
     updateHudVisibility();
 
-    debugPrint('🎨 [HUD] HUD creation complete!'); // ADD THIS
+    debugPrint('🎨 [HUD] HUD creation complete!');
   }
 
   void removeHUD() {
@@ -259,15 +259,16 @@ class MultiplayerHudManager {
 
     if (g.gameState == GameState.waiting) {
 
-      debugPrint('👁️ [HUD] Showing WAITING UI'); // ADD THIS
+      debugPrint('👁️ [HUD] Showing WAITING UI');
       debugPrint('👁️ [HUD] Waiting buttons: ${_waitingBtns.length}');
 
-      // NEW: Show waiting phase UI
+      // Show waiting phase UI
       _showOnlyButtons(_waitingBtns);
 
       if (_waitingBtns.isNotEmpty) {
-        debugPrint('👁️ [HUD] First waiting button hidden: ${_waitingBtns[0].hidden}'); // ADD THIS
-        debugPrint('👁️ [HUD] First waiting button enabled: ${_waitingBtns[0].isEnabled}'); // ADD THIS
+        debugPrint('👁️ [HUD] First waiting button hidden: ${_waitingBtns[0].hidden}');
+        debugPrint('👁️ [HUD] First waiting button enabled: ${_waitingBtns[0].isEnabled}');
+        debugPrint('👁️ [HUD] First waiting button priority: ${_waitingBtns[0].priority}');
       }
 
       
