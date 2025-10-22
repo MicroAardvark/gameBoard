@@ -267,7 +267,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
     required double width,
     required double height,
   }) {
-    return Container(
+    return SizedBox(
       width: width,
       height: height,
       child: Card(

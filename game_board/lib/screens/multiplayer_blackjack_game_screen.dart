@@ -1,6 +1,6 @@
 // ====================================
 // lib/screens/multiplayer_blackjack_game_screen.dart
-// Multiplayer blackjack game screen with socket connection
+// Multiplayer blackjack game screen with socket connection - COMPLETE
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +36,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   StreamSubscription? _gameStartingSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _connectionSub;
+  StreamSubscription? _insuranceOfferedSub; // NEW
 
   // UI State
   bool _isConnected = false;
@@ -147,12 +148,100 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       }
     });
 
+    // NEW: Insurance offered
+    _insuranceOfferedSub = _socketService.onInsuranceOffered.listen((data) {
+      if (mounted) {
+        _showInsuranceDialog();
+      }
+    });
+
     // Errors
     _errorSub = _socketService.onError.listen((error) {
       if (mounted) {
         _showError(error);
       }
     });
+  }
+
+  // NEW: Insurance dialog
+  void _showInsuranceDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.shield, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Insurance Offered'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Dealer is showing an Ace.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            SizedBox(height: 12),
+            Text('Would you like to take insurance?'),
+            SizedBox(height: 8),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '💰 Cost: Half your bet',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    '💵 Payout: 2:1 if dealer has blackjack',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _socketService.insurance(
+                roomId: widget.roomId,
+                userId: widget.user.id,
+                takeInsurance: false,
+              );
+              Navigator.of(context).pop();
+            },
+            child: Text('No Thanks'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _socketService.insurance(
+                roomId: widget.roomId,
+                userId: widget.user.id,
+                takeInsurance: true,
+              );
+              Navigator.of(context).pop();
+              _showMessage('Insurance taken', duration: Duration(seconds: 2));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.amber,
+              foregroundColor: Colors.black,
+            ),
+            child: Text('Take Insurance'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showMessage(String message, {Duration duration = const Duration(seconds: 3)}) {
@@ -198,6 +287,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     _gameStartingSub?.cancel();
     _errorSub?.cancel();
     _connectionSub?.cancel();
+    _insuranceOfferedSub?.cancel(); // NEW
     super.dispose();
   }
 

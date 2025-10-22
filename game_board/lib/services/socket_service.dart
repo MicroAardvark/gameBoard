@@ -1,6 +1,6 @@
 // ====================================
 // lib/services/socket_service.dart
-// Universal multiplayer socket service for all games
+// Universal multiplayer socket service for all games - COMPLETE
 // ====================================
 // ignore_for_file: avoid_print
 
@@ -29,6 +29,8 @@ class SocketService {
   final _errorController = StreamController<String>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
   final _chatMessageController = StreamController<Map<String, dynamic>>.broadcast();
+  final _insuranceOfferedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _newRoundStartingController = StreamController<Map<String, dynamic>>.broadcast();
   
   // Getters for streams
   Stream<Map<String, dynamic>> get onRoomCreated => _roomCreatedController.stream;
@@ -40,6 +42,8 @@ class SocketService {
   Stream<String> get onError => _errorController.stream;
   Stream<bool> get onConnectionChange => _connectionController.stream;
   Stream<Map<String, dynamic>> get onChatMessage => _chatMessageController.stream;
+  Stream<Map<String, dynamic>> get onInsuranceOffered => _insuranceOfferedController.stream;
+  Stream<Map<String, dynamic>> get onNewRoundStarting => _newRoundStartingController.stream;
 
   // Connection state
   bool get isConnected => _socket?.connected ?? false;
@@ -100,7 +104,7 @@ class SocketService {
       _connectionController.add(true);
     });
 
-    _setupListeners();
+    _setupSocketListeners();
   }
 
   void disconnect() {
@@ -116,7 +120,9 @@ class SocketService {
   // EVENT LISTENERS SETUP
   // ===========================================
   
-  void _setupListeners() {
+  void _setupSocketListeners() {
+    if (_socket == null) return;
+
     // Welcome message
     _socket!.on('welcome', (data) {
       print('👋 ${data['message']}');
@@ -200,6 +206,8 @@ class SocketService {
     });
 
     _socket!.on('insurance_offered', (data) {
+      print('🛡️ Insurance offered');
+      _insuranceOfferedController.add(data);
       _gameActionController.add({'type': 'insurance_offered', 'data': data});
     });
 
@@ -227,6 +235,12 @@ class SocketService {
       _gameActionController.add({'type': 'round_ended', 'data': data});
     });
 
+    // Ready for next round
+    _socket!.on('new_round_starting', (data) {
+      print('🔄 New round starting');
+      _newRoundStartingController.add(data);
+    });
+
     // Chat events
     _socket!.on('chat_message', (data) {
       print('💬 ${data['username']}: ${data['message']}');
@@ -241,7 +255,7 @@ class SocketService {
 
     // Pong response
     _socket!.on('pong', (data) {
-      print('🏓 Pong received');
+      print('🏓 Pong received at ${data['timestamp']}');
     });
   }
 
@@ -257,12 +271,11 @@ class SocketService {
   }) {
     if (!isConnected) {
       print('❌ Not connected to server');
-      _errorController.add('Not connected to server');
       return;
     }
 
     print('📝 Creating $gameType room...');
-    
+
     _socket!.emit('create_room', {
       'userId': userId,
       'username': username,
@@ -278,18 +291,32 @@ class SocketService {
   }) {
     if (!isConnected) {
       print('❌ Not connected to server');
-      _errorController.add('Not connected to server');
       return;
     }
 
     print('👤 Joining room: $roomId');
-    currentRoomId = roomId;
-    
+
     _socket!.emit('join_room', {
       'roomId': roomId,
       'userId': userId,
       'username': username,
     });
+  }
+
+  void leaveRoom({
+    required String roomId,
+    required String userId,
+  }) {
+    if (!isConnected) return;
+
+    print('👋 Leaving room: $roomId');
+
+    _socket!.emit('leave_room', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+
+    currentRoomId = null;
   }
 
   void playerReady({
@@ -298,8 +325,8 @@ class SocketService {
   }) {
     if (!isConnected) return;
 
-    print('✅ Marking ready');
-    
+    print('✅ Player ready in room: $roomId');
+
     _socket!.emit('player_ready', {
       'roomId': roomId,
       'userId': userId,
@@ -312,28 +339,29 @@ class SocketService {
   }) {
     if (!isConnected) return;
 
-    print('⏸️ Marking unready');
-    
+    print('⏸️ Player unready in room: $roomId');
+
     _socket!.emit('player_unready', {
       'roomId': roomId,
       'userId': userId,
     });
   }
 
-  void leaveRoom({
+  void playerReadyNextRound({
     required String roomId,
     required String userId,
   }) {
-    if (!isConnected) return;
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
 
-    print('👋 Leaving room');
+    print('✅ Player ready for next round');
     
-    _socket!.emit('leave_room', {
+    _socket!.emit('player_ready_next_round', {
       'roomId': roomId,
       'userId': userId,
     });
-    
-    currentRoomId = null;
   }
 
   // ===========================================
@@ -493,111 +521,7 @@ class SocketService {
     _errorController.close();
     _connectionController.close();
     _chatMessageController.close();
+    _insuranceOfferedController.close();
+    _newRoundStartingController.close();
   }
 }
-
-// ===========================================
-// USAGE EXAMPLE
-// ===========================================
-/*
-
-// Initialize and connect
-final socketService = SocketService();
-socketService.connect(user.id, user.username);
-
-// Listen to events
-socketService.onRoomCreated.listen((data) {
-  print('Room created: ${data['roomId']}');
-  // Navigate to waiting room
-});
-
-socketService.onPlayerJoined.listen((data) {
-  print('Player joined: ${data['player']['username']}');
-  // Update UI
-});
-
-socketService.onGameStarting.listen((data) {
-  print('Game is starting!');
-  // Navigate to game screen
-});
-
-socketService.onGameAction.listen((event) {
-  final type = event['type'];
-  final data = event['data'];
-  
-  switch (type) {
-    case 'round_started':
-      // Handle round start
-      break;
-    case 'card_dealt':
-      // Handle card dealt
-      break;
-    case 'round_ended':
-      // Handle round end
-      break;
-  }
-});
-
-socketService.onError.listen((error) {
-  print('Error: $error');
-  // Show error to user
-});
-
-socketService.onConnectionChange.listen((connected) {
-  if (connected) {
-    print('Connected!');
-  } else {
-    print('Disconnected!');
-  }
-});
-
-// Create a room
-socketService.createRoom(
-  userId: user.id,
-  username: user.username,
-  gameType: 'blackjack',
-  maxPlayers: 3,
-);
-
-// Join a room
-socketService.joinRoom(
-  roomId: 'blackjack_123...',
-  userId: user.id,
-  username: user.username,
-);
-
-// Mark ready
-socketService.playerReady(
-  roomId: currentRoomId,
-  userId: user.id,
-);
-
-// Game actions
-socketService.placeBet(
-  roomId: currentRoomId,
-  userId: user.id,
-  betAmount: 100,
-);
-
-socketService.hit(
-  roomId: currentRoomId,
-  userId: user.id,
-);
-
-// Chat
-socketService.sendMessage(
-  roomId: currentRoomId,
-  userId: user.id,
-  message: 'Good luck!',
-);
-
-// Leave room
-socketService.leaveRoom(
-  roomId: currentRoomId,
-  userId: user.id,
-);
-
-// Disconnect
-socketService.disconnect();
-
-*/
