@@ -229,6 +229,19 @@ class MultiplayerHudManager {
     game.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
+    // Debug: Print button details after adding
+    for (var i = 0; i < _waitingBtns.length; i++) {
+      final btn = _waitingBtns[i];
+      debugPrint('🔍 [HUD] Waiting button $i:');
+      debugPrint('   - Position: ${btn.position}');
+      debugPrint('   - Size: ${btn.size}');
+      debugPrint('   - Hidden: ${btn.hidden}');
+      debugPrint('   - Enabled: ${btn.isEnabled}');
+      debugPrint('   - Priority: ${btn.priority}');
+      debugPrint('   - Has parent: ${btn.parent != null}');
+      debugPrint('   - Is mounted: ${btn.isMounted}');
+    }
+
     debugPrint('🎨 [HUD] Calling updateHudVisibility');
     debugPrint('🎨 [HUD] Current game state: ${game.gameState}');
 
