@@ -848,7 +848,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     }
   }
 
-  void _updateCardsPositions({bool animated = true}) {
+  void _updateCardsPositions() {
     final spacing = cardWidth * 1.15;
 
     for (int i = 0; i < myCards.length; i++) {
@@ -896,7 +896,7 @@ class MultiplayerBlackjackGame extends FlameGame {
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
+    
 
     final bgPaint = Paint()..shader = greenGradientShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
@@ -911,5 +911,7 @@ class MultiplayerBlackjackGame extends FlameGame {
       potRadius,
       innerBorderPaint,
     );
+
+    super.render(canvas);
   }
 }
