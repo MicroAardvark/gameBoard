@@ -44,10 +44,17 @@ class MultiplayerHudManager {
   }
 
   Future<void> createHUD() async {
-    if (_hudPanelShown) return;
+    if (_hudPanelShown) {
+      debugPrint('🎮 [HUD] HUD already shown, skipping creation.');
+      return;
+    }
+
+    debugPrint('🎨 [HUD] Creating HUD...'); // ADD THIS
 
     hudPanel = HudPanel(game: game)..priority = MultiplayerBlackjackGame.layerHudPanel;
     game.add(hudPanel!);
+
+    debugPrint('🎨 [HUD] HUD Panel added'); 
 
     // Info text components
     bankrollText = InfoTextComponent(
@@ -121,6 +128,7 @@ class MultiplayerHudManager {
       myHandText!,
       dealerHandText!,
     ]);
+    debugPrint('🎨 [HUD] Info texts added');
 
     // ===========================================
     // WAITING BUTTONS - NEW
@@ -213,10 +221,18 @@ class MultiplayerHudManager {
       ),
     ];
 
+    debugPrint('🎨 [HUD] Waiting buttons count: ${_waitingBtns.length}'); // ADD THIS
+    debugPrint('🎨 [HUD] Adding all buttons to hudPanel'); // ADD THIS
+
     hudPanel!.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
+    debugPrint('🎨 [HUD] Calling updateHudVisibility'); // ADD THIS
+    debugPrint('🎨 [HUD] Current game state: ${game.gameState}'); // ADD THIS
+
     updateHudVisibility();
+
+    debugPrint('🎨 [HUD] HUD creation complete!'); // ADD THIS
   }
 
   void removeHUD() {
@@ -231,6 +247,8 @@ class MultiplayerHudManager {
   void updateHudVisibility() {
     final g = game;
 
+    debugPrint('👁️ [HUD] updateHudVisibility called - state: ${g.gameState}');
+
     // Hide waiting status text by default
     waitingStatusText?.textRenderer = TextPaint(
       style: TextStyle(
@@ -240,8 +258,18 @@ class MultiplayerHudManager {
     );
 
     if (g.gameState == GameState.waiting) {
+
+      debugPrint('👁️ [HUD] Showing WAITING UI'); // ADD THIS
+      debugPrint('👁️ [HUD] Waiting buttons: ${_waitingBtns.length}');
+
       // NEW: Show waiting phase UI
       _showOnlyButtons(_waitingBtns);
+
+      if (_waitingBtns.isNotEmpty) {
+        debugPrint('👁️ [HUD] First waiting button hidden: ${_waitingBtns[0].hidden}'); // ADD THIS
+        debugPrint('👁️ [HUD] First waiting button enabled: ${_waitingBtns[0].isEnabled}'); // ADD THIS
+      }
+
       
       // Show waiting status text
       waitingStatusText?.text = 'Waiting for players to ready up...';

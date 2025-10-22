@@ -103,13 +103,20 @@ class MultiplayerBlackjackGame extends FlameGame {
     deck = CardDeck();
     bankroll = user.bankroll.toDouble();
 
+    debugPrint('🎮 [GAME] onLoad - Initial state: $gameState');
+
     hud = MultiplayerHudManager(this);
-    hud.setupHUD();
+    await hud.setupHUD();
+
+    debugPrint('🎮 [GAME] HUD setup complete'); 
 
     _setupChips();
     _buildCachedPaintsAndShaders();
     _updateHUDTexts();
     _hudInit = true;
+
+    debugPrint('🎮 [GAME] Game state after init: $gameState'); // ADD THIS
+
 
     // Subscribe to socket events
     _setupSocketListeners();
