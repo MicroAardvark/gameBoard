@@ -27,11 +27,11 @@ class MultiplayerHudManager {
   InfoTextComponent? playerCountText;
   InfoTextComponent? waitingStatusText;
 
-  // Button groups
-  late List<GameButton> _waitingBtns;
-  late List<GameButton> _bettingBtns;
-  late List<GameButton> _playingBtns;
-  late List<GameButton> _gameOverBtns;
+  // Button groups - Initialize as empty lists to avoid LateInitializationError
+  List<GameButton> _waitingBtns = [];
+  List<GameButton> _bettingBtns = [];
+  List<GameButton> _playingBtns = [];
+  List<GameButton> _gameOverBtns = [];
 
   bool _hudPanelShown = false;
 
@@ -117,7 +117,8 @@ class MultiplayerHudManager {
       fontSize: game.fontSize,
     );
 
-    hudPanel!.addAll([
+    // Add text components directly to game instead of hudPanel
+    game.addAll([
       bankrollText!,
       betText!,
       roomInfoText!,
@@ -128,7 +129,7 @@ class MultiplayerHudManager {
       myHandText!,
       dealerHandText!,
     ]);
-    debugPrint('🎨 [HUD] Info texts added');
+    debugPrint('🎨 [HUD] Info texts added to game');
 
     // ===========================================
     // WAITING BUTTONS - Fixed with priority (must be > layerHudPanel)
@@ -222,9 +223,10 @@ class MultiplayerHudManager {
     ];
 
     debugPrint('🎨 [HUD] Waiting buttons count: ${_waitingBtns.length}');
-    debugPrint('🎨 [HUD] Adding all buttons to hudPanel');
+    debugPrint('🎨 [HUD] Adding all buttons to game');
 
-    hudPanel!.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
+    // Add all buttons directly to game instead of hudPanel
+    game.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
     debugPrint('🎨 [HUD] Calling updateHudVisibility');
@@ -238,6 +240,32 @@ class MultiplayerHudManager {
   void removeHUD() {
     hudPanel?.removeFromParent();
     hudPanel = null;
+    
+    // Remove all text components
+    bankrollText?.removeFromParent();
+    betText?.removeFromParent();
+    roomInfoText?.removeFromParent();
+    playerCountText?.removeFromParent();
+    waitingStatusText?.removeFromParent();
+    turnIndicatorText?.removeFromParent();
+    gameResultText?.removeFromParent();
+    myHandText?.removeFromParent();
+    dealerHandText?.removeFromParent();
+    
+    // Remove all buttons - safe because lists are initialized as empty
+    for (final btn in _waitingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _bettingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _playingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _gameOverBtns) {
+      btn.removeFromParent();
+    }
+    
     _hudPanelShown = false;
   }
 
