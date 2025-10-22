@@ -1,6 +1,6 @@
 // ====================================
 // lib/screens/multiplayer_blackjack_game_screen.dart
-// Multiplayer blackjack game screen with socket connection - COMPLETE
+// Multiplayer blackjack game screen - COMPLETE with ALL features + CONNECTION FIX
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -36,18 +36,43 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   StreamSubscription? _gameStartingSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _connectionSub;
-  StreamSubscription? _insuranceOfferedSub; // NEW
+  StreamSubscription? _insuranceOfferedSub;
 
   // UI State
   bool _isConnected = false;
   String _statusMessage = 'Connecting...';
   List<Map<String, dynamic>> _players = [];
+  
+  // 🔧 FIX: Connection dialog control flags
+  bool _hasShownConnectionDialog = false;
+  bool _initialConnectionCheck = true;
 
   @override
   void initState() {
     super.initState();
+    
+    // 🔧 FIX: Add logging
+    print('🎮 [GAME SCREEN] Initializing...');
+    print('   Room ID: ${widget.roomId}');
+    print('   Is Host: ${widget.isHost}');
+    print('   Socket connected: ${_socketService.isConnected}');
+    print('   Current room ID: ${_socketService.currentRoomId}');
+    
+    // 🔧 FIX: Set initial connection state
+    _isConnected = _socketService.isConnected;
+    _statusMessage = _isConnected ? 'Connected' : 'Connecting...';
+    
     _initializeGame();
     _setupSocketListeners();
+    
+    // 🔧 FIX: Grace period before showing connection lost
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _initialConnectionCheck = false;
+        });
+      }
+    });
   }
 
   void _initializeGame() {
@@ -67,6 +92,14 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           _isConnected = connected;
           _statusMessage = connected ? 'Connected' : 'Disconnected';
         });
+        
+        // 🔧 FIX: Only show dialog after grace period
+        if (!connected && !_initialConnectionCheck && !_hasShownConnectionDialog) {
+          _hasShownConnectionDialog = true;
+          // Connection lost overlay will show automatically via build method
+        } else if (connected) {
+          _hasShownConnectionDialog = false;
+        }
       }
     });
 
@@ -148,7 +181,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       }
     });
 
-    // NEW: Insurance offered
+    // Insurance offered
     _insuranceOfferedSub = _socketService.onInsuranceOffered.listen((data) {
       if (mounted) {
         _showInsuranceDialog();
@@ -163,7 +196,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     });
   }
 
-  // NEW: Insurance dialog
   void _showInsuranceDialog() {
     showDialog(
       context: context,
@@ -269,6 +301,11 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   }
 
   void _leaveRoom() {
+    // 🔧 FIX: Add logging
+    print('🚪 [GAME SCREEN] Leaving room: ${widget.roomId}');
+    print('   Stack trace:');
+    print(StackTrace.current);
+    
     _socketService.leaveRoom(
       roomId: widget.roomId,
       userId: widget.user.id,
@@ -281,13 +318,16 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
 
   @override
   void dispose() {
+    // 🔧 FIX: Add logging
+    print('🧹 [GAME SCREEN] Disposing - Room: ${widget.roomId}');
+    
     _playerJoinedSub?.cancel();
     _playerLeftSub?.cancel();
     _playerReadySub?.cancel();
     _gameStartingSub?.cancel();
     _errorSub?.cancel();
     _connectionSub?.cancel();
-    _insuranceOfferedSub?.cancel(); // NEW
+    _insuranceOfferedSub?.cancel();
     super.dispose();
   }
 
@@ -328,7 +368,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: (0.6)),
+                        Colors.black.withValues(alpha: 0.6),
                         Colors.transparent,
                       ],
                     ),
@@ -349,7 +389,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           }
                         },
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.black.withValues(alpha: (0.5)),
+                          backgroundColor: Colors.black.withValues(alpha: 0.5),
                           padding: EdgeInsets.all(buttonSize * 0.25),
                         ),
                       ),
@@ -366,7 +406,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           boxShadow: [
                             if (_isConnected)
                               BoxShadow(
-                                color: Colors.green.withValues(alpha: (0.5)),
+                                color: Colors.green.withValues(alpha: 0.5),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -387,7 +427,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             shadows: [
                               Shadow(
                                 blurRadius: 4,
-                                color: Colors.black.withValues(alpha: (0.7)),
+                                color: Colors.black.withValues(alpha: 0.7),
                               ),
                             ],
                           ),
@@ -402,10 +442,10 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: (0.5)),
+                          color: Colors.black.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: Colors.amber.withValues(alpha: (0.5)),
+                            color: Colors.amber.withValues(alpha: 0.5),
                             width: 2,
                           ),
                         ),
@@ -435,11 +475,11 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
               ),
             ),
 
-            // Connection lost overlay
-            if (!_isConnected)
+            // 🔧 FIX: Only show connection lost overlay after grace period
+            if (!_isConnected && !_initialConnectionCheck)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withValues(alpha: (0.7)),
+                  color: Colors.black.withValues(alpha: 0.7),
                   child: Center(
                     child: Card(
                       margin: EdgeInsets.all(32),
