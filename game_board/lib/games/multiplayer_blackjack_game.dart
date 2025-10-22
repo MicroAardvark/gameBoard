@@ -77,7 +77,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   // Game state
   List<PlayingCard> myHand = [];
   List<PlayingCard> dealerHand = [];
-  GameState gameState = GameState.betting;
+  GameState gameState = GameState.waiting; // 🔧 CHANGED: Start in waiting state
   String gameResult = '';
   
   double bankroll = 1000.0;
@@ -94,6 +94,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   // Socket event subscriptions
   StreamSubscription? _gameActionSub;
   StreamSubscription? _newRoundSub;
+  StreamSubscription? _gameStartingSub; // 🔧 NEW: Added game starting subscription
 
   @override
   Future<void> onLoad() async {
@@ -112,12 +113,16 @@ class MultiplayerBlackjackGame extends FlameGame {
 
     // Subscribe to socket events
     _setupSocketListeners();
+      Future.delayed(Duration(milliseconds: 100), () {
+      hud.updateHudVisibility();
+    });
   }
 
   @override
   void onRemove() {
     _gameActionSub?.cancel();
     _newRoundSub?.cancel();
+    _gameStartingSub?.cancel(); // 🔧 NEW: Cancel game starting subscription
     super.onRemove();
   }
 
@@ -141,6 +146,14 @@ class MultiplayerBlackjackGame extends FlameGame {
       // Server has reset room state, ready to start betting again
       gameState = GameState.betting;
       hud.updateHudVisibility();
+    });
+
+    // 🔧 NEW: Listen for game_starting event
+    _gameStartingSub = socketService.onGameStarting.listen((data) {
+      debugPrint('🎮 Game starting! All players are ready - moving to betting phase');
+      gameState = GameState.betting;
+      hud.updateHudVisibility();
+      _updateHUDTexts();
     });
   }
 
