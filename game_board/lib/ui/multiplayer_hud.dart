@@ -25,8 +25,10 @@ class MultiplayerHudManager {
   InfoTextComponent? turnIndicatorText;
   InfoTextComponent? roomInfoText;
   InfoTextComponent? playerCountText;
+  InfoTextComponent? waitingStatusText; // NEW
 
   // Button groups
+  late List<GameButton> _waitingBtns; // NEW
   late List<GameButton> _bettingBtns;
   late List<GameButton> _playingBtns;
   late List<GameButton> _gameOverBtns;
@@ -72,6 +74,14 @@ class MultiplayerHudManager {
       fontSize: game.fontSize * 0.8,
     );
 
+    // Waiting status text (center of screen) - NEW
+    waitingStatusText = InfoTextComponent(
+      text: 'Waiting for players to ready up...',
+      position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
+      fontSize: game.largeFontSize,
+    );
+    waitingStatusText!.anchor = Anchor.center;
+
     // Turn indicator (center top)
     turnIndicatorText = InfoTextComponent(
       text: '',
@@ -105,11 +115,29 @@ class MultiplayerHudManager {
       betText!,
       roomInfoText!,
       playerCountText!,
+      waitingStatusText!, // NEW
       turnIndicatorText!,
       gameResultText!,
       myHandText!,
       dealerHandText!,
     ]);
+
+    // ===========================================
+    // WAITING BUTTONS - NEW
+    // ===========================================
+    _waitingBtns = [
+      GameButton(
+        position: Vector2(game.screenWidth * 0.5, game.screenHeight / 2),
+        size: Vector2(game.buttonWidth * 1.5, game.buttonHeight * 1.2),
+        text: 'Ready',
+        onTap: () {
+          game.socketService.playerReady(
+            roomId: game.roomId,
+            userId: game.user.id,
+          );
+        },
+      ),
+    ];
 
     // ===========================================
     // BETTING BUTTONS
@@ -185,7 +213,7 @@ class MultiplayerHudManager {
       ),
     ];
 
-    hudPanel!.addAll(_bettingBtns + _playingBtns + _gameOverBtns);
+    hudPanel!.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
     updateHudVisibility();
@@ -203,7 +231,29 @@ class MultiplayerHudManager {
   void updateHudVisibility() {
     final g = game;
 
-    if (g.gameState == GameState.betting) {
+    // Hide waiting status text by default
+    waitingStatusText?.textRenderer = TextPaint(
+      style: TextStyle(
+        color: Colors.transparent,
+        fontSize: game.largeFontSize,
+      ),
+    );
+
+    if (g.gameState == GameState.waiting) {
+      // NEW: Show waiting phase UI
+      _showOnlyButtons(_waitingBtns);
+      
+      // Show waiting status text
+      waitingStatusText?.text = 'Waiting for players to ready up...';
+      waitingStatusText?.textRenderer = TextPaint(
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: game.largeFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+    else if (g.gameState == GameState.betting) {
       // Show betting buttons
       final canCancel = g.stagedBet > 0;
       final canConfirm = g.stagedBet > 0 || g.currentBet > 0;
@@ -218,7 +268,11 @@ class MultiplayerHudManager {
       _bettingBtns[2].hidden = !canStart;
       _bettingBtns[2].isEnabled = canStart;
 
-      // Hide playing and game over buttons
+      // Hide other buttons
+      for (final b in _waitingBtns) {
+        b.hidden = true;
+        b.isEnabled = false;
+      }
       for (final b in _playingBtns) {
         b.hidden = true;
         b.isEnabled = false;
@@ -242,7 +296,11 @@ class MultiplayerHudManager {
         }
       }
 
-      // Hide betting and game over buttons
+      // Hide other buttons
+      for (final b in _waitingBtns) {
+        b.hidden = true;
+        b.isEnabled = false;
+      }
       for (final b in _bettingBtns) {
         b.hidden = true;
         b.isEnabled = false;
@@ -263,7 +321,7 @@ class MultiplayerHudManager {
   }
 
   void _showOnlyButtons(List<GameButton> needed) {
-    final all = _bettingBtns + _playingBtns + _gameOverBtns;
+    final all = _waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns;
     for (final b in all) {
       b.hidden = true;
       b.isEnabled = false;
@@ -278,6 +336,12 @@ class MultiplayerHudManager {
   // Update Turn Indicator
   // ===========================================
   void updateTurnIndicator() {
+    if (game.gameState == GameState.waiting) {
+      // Don't show turn indicator in waiting phase
+      turnIndicatorText?.text = '';
+      return;
+    }
+
     if (game.isMyTurn) {
       turnIndicatorText?.text = '🎯 YOUR TURN';
       turnIndicatorText?.textRenderer = TextPaint(

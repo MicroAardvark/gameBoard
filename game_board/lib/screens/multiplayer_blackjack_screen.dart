@@ -9,6 +9,7 @@ import 'dart:async';
 import '../models/user.dart';
 import '../services/socket_service.dart';
 import 'multiplayer_blackjack_game_screen.dart';
+import '../services/auth_service.dart';
 
 class MultiplayerBlackjackScreen extends StatefulWidget {
   final User user;
@@ -156,9 +157,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
   }
 
   Future<String?> _getToken() async {
-    // This would normally retrieve from shared preferences
-    // For now, return null and handle on server
-    return null;
+    return await AuthService.getToken();
   }
 
   void _createRoom() {
