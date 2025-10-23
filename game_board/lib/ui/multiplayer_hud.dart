@@ -1,6 +1,6 @@
 // ====================================
 // lib/ui/multiplayer_hud.dart
-// HUD for multiplayer blackjack game - UPDATED TO MATCH SINGLE PLAYER
+// HUD for multiplayer blackjack game - MATCHES SINGLE PLAYER LAYOUT
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -16,12 +16,12 @@ class MultiplayerHudManager {
 
   HudPanel? hudPanel;
 
-  // Text components
+  // Text components - MATCHING SINGLE PLAYER
   InfoTextComponent? bankrollText;
   InfoTextComponent? betText;
-  InfoTextComponent? gameResultText;
-  InfoTextComponent? myHandText;
-  InfoTextComponent? dealerHandText;
+  InfoTextComponent? gameResultText;  // Top left like single player
+  InfoTextComponent? myHandText;      // Below game result (was playerHandText)
+  InfoTextComponent? dealerHandText;  // Below player hand
   InfoTextComponent? turnIndicatorText;
   InfoTextComponent? roomInfoText;
   InfoTextComponent? playerCountText;
@@ -54,34 +54,35 @@ class MultiplayerHudManager {
     hudPanel = HudPanel(game: game)..priority = MultiplayerBlackjackGame.layerHudPanel;
     game.add(hudPanel!);
 
-    // UPDATED: Hand labels at top left like single player
-    myHandText = InfoTextComponent(
-      text: 'Player Hand',
+    // UPDATED: Match single player layout exactly
+    // Game result at top left (20, 20) like single player
+    gameResultText = InfoTextComponent(
+      text: '',
       position: Vector2(20, 20),
       fontSize: game.fontSize,
     );
 
-    dealerHandText = InfoTextComponent(
-      text: 'Dealer Hand',
-      position: Vector2(20, 50),
+    // Player hand below game result (20, 80) like single player  
+    myHandText = InfoTextComponent(
+      text: 'Player Hand',
+      position: Vector2(20, 80),
       fontSize: game.fontSize,
     );
 
-    // Turn indicator (center top)
+    // Dealer hand below player hand (20, 120) like single player
+    dealerHandText = InfoTextComponent(
+      text: 'Dealer Hand',
+      position: Vector2(20, 120),
+      fontSize: game.fontSize,
+    );
+
+    // Turn indicator (center top) - multiplayer specific
     turnIndicatorText = InfoTextComponent(
       text: '',
-      position: Vector2(game.screenWidth / 2, 80),
+      position: Vector2(game.screenWidth / 2, 160),
       fontSize: game.largeFontSize,
     );
     turnIndicatorText!.anchor = Anchor.center;
-
-    // Game result (center screen, shown at end)
-    gameResultText = InfoTextComponent(
-      text: '',
-      position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
-      fontSize: game.largeFontSize * 1.5,
-    );
-    gameResultText!.anchor = Anchor.center;
 
     // Waiting status text (center of screen)
     waitingStatusText = InfoTextComponent(
@@ -91,7 +92,7 @@ class MultiplayerHudManager {
     );
     waitingStatusText!.anchor = Anchor.center;
 
-    // Bottom left info
+    // Bottom left info - MATCHING SINGLE PLAYER
     bankrollText = InfoTextComponent(
       text: 'Bankroll: £0',
       position: Vector2(20, game.screenHeight - game.hudPanelHeight + 18),
@@ -104,7 +105,7 @@ class MultiplayerHudManager {
       fontSize: game.fontSize,
     );
 
-    // Room info (top right corner)
+    // Room info (top right corner) - multiplayer specific
     roomInfoText = InfoTextComponent(
       text: 'Room: ...',
       position: Vector2(game.screenWidth - 20, 20),
@@ -119,17 +120,21 @@ class MultiplayerHudManager {
     );
     playerCountText!.anchor = Anchor.topRight;
 
-    // Add text components
-    game.addAll([
+    // Add text components to HUD panel like single player
+    hudPanel!.addAll([
       bankrollText!,
       betText!,
+      gameResultText!,
+      myHandText!,
+      dealerHandText!,
+    ]);
+    
+    // Add non-panel elements directly to game
+    game.addAll([
       roomInfoText!,
       playerCountText!,
       waitingStatusText!,
       turnIndicatorText!,
-      gameResultText!,
-      myHandText!,
-      dealerHandText!,
     ]);
 
     // ===========================================
@@ -150,7 +155,7 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // BETTING BUTTONS
+    // BETTING BUTTONS - MATCHING SINGLE PLAYER LAYOUT
     // ===========================================
     _bettingBtns = [
       GameButton(
@@ -182,23 +187,23 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // PLAYING BUTTONS
+    // PLAYING BUTTONS - MATCHING SINGLE PLAYER LAYOUT
     // ===========================================
     _playingBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.25, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.35, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.45, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.55, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.75, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
@@ -206,7 +211,7 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // GAME OVER BUTTONS
+    // GAME OVER BUTTONS - MATCHING SINGLE PLAYER LAYOUT
     // ===========================================
     _gameOverBtns = [
       GameButton(
@@ -216,14 +221,17 @@ class MultiplayerHudManager {
         onTap: () => game.newRound(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.55, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Leave',
         onTap: () => game.leaveRoom(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
-    game.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
+    // Add buttons to HUD panel like single player
+    hudPanel!.addAll(_bettingBtns + _playingBtns + _gameOverBtns);
+    game.addAll(_waitingBtns);
+    
     _hudPanelShown = true;
 
     updateHudVisibility();
@@ -233,26 +241,12 @@ class MultiplayerHudManager {
     hudPanel?.removeFromParent();
     hudPanel = null;
     
-    bankrollText?.removeFromParent();
-    betText?.removeFromParent();
     roomInfoText?.removeFromParent();
     playerCountText?.removeFromParent();
     waitingStatusText?.removeFromParent();
     turnIndicatorText?.removeFromParent();
-    gameResultText?.removeFromParent();
-    myHandText?.removeFromParent();
-    dealerHandText?.removeFromParent();
     
     for (final btn in _waitingBtns) {
-      btn.removeFromParent();
-    }
-    for (final btn in _bettingBtns) {
-      btn.removeFromParent();
-    }
-    for (final btn in _playingBtns) {
-      btn.removeFromParent();
-    }
-    for (final btn in _gameOverBtns) {
       btn.removeFromParent();
     }
     
@@ -264,93 +258,50 @@ class MultiplayerHudManager {
   // ===========================================
   void updateHudVisibility() {
     final g = game;
-
-    // Hide waiting and result text by default
-    waitingStatusText?.textRenderer = TextPaint(
-      style: TextStyle(
-        color: Colors.transparent,
-        fontSize: game.largeFontSize,
-      ),
-    );
-
-    gameResultText?.textRenderer = TextPaint(
-      style: TextStyle(
-        color: Colors.transparent,
-        fontSize: game.largeFontSize * 1.5,
-      ),
-    );
-
+    
     if (g.gameState == GameState.waiting) {
       _showOnlyButtons(_waitingBtns);
-      
-      // Show waiting status text
-      waitingStatusText?.text = 'Waiting for players to ready up...';
-      waitingStatusText?.textRenderer = TextPaint(
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: game.largeFontSize,
-          fontWeight: FontWeight.bold,
-        ),
-      );
-    }
+      // Show waiting status
+      if (!game.children.contains(waitingStatusText)) {
+        game.add(waitingStatusText!);
+      }
+      // Hide turn indicator
+      turnIndicatorText?.removeFromParent();
+      gameResultText?.text = '';
+    } 
     else if (g.gameState == GameState.betting) {
-      final canCancel = g.stagedBet > 0;
-      final canConfirm = g.stagedBet > 0 || g.currentBet > 0;
-      final canStart = g.currentBet > 0 && g.isHost;
-
-      _bettingBtns[0].hidden = !canCancel;
-      _bettingBtns[0].isEnabled = canCancel;
-      
-      _bettingBtns[1].hidden = !canConfirm;
-      _bettingBtns[1].isEnabled = canConfirm;
-      
-      _bettingBtns[2].hidden = !canStart;
-      _bettingBtns[2].isEnabled = canStart;
-
-      for (final b in _waitingBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
-      for (final b in _playingBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
-      for (final b in _gameOverBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
+      _showOnlyButtons(_bettingBtns);
+      // Hide waiting status
+      waitingStatusText?.removeFromParent();
+      // Hide turn indicator
+      turnIndicatorText?.removeFromParent();
+      gameResultText?.text = '';
     } 
     else if (g.gameState == GameState.playing) {
+      // Hide waiting status
+      waitingStatusText?.removeFromParent();
+      // Show turn indicator
+      if (!game.children.contains(turnIndicatorText)) {
+        game.add(turnIndicatorText!);
+      }
+      
       if (g.isMyTurn) {
-        for (final b in _playingBtns) {
-          b.hidden = false;
-          b.isEnabled = true;
-        }
+        _showOnlyButtons(_playingBtns);
       } else {
-        for (final b in _playingBtns) {
-          b.hidden = true;
-          b.isEnabled = false;
-        }
-      }
-
-      for (final b in _waitingBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
-      for (final b in _bettingBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
-      for (final b in _gameOverBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
+        _showOnlyButtons(const []);
       }
     } 
     else if (g.gameState == GameState.dealerTurn) {
       _showOnlyButtons(const []);
+      // Show turn indicator
+      if (!game.children.contains(turnIndicatorText)) {
+        game.add(turnIndicatorText!);
+      }
     } 
     else if (g.gameState == GameState.gameOver) {
       _showOnlyButtons(_gameOverBtns);
+      // Hide turn indicator
+      turnIndicatorText?.removeFromParent();
     }
   }
 
@@ -413,40 +364,32 @@ class MultiplayerHudManager {
   }
 
   // ===========================================
-  // Update Game Result Display
+  // Update Game Result Display - MATCHING SINGLE PLAYER
   // ===========================================
   void updateGameResult(String result, {bool isWin = false}) {
     gameResultText?.text = result;
     
-    Color resultColor;
-    if (result.contains('win') || result.contains('Blackjack')) {
-      resultColor = Colors.greenAccent;
-    } else if (result.contains('Push')) {
-      resultColor = Colors.yellowAccent;
-    } else if (result.contains('Dealer wins') || result.contains('Busted')) {
-      resultColor = Colors.redAccent;
-    } else {
-      resultColor = Colors.white;
+    // Simple color coding like single player
+    Color resultColor = Colors.white;
+    if (result.toLowerCase().contains('win') || result.toLowerCase().contains('blackjack')) {
+      resultColor = Colors.green;
+    } else if (result.toLowerCase().contains('push')) {
+      resultColor = Colors.yellow;
+    } else if (result.toLowerCase().contains('dealer') || result.toLowerCase().contains('bust')) {
+      resultColor = Colors.red;
     }
 
     gameResultText?.textRenderer = TextPaint(
       style: TextStyle(
         color: resultColor,
-        fontSize: game.largeFontSize * 1.5,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            blurRadius: 10.0,
-            color: Colors.black.withValues(alpha: 0.7),
-            offset: const Offset(2, 2),
-          ),
-        ],
+        fontSize: game.fontSize,
+        fontWeight: FontWeight.normal,
       ),
     );
   }
 
   // ===========================================
-  // Update Room Info - UPDATED: Simpler display
+  // Update Room Info
   // ===========================================
   void updateRoomInfo(String roomId, int playerCount, int maxPlayers) {
     roomInfoText?.text = '${roomId.substring(0, 8)}...';
@@ -455,7 +398,7 @@ class MultiplayerHudManager {
 }
 
 // ===========================================
-// HUD Panel Background
+// HUD Panel Background - MATCHING SINGLE PLAYER
 // ===========================================
 class HudPanel extends PositionComponent {
   final MultiplayerBlackjackGame game;
