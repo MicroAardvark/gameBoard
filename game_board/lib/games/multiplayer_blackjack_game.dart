@@ -1,6 +1,6 @@
 // ====================================
 // lib/games/multiplayer_blackjack_game.dart
-// Multiplayer Flame game with socket integration - FIXED VERSION
+// Multiplayer Flame game with socket integration - UPDATED UI TO MATCH SINGLE PLAYER
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
@@ -77,7 +77,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   // Game state
   List<PlayingCard> myHand = [];
   List<PlayingCard> dealerHand = [];
-  GameState gameState = GameState.waiting; // 🔧 CHANGED: Start in waiting state
+  GameState gameState = GameState.waiting;
   String gameResult = '';
   
   double bankroll = 1000.0;
@@ -94,7 +94,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   // Socket event subscriptions
   StreamSubscription? _gameActionSub;
   StreamSubscription? _newRoundSub;
-  StreamSubscription? _gameStartingSub; // 🔧 NEW: Added game starting subscription
+  StreamSubscription? _gameStartingSub;
 
   @override
   Future<void> onLoad() async {
@@ -115,12 +115,11 @@ class MultiplayerBlackjackGame extends FlameGame {
     _updateHUDTexts();
     _hudInit = true;
 
-    debugPrint('🎮 [GAME] Game state after init: $gameState'); // ADD THIS
-
+    debugPrint('🎮 [GAME] Game state after init: $gameState');
 
     // Subscribe to socket events
     _setupSocketListeners();
-      Future.delayed(Duration(milliseconds: 100), () {
+    Future.delayed(Duration(milliseconds: 100), () {
       hud.updateHudVisibility();
     });
   }
@@ -129,7 +128,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   void onRemove() {
     _gameActionSub?.cancel();
     _newRoundSub?.cancel();
-    _gameStartingSub?.cancel(); // 🔧 NEW: Cancel game starting subscription
+    _gameStartingSub?.cancel();
     super.onRemove();
   }
 
@@ -150,12 +149,10 @@ class MultiplayerBlackjackGame extends FlameGame {
     
     _newRoundSub = socketService.onNewRoundStarting.listen((data) {
       debugPrint('🔄 New round starting - all players ready!');
-      // Server has reset room state, ready to start betting again
       gameState = GameState.betting;
       hud.updateHudVisibility();
     });
 
-    // 🔧 NEW: Listen for game_starting event
     _gameStartingSub = socketService.onGameStarting.listen((data) {
       debugPrint('🎮 Game starting! All players are ready - moving to betting phase');
       gameState = GameState.betting;
@@ -218,7 +215,6 @@ class MultiplayerBlackjackGame extends FlameGame {
     }
   }
 
-  // FIXED: Now properly renders initial cards
   void _handleRoundStarted(Map<String, dynamic> data) {
     debugPrint('🎲 Round started!');
     
@@ -281,7 +277,6 @@ class MultiplayerBlackjackGame extends FlameGame {
     hud.updateTurnIndicator();
   }
 
-  // FIXED: Now handles both my cards and other players' cards
   void _handleCardDealt(Map<String, dynamic> data) {
     final userId = data['userId'];
     final cardData = data['card'];
@@ -289,10 +284,8 @@ class MultiplayerBlackjackGame extends FlameGame {
     debugPrint('🃏 Card dealt to: $userId');
 
     if (userId == user.id) {
-      // My hit card
       _addCardToMyHand(cardData, false);
     } else if (otherPlayers.containsKey(userId)) {
-      // Other player hit
       otherPlayers[userId]!.addCard();
     }
 
@@ -336,7 +329,7 @@ class MultiplayerBlackjackGame extends FlameGame {
     add(cardComp);
   }
 
-  // NEW: Create visual UI for other players
+  // UPDATED: Position players like single-player mock players
   void _createOtherPlayers(List<dynamic> players) {
     // Clear existing
     for (final player in otherPlayers.values) {
@@ -352,18 +345,19 @@ class MultiplayerBlackjackGame extends FlameGame {
       final username = playerData['username'];
       final bankroll = playerData['bankroll']?.toDouble() ?? 0.0;
       
-      // Position players on left and right
+      // Position players on left and right like single player
       final isRightSide = otherPlayerIndex % 2 == 0;
-      final xPos = isRightSide ? screenWidth * 0.85 : screenWidth * 0.15;
-      final yPos = screenHeight * 0.40;
+      final xPos = isRightSide ? screenWidth * 0.92 : screenWidth * 0.08;
+      final yPos = screenHeight * 0.62;
+      final cardsX = isRightSide ? screenWidth * 0.78 : screenWidth * 0.22;
 
       final playerUI = MultiplayerPlayerUI(
         playerId: playerId,
         username: username,
         bankroll: bankroll,
         anchorPos: Vector2(xPos, yPos),
-        cardsCenter: Vector2(xPos, yPos - 50),
-        cardSize: Vector2(cardWidth * 0.6, cardHeight * 0.6),
+        cardsCenter: Vector2(cardsX, yPos),
+        cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
         rightSide: isRightSide,
       )..priority = layerHud;
 
@@ -447,7 +441,6 @@ class MultiplayerBlackjackGame extends FlameGame {
     _updateHUDTexts();
   }
 
-  // FIXED: Now syncs bankroll to database
   void _handleRoundEnded(Map<String, dynamic> data) {
     debugPrint('🏁 Round ended!');
     
@@ -480,7 +473,6 @@ class MultiplayerBlackjackGame extends FlameGame {
       
       hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
       
-      // NEW: Sync bankroll to database
       _syncBankrollToDatabase();
     }
     
@@ -490,15 +482,12 @@ class MultiplayerBlackjackGame extends FlameGame {
     hud.updateHudVisibility();
   }
 
-  // NEW: Persist bankroll to database
   Future<void> _syncBankrollToDatabase() async {
     try {
-      // You'll need to implement token storage/retrieval
       final response = await http.put(
         Uri.parse('${socketService.baseUrl}/api/game/update-stats'),
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': 'Bearer ${await _getToken()}', // Implement token storage
         },
         body: jsonEncode({
           'gameType': 'blackjack',
@@ -541,7 +530,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   // ===========================================
-  // CHIP MANAGEMENT
+  // CHIP MANAGEMENT - VERTICAL LAYOUT LIKE SINGLE PLAYER
   // ===========================================
   
   void _setupChips() {
@@ -721,13 +710,11 @@ class MultiplayerBlackjackGame extends FlameGame {
   }
 
   void newRound() {
-    // Signal to server that this player is ready for next round
     socketService.playerReadyNextRound(
       roomId: roomId,
       userId: user.id,
     );
     
-    // Clear local state (server will send new_round_starting when all ready)
     gameState = GameState.betting;
     gameResult = '';
     isMyTurn = false;
@@ -771,13 +758,10 @@ class MultiplayerBlackjackGame extends FlameGame {
     Vector2 cardsCenter;
     bool rightSide = false;
 
-    // Position players around the table
     if (position == 0) {
-      // Left player
       anchorPos = Vector2(screenWidth * 0.08, screenHeight * 0.62);
       cardsCenter = Vector2(screenWidth * 0.22, screenHeight * 0.62);
     } else {
-      // Right player
       anchorPos = Vector2(screenWidth * 0.92, screenHeight * 0.62);
       cardsCenter = Vector2(screenWidth * 0.78, screenHeight * 0.62);
       rightSide = true;
@@ -836,13 +820,13 @@ class MultiplayerBlackjackGame extends FlameGame {
     hud.updateRoomInfo(roomId, playerCount, maxPlayers);
 
     if (myHand.isNotEmpty) {
-      hud.myHandText?.text = 'Your Hand: ${_handValue(myHand)}';
+      hud.myHandText?.text = 'Player Hand: ${_handValue(myHand)}';
     } else {
-      hud.myHandText?.text = 'Your Hand';
+      hud.myHandText?.text = 'Player Hand';
     }
 
     if (dealerHand.isNotEmpty && gameState != GameState.playing) {
-      hud.dealerHandText?.text = 'Dealer: ${_handValue(dealerHand)}';
+      hud.dealerHandText?.text = 'Dealer Hand: ${_handValue(dealerHand)}';
     } else {
       hud.dealerHandText?.text = 'Dealer Hand';
     }
@@ -896,8 +880,6 @@ class MultiplayerBlackjackGame extends FlameGame {
 
   @override
   void render(Canvas canvas) {
-    
-
     final bgPaint = Paint()..shader = greenGradientShader;
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
 

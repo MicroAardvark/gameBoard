@@ -1,6 +1,6 @@
 // ====================================
 // lib/ui/multiplayer_hud.dart
-// HUD for multiplayer blackjack game
+// HUD for multiplayer blackjack game - UPDATED TO MATCH SINGLE PLAYER
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +27,7 @@ class MultiplayerHudManager {
   InfoTextComponent? playerCountText;
   InfoTextComponent? waitingStatusText;
 
-  // Button groups - Initialize as empty lists to avoid LateInitializationError
+  // Button groups
   List<GameButton> _waitingBtns = [];
   List<GameButton> _bettingBtns = [];
   List<GameButton> _playingBtns = [];
@@ -54,9 +54,44 @@ class MultiplayerHudManager {
     hudPanel = HudPanel(game: game)..priority = MultiplayerBlackjackGame.layerHudPanel;
     game.add(hudPanel!);
 
-    debugPrint('🎨 [HUD] HUD Panel added'); 
+    // UPDATED: Hand labels at top left like single player
+    myHandText = InfoTextComponent(
+      text: 'Player Hand',
+      position: Vector2(20, 20),
+      fontSize: game.fontSize,
+    );
 
-    // Info text components
+    dealerHandText = InfoTextComponent(
+      text: 'Dealer Hand',
+      position: Vector2(20, 50),
+      fontSize: game.fontSize,
+    );
+
+    // Turn indicator (center top)
+    turnIndicatorText = InfoTextComponent(
+      text: '',
+      position: Vector2(game.screenWidth / 2, 80),
+      fontSize: game.largeFontSize,
+    );
+    turnIndicatorText!.anchor = Anchor.center;
+
+    // Game result (center screen, shown at end)
+    gameResultText = InfoTextComponent(
+      text: '',
+      position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
+      fontSize: game.largeFontSize * 1.5,
+    );
+    gameResultText!.anchor = Anchor.center;
+
+    // Waiting status text (center of screen)
+    waitingStatusText = InfoTextComponent(
+      text: 'Waiting for players to ready up...',
+      position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
+      fontSize: game.largeFontSize,
+    );
+    waitingStatusText!.anchor = Anchor.center;
+
+    // Bottom left info
     bankrollText = InfoTextComponent(
       text: 'Bankroll: £0',
       position: Vector2(20, game.screenHeight - game.hudPanelHeight + 18),
@@ -69,55 +104,22 @@ class MultiplayerHudManager {
       fontSize: game.fontSize,
     );
 
+    // Room info (top right corner)
     roomInfoText = InfoTextComponent(
       text: 'Room: ...',
-      position: Vector2(20, game.screenHeight - game.hudPanelHeight + 18 + (game.fontSize + 6) * 2),
-      fontSize: game.fontSize * 0.8,
+      position: Vector2(game.screenWidth - 20, 20),
+      fontSize: game.fontSize * 0.7,
     );
+    roomInfoText!.anchor = Anchor.topRight;
 
     playerCountText = InfoTextComponent(
-      text: 'Players: 0/3',
-      position: Vector2(20, game.screenHeight - game.hudPanelHeight + 18 + (game.fontSize + 6) * 3),
+      text: '0/3',
+      position: Vector2(game.screenWidth - 20, 40),
       fontSize: game.fontSize * 0.8,
     );
+    playerCountText!.anchor = Anchor.topRight;
 
-    // Waiting status text (center of screen)
-    waitingStatusText = InfoTextComponent(
-      text: 'Waiting for players to ready up...',
-      position: Vector2(game.screenWidth / 2, game.screenHeight / 2 - 100),
-      fontSize: game.largeFontSize,
-    );
-    waitingStatusText!.anchor = Anchor.center;
-
-    // Turn indicator (center top)
-    turnIndicatorText = InfoTextComponent(
-      text: '',
-      position: Vector2(game.screenWidth / 2, 50),
-      fontSize: game.largeFontSize,
-    );
-    turnIndicatorText!.anchor = Anchor.center;
-
-    // Game result (top left)
-    gameResultText = InfoTextComponent(
-      text: '',
-      position: Vector2(20, 20),
-      fontSize: game.largeFontSize,
-    );
-
-    // Hand values
-    myHandText = InfoTextComponent(
-      text: 'Your Hand',
-      position: Vector2(20, 80),
-      fontSize: game.fontSize,
-    );
-
-    dealerHandText = InfoTextComponent(
-      text: 'Dealer Hand',
-      position: Vector2(20, 110),
-      fontSize: game.fontSize,
-    );
-
-    // Add text components directly to game instead of hudPanel
+    // Add text components
     game.addAll([
       bankrollText!,
       betText!,
@@ -129,10 +131,9 @@ class MultiplayerHudManager {
       myHandText!,
       dealerHandText!,
     ]);
-    debugPrint('🎨 [HUD] Info texts added to game');
 
     // ===========================================
-    // WAITING BUTTONS - Fixed with priority (must be > layerHudPanel)
+    // WAITING BUTTONS
     // ===========================================
     _waitingBtns = [
       GameButton(
@@ -222,39 +223,16 @@ class MultiplayerHudManager {
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
-    debugPrint('🎨 [HUD] Waiting buttons count: ${_waitingBtns.length}');
-    debugPrint('🎨 [HUD] Adding all buttons to game');
-
-    // Add all buttons directly to game instead of hudPanel
     game.addAll(_waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
-    // Debug: Print button details after adding
-    for (var i = 0; i < _waitingBtns.length; i++) {
-      final btn = _waitingBtns[i];
-      debugPrint('🔍 [HUD] Waiting button $i:');
-      debugPrint('   - Position: ${btn.position}');
-      debugPrint('   - Size: ${btn.size}');
-      debugPrint('   - Hidden: ${btn.hidden}');
-      debugPrint('   - Enabled: ${btn.isEnabled}');
-      debugPrint('   - Priority: ${btn.priority}');
-      debugPrint('   - Has parent: ${btn.parent != null}');
-      debugPrint('   - Is mounted: ${btn.isMounted}');
-    }
-
-    debugPrint('🎨 [HUD] Calling updateHudVisibility');
-    debugPrint('🎨 [HUD] Current game state: ${game.gameState}');
-
     updateHudVisibility();
-
-    debugPrint('🎨 [HUD] HUD creation complete!');
   }
 
   void removeHUD() {
     hudPanel?.removeFromParent();
     hudPanel = null;
     
-    // Remove all text components
     bankrollText?.removeFromParent();
     betText?.removeFromParent();
     roomInfoText?.removeFromParent();
@@ -265,7 +243,6 @@ class MultiplayerHudManager {
     myHandText?.removeFromParent();
     dealerHandText?.removeFromParent();
     
-    // Remove all buttons - safe because lists are initialized as empty
     for (final btn in _waitingBtns) {
       btn.removeFromParent();
     }
@@ -288,9 +265,7 @@ class MultiplayerHudManager {
   void updateHudVisibility() {
     final g = game;
 
-    debugPrint('👁️ [HUD] updateHudVisibility called - state: ${g.gameState}');
-
-    // Hide waiting status text by default
+    // Hide waiting and result text by default
     waitingStatusText?.textRenderer = TextPaint(
       style: TextStyle(
         color: Colors.transparent,
@@ -298,20 +273,15 @@ class MultiplayerHudManager {
       ),
     );
 
+    gameResultText?.textRenderer = TextPaint(
+      style: TextStyle(
+        color: Colors.transparent,
+        fontSize: game.largeFontSize * 1.5,
+      ),
+    );
+
     if (g.gameState == GameState.waiting) {
-
-      debugPrint('👁️ [HUD] Showing WAITING UI');
-      debugPrint('👁️ [HUD] Waiting buttons: ${_waitingBtns.length}');
-
-      // Show waiting phase UI
       _showOnlyButtons(_waitingBtns);
-
-      if (_waitingBtns.isNotEmpty) {
-        debugPrint('👁️ [HUD] First waiting button hidden: ${_waitingBtns[0].hidden}');
-        debugPrint('👁️ [HUD] First waiting button enabled: ${_waitingBtns[0].isEnabled}');
-        debugPrint('👁️ [HUD] First waiting button priority: ${_waitingBtns[0].priority}');
-      }
-
       
       // Show waiting status text
       waitingStatusText?.text = 'Waiting for players to ready up...';
@@ -324,7 +294,6 @@ class MultiplayerHudManager {
       );
     }
     else if (g.gameState == GameState.betting) {
-      // Show betting buttons
       final canCancel = g.stagedBet > 0;
       final canConfirm = g.stagedBet > 0 || g.currentBet > 0;
       final canStart = g.currentBet > 0 && g.isHost;
@@ -338,7 +307,6 @@ class MultiplayerHudManager {
       _bettingBtns[2].hidden = !canStart;
       _bettingBtns[2].isEnabled = canStart;
 
-      // Hide other buttons
       for (final b in _waitingBtns) {
         b.hidden = true;
         b.isEnabled = false;
@@ -353,7 +321,6 @@ class MultiplayerHudManager {
       }
     } 
     else if (g.gameState == GameState.playing) {
-      // Show playing buttons only if it's my turn
       if (g.isMyTurn) {
         for (final b in _playingBtns) {
           b.hidden = false;
@@ -366,7 +333,6 @@ class MultiplayerHudManager {
         }
       }
 
-      // Hide other buttons
       for (final b in _waitingBtns) {
         b.hidden = true;
         b.isEnabled = false;
@@ -381,11 +347,9 @@ class MultiplayerHudManager {
       }
     } 
     else if (g.gameState == GameState.dealerTurn) {
-      // Hide all buttons during dealer turn
       _showOnlyButtons(const []);
     } 
     else if (g.gameState == GameState.gameOver) {
-      // Show game over buttons
       _showOnlyButtons(_gameOverBtns);
     }
   }
@@ -407,7 +371,6 @@ class MultiplayerHudManager {
   // ===========================================
   void updateTurnIndicator() {
     if (game.gameState == GameState.waiting) {
-      // Don't show turn indicator in waiting phase
       turnIndicatorText?.text = '';
       return;
     }
@@ -433,13 +396,7 @@ class MultiplayerHudManager {
           ),
         );
       } else {
-        turnIndicatorText?.text = '⏳ Waiting...';
-        turnIndicatorText?.textRenderer = TextPaint(
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: game.largeFontSize,
-          ),
-        );
+        turnIndicatorText?.text = '';
       }
     } else if (game.gameState == GameState.dealerTurn) {
       turnIndicatorText?.text = '🎰 Dealer\'s Turn';
@@ -475,12 +432,12 @@ class MultiplayerHudManager {
     gameResultText?.textRenderer = TextPaint(
       style: TextStyle(
         color: resultColor,
-        fontSize: game.largeFontSize,
+        fontSize: game.largeFontSize * 1.5,
         fontWeight: FontWeight.bold,
         shadows: [
           Shadow(
             blurRadius: 10.0,
-            color: Colors.black.withValues(alpha:(0.7)),
+            color: Colors.black.withValues(alpha: 0.7),
             offset: const Offset(2, 2),
           ),
         ],
@@ -489,11 +446,11 @@ class MultiplayerHudManager {
   }
 
   // ===========================================
-  // Update Room Info
+  // Update Room Info - UPDATED: Simpler display
   // ===========================================
   void updateRoomInfo(String roomId, int playerCount, int maxPlayers) {
-    roomInfoText?.text = 'Room: ${roomId.substring(0, 8)}...';
-    playerCountText?.text = 'Players: $playerCount/$maxPlayers';
+    roomInfoText?.text = '${roomId.substring(0, 8)}...';
+    playerCountText?.text = '$playerCount/$maxPlayers';
   }
 }
 
@@ -513,13 +470,12 @@ class HudPanel extends PositionComponent {
       game.hudPanelHeight,
     );
     
-    // Semi-transparent background with gradient
     final gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.black.withValues(alpha:(0.3)),
-        Colors.black.withValues(alpha:(0.6)),
+        Colors.black.withValues(alpha: 0.3),
+        Colors.black.withValues(alpha: 0.6),
       ],
     );
     
@@ -529,9 +485,8 @@ class HudPanel extends PositionComponent {
     
     canvas.drawRect(rect, paint);
     
-    // Top border line
     final borderPaint = Paint()
-      ..color = Colors.amber.withValues(alpha:(0.3))
+      ..color = Colors.amber.withValues(alpha: 0.3)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     
@@ -540,49 +495,5 @@ class HudPanel extends PositionComponent {
       Offset(game.screenWidth, rect.top),
       borderPaint,
     );
-  }
-}
-
-// ===========================================
-// Connection Status Indicator (Optional)
-// ===========================================
-class ConnectionIndicator extends PositionComponent {
-  final MultiplayerBlackjackGame game;
-  bool isConnected;
-
-  ConnectionIndicator({
-    required this.game,
-    this.isConnected = true,
-  }) : super(priority: MultiplayerBlackjackGame.layerHud);
-
-  @override
-  void render(Canvas canvas) {
-    final radius = 8.0;
-    final position = Offset(game.screenWidth - 30, 30);
-
-    // Circle background
-    final bgPaint = Paint()
-      ..color = Colors.black.withValues(alpha:(0.5))
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(position, radius + 4, bgPaint);
-
-    // Status indicator
-    final statusPaint = Paint()
-      ..color = isConnected ? Colors.green : Colors.red
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(position, radius, statusPaint);
-
-    // Pulse effect when connected
-    if (isConnected) {
-      final pulsePaint = Paint()
-        ..color = Colors.green.withValues(alpha:(0.3))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2;
-      canvas.drawCircle(position, radius + 6, pulsePaint);
-    }
-  }
-
-  void updateStatus(bool connected) {
-    isConnected = connected;
   }
 }

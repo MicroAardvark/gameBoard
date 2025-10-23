@@ -1,6 +1,6 @@
 // ====================================
 // lib/components/multiplayer_player.dart
-// Component for displaying other players in multiplayer blackjack
+// Component for displaying other players - UPDATED TO MATCH SINGLE PLAYER STYLE
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -17,7 +17,7 @@ class MultiplayerPlayerUI extends PositionComponent {
   // State
   int cardCount = 0;
   double currentBet = 0;
-  String status = 'Waiting'; // 'Waiting', 'Betting', 'Playing', 'Stand', 'Busted', 'Blackjack!', 'Won', 'Lost'
+  String status = '';
   bool isReady = false;
   bool isActive = true;
   bool isCurrentTurn = false;
@@ -30,7 +30,7 @@ class MultiplayerPlayerUI extends PositionComponent {
     required this.cardsCenter,
     required this.cardSize,
     this.rightSide = false,
-  }) : super(position: anchorPos, anchor: Anchor.center);
+  }) : super(position: anchorPos);
 
   // ===========================================
   // Update Methods
@@ -76,131 +76,89 @@ class MultiplayerPlayerUI extends PositionComponent {
   void reset() {
     cardCount = 0;
     currentBet = 0;
-    status = 'Waiting';
+    status = '';
     isCurrentTurn = false;
   }
 
   // ===========================================
-  // Rendering
+  // Rendering - UPDATED: Simpler style like single player
   // ===========================================
   
   @override
   void render(Canvas canvas) {
     if (!isActive) return;
 
-    // Draw background panel
-    _drawPanel(canvas);
-
-    // Draw player info
+    // Draw player name and bankroll (simpler, cleaner style)
     _drawPlayerInfo(canvas);
 
     // Draw cards if any
     if (cardCount > 0) {
       _drawCards(canvas);
     }
-
-    // Draw turn indicator
-    if (isCurrentTurn) {
-      _drawTurnIndicator(canvas);
-    }
-
-    // Draw ready indicator
-    if (isReady && status == 'Waiting') {
-      _drawReadyIndicator(canvas);
-    }
-  }
-
-  void _drawPanel(Canvas canvas) {
-    final panelWidth = cardSize.x * 2.5;
-    final panelHeight = cardSize.y * 1.4;
-    
-    final rect = Rect.fromCenter(
-      center: Offset.zero,
-      width: panelWidth,
-      height: panelHeight,
-    );
-    
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
-    
-    // Background with gradient
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Colors.black.withValues(alpha: (0.6)),
-        Colors.black.withValues(alpha: (0.8)),
-      ],
-    );
-    
-    final paint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.fill;
-    
-    canvas.drawRRect(rrect, paint);
-    
-    // Border
-    final borderPaint = Paint()
-      ..color = isCurrentTurn ? Colors.amber : Colors.white.withValues(alpha: (0.3))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = isCurrentTurn ? 3 : 2;
-    
-    canvas.drawRRect(rrect, borderPaint);
   }
 
   void _drawPlayerInfo(Canvas canvas) {
-    // Username
-    final namePainter = TextPainter(
-      text: TextSpan(
-        text: username,
-        style: TextStyle(
-          color: isActive ? Colors.white : Colors.grey,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
+    // UPDATED: Simple text display like single player mock players
+    // Format: "Player 2 • £1000"
+    final displayText = '$username • £${bankroll.toStringAsFixed(0)}';
+    
+    final textStyle = TextStyle(
+      color: isCurrentTurn ? Colors.amber : Colors.white,
+      fontWeight: isCurrentTurn ? FontWeight.bold : FontWeight.w600,
+      fontSize: 16,
+      shadows: [
+        Shadow(
+          blurRadius: 8,
+          color: Colors.black.withValues(alpha: 0.8),
+          offset: const Offset(1, 1),
         ),
-      ),
+      ],
+    );
+    
+    final textPainter = TextPainter(
+      text: TextSpan(text: displayText, style: textStyle),
       textDirection: TextDirection.ltr,
+      textAlign: rightSide ? TextAlign.right : TextAlign.left,
     )..layout();
     
-    namePainter.paint(
-      canvas,
-      Offset(-namePainter.width / 2, -cardSize.y * 0.55),
-    );
+    final textOffset = rightSide 
+        ? Offset(-textPainter.width, 0)
+        : Offset(0, 0);
+    
+    textPainter.paint(canvas, textOffset);
 
-    // Bankroll
-    final bankrollPainter = TextPainter(
-      text: TextSpan(
-        text: '£${bankroll.toStringAsFixed(0)}',
-        style: TextStyle(
-          color: Colors.amber[400],
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    
-    bankrollPainter.paint(
-      canvas,
-      Offset(-bankrollPainter.width / 2, -cardSize.y * 0.35),
-    );
+    // Show status below name if present
+    if (status.isNotEmpty) {
+      final statusStyle = TextStyle(
+        color: _getStatusColor(),
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        shadows: [
+          Shadow(
+            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.8),
+            offset: const Offset(1, 1),
+          ),
+        ],
+      );
+      
+      final statusPainter = TextPainter(
+        text: TextSpan(text: status, style: statusStyle),
+        textDirection: TextDirection.ltr,
+        textAlign: rightSide ? TextAlign.right : TextAlign.left,
+      )..layout();
+      
+      final statusOffset = rightSide 
+          ? Offset(-statusPainter.width, 25)
+          : Offset(0, 25);
+      
+      statusPainter.paint(canvas, statusOffset);
+    }
 
-    // Status
-    final statusPainter = TextPainter(
-      text: TextSpan(
-        text: status,
-        style: TextStyle(
-          color: _getStatusColor(),
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    
-    statusPainter.paint(
-      canvas,
-      Offset(-statusPainter.width / 2, cardSize.y * 0.35),
-    );
+    // Turn indicator (small dot)
+    if (isCurrentTurn) {
+      _drawTurnIndicator(canvas);
+    }
   }
 
   Color _getStatusColor() {
@@ -210,7 +168,7 @@ class MultiplayerPlayerUI extends PositionComponent {
       return Colors.redAccent;
     } else if (status.contains('Stand')) {
       return Colors.lightBlueAccent;
-    } else if (isCurrentTurn) {
+    } else if (status.contains('Bet')) {
       return Colors.amber;
     } else {
       return Colors.white70;
@@ -218,22 +176,26 @@ class MultiplayerPlayerUI extends PositionComponent {
   }
 
   void _drawCards(Canvas canvas) {
-    final spacing = cardSize.x * 0.6;
-    final startX = -(cardCount - 1) * spacing / 2;
-
+    // Position cards near the player name
+    final cardStartY = 50.0;
+    final spacing = cardSize.x * 0.7;
+    
     for (int i = 0; i < cardCount; i++) {
-      final x = startX + (i * spacing);
-      final y = 0.0;
+      final x = rightSide 
+          ? -(i * spacing) - cardSize.x / 2
+          : (i * spacing);
+      final y = cardStartY;
       
       _drawCardBack(canvas, Offset(x, y));
     }
   }
 
-  void _drawCardBack(Canvas canvas, Offset center) {
-    final rect = Rect.fromCenter(
-      center: center,
-      width: cardSize.x,
-      height: cardSize.y,
+  void _drawCardBack(Canvas canvas, Offset position) {
+    final rect = Rect.fromLTWH(
+      position.dx,
+      position.dy,
+      cardSize.x,
+      cardSize.y,
     );
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(8));
     
@@ -245,57 +207,37 @@ class MultiplayerPlayerUI extends PositionComponent {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.black.withValues(alpha: (0.5));
+      ..color = Colors.white.withValues(alpha: 0.3);
     canvas.drawRRect(rrect, borderPaint);
     
-    // Pattern
+    // Simple pattern
     final patternPaint = Paint()
-      ..color = Colors.white.withValues(alpha: (0.15))
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     
-    canvas.drawCircle(center, cardSize.x * 0.25, patternPaint);
+    final centerX = position.dx + cardSize.x / 2;
+    final centerY = position.dy + cardSize.y / 2;
+    canvas.drawCircle(Offset(centerX, centerY), cardSize.x * 0.25, patternPaint);
   }
 
   void _drawTurnIndicator(Canvas canvas) {
-    final radius = 8.0;
-    final position = Offset(0, -cardSize.y * 0.7);
+    // Small pulsing indicator next to name
+    final radius = 6.0;
+    final offset = rightSide 
+        ? Offset(-10, 8)
+        : Offset(-15, 8);
     
-    // Pulsing circle
-    final pulsePaint = Paint()
-      ..color = Colors.amber.withValues(alpha: (0.4))
+    // Outer glow
+    final glowPaint = Paint()
+      ..color = Colors.amber.withValues(alpha: 0.3)
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(position, radius + 4, pulsePaint);
+    canvas.drawCircle(offset, radius + 3, glowPaint);
     
-    // Inner circle
-    final indicatorPaint = Paint()
+    // Inner dot
+    final dotPaint = Paint()
       ..color = Colors.amber
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(position, radius, indicatorPaint);
-  }
-
-  void _drawReadyIndicator(Canvas canvas) {
-    final checkSize = 20.0;
-    final position = Offset(cardSize.x * 0.7, -cardSize.y * 0.5);
-    
-    // Background circle
-    final bgPaint = Paint()
-      ..color = Colors.green
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(position, checkSize / 2, bgPaint);
-    
-    // Checkmark
-    final checkPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    
-    final path = Path()
-      ..moveTo(position.dx - checkSize * 0.25, position.dy)
-      ..lineTo(position.dx - checkSize * 0.08, position.dy + checkSize * 0.2)
-      ..lineTo(position.dx + checkSize * 0.25, position.dy - checkSize * 0.2);
-    
-    canvas.drawPath(path, checkPaint);
+    canvas.drawCircle(offset, radius, dotPaint);
   }
 }
