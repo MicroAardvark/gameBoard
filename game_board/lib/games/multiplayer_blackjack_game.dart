@@ -18,7 +18,7 @@ import '../components/multiplayer_player.dart';
 import '../ui/multiplayer_hud.dart';
 import '../services/socket_service.dart';
 
-class MultiplayerBlackjackGame extends FlameGame {
+class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
   final String roomId;
   final SocketService socketService;
@@ -64,6 +64,7 @@ class MultiplayerBlackjackGame extends FlameGame {
   double get fontSize => screenWidth * 0.02 * uiScale;
   double get largeFontSize => screenWidth * 0.028 * uiScale;
   double get hudPanelHeight => size.y * 0.16 * uiScale;
+  double get margin => screenWidth * 0.011 * uiScale;
 
   double get myCardY => screenHeight * 0.70;
   double get dealerCardY => screenHeight * 0.22;
@@ -534,79 +535,104 @@ class MultiplayerBlackjackGame extends FlameGame {
   // ===========================================
   
   void _setupChips() {
-    const double baseX = 50;
-    final double startY = screenHeight * 0.85;
-    const double horizontalSpacing = 90;
-    const double verticalSpacing = 30;
+    // Vertical layout: (+) above, chip in middle, (-) below
+    final double spacing = max(8.0, chipRadius * 0.20);
+    final double btnR = max(14.0, min(22.0, chipRadius * 0.38));
+
+    final double desiredGap = 2 * btnR;
+    final double stride = (chipRadius * 2) + desiredGap;
+
+    final totalWidth = stride * chipValues.length;
+    final startX = (screenWidth - totalWidth) / 2 + (stride / 2);
+
+    final double bottomSafeY = (screenHeight - hudPanelHeight) - margin * 0.6;
+    final double chipY = bottomSafeY - (btnR + spacing + chipRadius);
+
+    Color colorFor(double v) {
+      switch (v.toInt()) {
+        case 1:
+          return const Color(0xFFE0E0E0);
+        case 5:
+          return Colors.red;
+        case 10:
+          return Colors.blue;
+        case 25:
+          return Colors.green;
+        case 50:
+          return Colors.purple;
+        case 100:
+          return Colors.black;
+        default:
+          return Colors.grey;
+      }
+    }
 
     for (int i = 0; i < chipValues.length; i++) {
-      final value = chipValues[i];
-      final x = baseX + (i * horizontalSpacing);
-
-      final plusBtn = ChipButton(
-        symbol: '+',
-        onPressed: () => _addChipToStaging(value),
-        position: Vector2(x, startY - verticalSpacing),
-        radius: chipRadius * 0.5,
-        bgColor: Colors.yellow
-      )..priority = layerChips;
-
+      final center = Vector2(startX + i * stride, chipY);
       final chip = PaletteChip(
-        position: Vector2(x, startY),
+        position: center,
         radius: chipRadius,
-        value: value,
-        chipColor: Colors.red
+        value: chipValues[i],
+        chipColor: colorFor(chipValues[i]),
+        layout: ButtonsLayout.stackVertical,
+        spacing: spacing,
+        minGapAfterButtons: desiredGap,
       )..priority = layerChips;
-
-      final minusBtn = ChipButton(
-        position: Vector2(x, startY + verticalSpacing),
-        radius: chipRadius * 0.5,
-        symbol: '-',
-        onPressed: () => _removeChipFromStaging(value),
-        bgColor: Colors.red
-      )..priority = layerChips;
-
-      add(plusBtn);
-      add(chip);
-      add(minusBtn);
       paletteChips.add(chip);
+      add(chip);
     }
   }
 
-  void _addChipToStaging(double value) {
+  // ===========================================
+  // CHIP GAME INTERFACE IMPLEMENTATION
+  // ===========================================
+  
+  @override
+  void stageBet({required Vector2 from, required double amount, required Color color}) {
     if (gameState != GameState.betting) return;
-    if (bankroll < value) return;
+    if (bankroll < amount) return;
 
-    bankroll -= value;
-    stagedBet += value;
+    bankroll -= amount;
+    stagedBet += amount;
 
-    final position = _computeChipPosition(stagedChips.length, stagedCenter);
     final chip = BetChip(
-      position: position,
-      radius: chipRadius,
-      value: value,
-      chipColor: Colors.blue
+      position: from.clone(),
+      value: amount,
+      color: color,
     )..priority = layerChips;
 
     stagedChips.add(chip);
     add(chip);
+
+    // Animate to staged area
+    final target = _computeChipPosition(stagedChips.length - 1, stagedCenter);
+    chip.position = target;
+
     _updateHUDTexts();
+    hud.updateHudVisibility();
   }
 
-  void _removeChipFromStaging(double value) {
+  @override
+  void removeStagedDenom(double denom) {
     if (gameState != GameState.betting) return;
-    if (stagedChips.isEmpty) return;
 
-    for (int i = stagedChips.length - 1; i >= 0; i--) {
-      if (stagedChips[i].value == value) {
-        bankroll += value;
-        stagedBet -= value;
-        stagedChips[i].removeFromParent();
-        stagedChips.removeAt(i);
-        _updateHUDTexts();
-        return;
-      }
+    final idx = stagedChips.lastIndexWhere((c) => c.value == denom);
+    if (idx == -1) return;
+
+    final chip = stagedChips[idx];
+    stagedChips.removeAt(idx);
+
+    bankroll += chip.value;
+    stagedBet -= chip.value;
+
+    chip.removeFromParent();
+
+    for (int i = 0; i < stagedChips.length; i++) {
+      stagedChips[i].position = _computeChipPosition(i, stagedCenter);
     }
+
+    _updateHUDTexts();
+    hud.updateHudVisibility();
   }
 
   Future<void> confirmStagedToPot() async {

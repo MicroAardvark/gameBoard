@@ -11,7 +11,7 @@ import '../components/chip_components.dart';
 import '../components/mock_player.dart';
 import '../ui/hud.dart';
 
-class BlackjackGame extends FlameGame {
+class BlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
   BlackjackGame({required this.user});
   // Layer priorities
@@ -210,6 +210,7 @@ class BlackjackGame extends FlameGame {
   // -----------------------------
   // STAGED betting actions
   // -----------------------------
+  @override
   void stageBet({
     required Vector2 from,
     required double amount,
@@ -224,8 +225,7 @@ class BlackjackGame extends FlameGame {
     final chip = BetChip(
       position: from.clone(),
       value: amount,
-      chipColor: color,
-      radius: chipRadius,
+      color: color,
     )..priority = layerChips;
 
     stagedChips.add(chip);
@@ -239,6 +239,7 @@ class BlackjackGame extends FlameGame {
     hud.updateHudVisibility();
   }
 
+  @override
   void removeStagedDenom(double denom) {
     if (gameState != GameState.betting) return;
 

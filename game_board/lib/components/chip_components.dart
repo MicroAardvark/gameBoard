@@ -2,9 +2,8 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-
-import '../games/blackjack_game.dart';
 
 /// Layout options for +/- buttons around a chip.
 enum ButtonsLayout {
@@ -62,8 +61,16 @@ class ChipButton extends PositionComponent with TapCallbacks {
   }
 }
 
+/// Interface for games that use chips
+/// Both BlackjackGame and MultiplayerBlackjackGame should implement this
+abstract class ChipGameInterface {
+  void stageBet({required Vector2 from, required double amount, required Color color});
+  void removeStagedDenom(double value);
+}
+
 /// Palette chip with +/- buttons. `size` guarantees safe spacing to neighbors.
-class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame> {
+/// FIXED: Now uses FlameGame as base type instead of specific BlackjackGame
+class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
   final double value;
   final Color chipColor;
   final double radius;
@@ -73,47 +80,42 @@ class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame>
 
   ChipButton? _plus;
   ChipButton? _minus;
-  late TextComponent _label;
-  late double _btnR;
+  TextComponent? _label;
+
+  static const double _btnR = 13.0;
 
   PaletteChip({
-    required Vector2 position,
-    required this.radius,
     required this.value,
     required this.chipColor,
+    required Vector2 position,
+    this.radius = 28.0,
     this.layout = ButtonsLayout.diagonalTangent,
-    this.spacing = 6.0,
+    this.spacing = 5.0,
     this.minGapAfterButtons,
   }) : super(position: position, anchor: Anchor.center);
-
-  double get recommendedStride => size.x;
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
-    _btnR = max(14.0, min(22.0, radius * 0.38));
+    final double verticalExtent = (layout == ButtonsLayout.stackVertical) 
+        ? (radius + _btnR + spacing)
+        : max(radius, _btnR);
 
-    final double leftExtent = radius;
-    final double rightExtent = switch (layout) {
-      ButtonsLayout.diagonalTangent =>
-        (radius + _btnR + spacing) * cos(pi / 4) + _btnR,
-      ButtonsLayout.stackRight =>
-        radius + spacing + 2 * _btnR,
-      ButtonsLayout.stackVertical =>
-        radius,
-    };
+    double leftExtent = radius;
+    double rightExtent = radius;
 
-    final double verticalExtent = switch (layout) {
-      ButtonsLayout.diagonalTangent =>
-        (radius + _btnR + spacing) * sin(pi / 4) + _btnR,
-      ButtonsLayout.stackRight =>
-        max(radius, _btnR + spacing + _btnR),
-      ButtonsLayout.stackVertical =>
-        radius + spacing + _btnR,
-    };
+    if (layout == ButtonsLayout.diagonalTangent) {
+      const theta = pi / 4;
+      final dx = (radius + _btnR + spacing) * cos(theta);
+      final dy = (radius + _btnR + spacing) * sin(theta);
+      rightExtent = max(rightExtent, dx + _btnR);
+      leftExtent = max(leftExtent, dy + _btnR);
+    } else if (layout == ButtonsLayout.stackRight) {
+      rightExtent = radius + spacing + (2 * _btnR);
+    }
 
-    final double desiredGap = (minGapAfterButtons ?? (2 * _btnR));
+    final double desiredGap = minGapAfterButtons ?? (2 * _btnR);
     final double inherentGap = rightExtent - leftExtent;
     final double extraPaddingX = max(0.0, desiredGap - inherentGap);
 
@@ -141,7 +143,7 @@ class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame>
         ),
       ),
     );
-    add(_label);
+    add(_label!);
 
     _buildButtons();
   }
@@ -180,11 +182,12 @@ class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame>
     _plus = ChipButton(
       symbol: '+',
       onPressed: () {
-        final color = chipColor;
-        game.stageBet(
+        // Cast to the interface - this works for both game types
+        final chipGame = game as ChipGameInterface;
+        chipGame.stageBet(
           from: plusPos,
           amount: value,
-          color: color,
+          color: chipColor,
         );
       },
       position: plusPos,
@@ -194,7 +197,10 @@ class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame>
 
     _minus = ChipButton(
       symbol: '-',
-      onPressed: () => game.removeStagedDenom(value),
+      onPressed: () {
+        final chipGame = game as ChipGameInterface;
+        chipGame.removeStagedDenom(value);
+      },
       position: minusPos,
       radius: _btnR,
       bgColor: Colors.red,
@@ -206,85 +212,91 @@ class PaletteChip extends PositionComponent with HasGameReference<BlackjackGame>
 
   @override
   void render(Canvas canvas) {
-    final c = Offset(size.x / 2, size.y / 2);
+    final center = size / 2;
 
-    canvas.drawCircle(
-      c,
-      radius,
-      Paint()..color = chipColor,
-    );
+    final outerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    canvas.drawCircle(center.toOffset(), radius, outerPaint);
 
-    canvas.drawCircle(
-      c,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = Colors.black.withValues(alpha: 0.35),
-    );
-
-    final tp = TextPainter(
-      text: TextSpan(
-        text: '£${value.toInt()}',
-        style: TextStyle(
-          fontSize: radius * 0.62,
-          fontWeight: FontWeight.bold,
-          color: Colors.black,
-          shadows: [
-            Shadow(
-              blurRadius: 2,
-              color: Colors.black.withValues(alpha: 0.45),
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
+    final innerPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          chipColor.withValues(alpha: 0.85),
+          chipColor,
+          chipColor.withValues(alpha: 0.7),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(
+        Rect.fromCircle(center: center.toOffset(), radius: radius),
+      );
+    canvas.drawCircle(center.toOffset(), radius, innerPaint);
 
     super.render(canvas);
   }
 }
 
-/// BetChip represents a chip that has been placed in the betting area
-class BetChip extends PositionComponent {
+/// BetChip representing a placed bet
+/// FIXED: Now uses FlameGame as base type
+class BetChip extends PositionComponent with HasGameReference<FlameGame> {
   final double value;
-  final Color chipColor;
-  final double radius;
+  final Color color;
 
   BetChip({
-    required Vector2 position,
     required this.value,
-    required this.chipColor,
-    required this.radius,
-  }) : super(position: position, size: Vector2.all(radius * 2), anchor: Anchor.center);
+    required this.color,
+    required Vector2 position,
+  }) : super(position: position, anchor: Anchor.center);
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    
+    // Get radius from game if it's a ChipGameInterface
+    double radius = 28.0; // default
+    if (game is ChipGameInterface) {
+      // You can add a method to get chip radius if needed
+      radius = 28.0;
+    }
+    
+    size = Vector2.all(radius * 2);
+  }
 
   @override
   void render(Canvas canvas) {
-    final c = Offset(size.x / 2, size.y / 2);
+    final radius = size.x / 2;
+    final center = size / 2;
 
-    // Chip body
-    canvas.drawCircle(c, radius, Paint()..color = chipColor);
+    // Outer ring
+    final outerPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center.toOffset(), radius, outerPaint);
 
-    // Border
-    canvas.drawCircle(
-      c,
-      radius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = Colors.black.withValues(alpha: 0.35),
-    );
+    // Inner fill with gradient
+    final innerPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          color.withValues(alpha: 0.85),
+          color,
+          color.withValues(alpha: 0.7),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(
+        Rect.fromCircle(center: center.toOffset(), radius: radius),
+      );
+    canvas.drawCircle(center.toOffset(), radius, innerPaint);
 
-    // Value label
-    final tp = TextPainter(
+    // Value text
+    final textPainter = TextPainter(
       text: TextSpan(
         text: '£${value.toInt()}',
         style: TextStyle(
+          color: Colors.white,
           fontSize: radius * 0.62,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
           shadows: [
             Shadow(
               blurRadius: 2,
@@ -296,6 +308,15 @@ class BetChip extends PositionComponent {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.x - textPainter.width / 2,
+        center.y - textPainter.height / 2,
+      ),
+    );
+
+    super.render(canvas);
   }
 }
