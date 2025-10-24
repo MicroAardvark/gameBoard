@@ -224,6 +224,10 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     final gameData = room['gameState']['data'];
     final players = room['players'] as List;
 
+    // ADDED: Debug logging
+    debugPrint('📊 Game Data keys: ${gameData.keys}');
+    debugPrint('👥 Players count: ${players.length}');
+
     // Clear previous cards
     for (final card in myCards) {
       card.removeFromParent();
@@ -241,18 +245,31 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
     // Deal my cards
     final myHandData = gameData['playerHands'][user.id];
+    debugPrint('🃏 My hand data: $myHandData'); // ADDED
+    
     if (myHandData != null) {
       for (final cardData in myHandData) {
+        debugPrint('   Adding card: ${cardData['rank']} of ${cardData['suit']}'); // ADDED
         _addCardToMyHand(cardData, false);
       }
+      debugPrint('✅ Added ${myCards.length} cards to my hand'); // ADDED
+    } else {
+      debugPrint('❌ No hand data found for user: ${user.id}'); // ADDED
     }
 
     // Deal dealer cards
     final dealerHandData = gameData['dealerHand'];
+    debugPrint('🎴 Dealer hand data: $dealerHandData'); // ADDED
+    
     if (dealerHandData != null) {
       for (final cardData in dealerHandData) {
-        _addCardToDealerHand(cardData, cardData['hidden'] ?? false);
+        final isHidden = cardData['hidden'] ?? false;
+        debugPrint('   Adding dealer card: ${cardData['rank']} of ${cardData['suit']} (hidden: $isHidden)'); // ADDED
+        _addCardToDealerHand(cardData, isHidden);
       }
+      debugPrint('✅ Added ${dealerCards.length} dealer cards'); // ADDED
+    } else {
+      debugPrint('❌ No dealer hand data found'); // ADDED
     }
 
     // Deal cards to other players (visual count only)
@@ -270,12 +287,15 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     if (players.isNotEmpty) {
       currentTurnPlayerId = players[0]['userId'];
       isMyTurn = (currentTurnPlayerId == user.id);
+      debugPrint('🎯 First turn: ${players[0]['username']} (isMyTurn: $isMyTurn)'); // ADDED
     }
 
     _updateCardsPositions();
     _updateHUDTexts();
     hud.updateHudVisibility();
     hud.updateTurnIndicator();
+    
+    debugPrint('🎮 Round started complete. Cards rendered: ${myCards.length + dealerCards.length}'); // ADDED
   }
 
   void _handleCardDealt(Map<String, dynamic> data) {
@@ -294,6 +314,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     _updateHUDTexts();
   }
 
+  // UPDATED: Higher priority and debug logging
   void _addCardToMyHand(Map<String, dynamic> cardData, bool hidden) {
     final card = PlayingCard(
       cardData['suit'],
@@ -303,15 +324,19 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     myHand.add(card);
     
     final cardComp = CardComponent(
-      position: deckPosition,
+      position: deckPosition.clone(),
       size: Vector2(cardWidth, cardHeight),
       card: card,
       isHidden: hidden,
-    )..priority = layerCards;
+    )..priority = layerCards + 10; // CHANGED: Higher priority
+    
     myCards.add(cardComp);
     add(cardComp);
+    
+    debugPrint('   ✅ Card component added: ${card.rank} of ${card.suit}'); // ADDED
   }
 
+  // UPDATED: Higher priority and debug logging
   void _addCardToDealerHand(Map<String, dynamic> cardData, bool hidden) {
     final card = PlayingCard(
       cardData['suit'],
@@ -321,13 +346,16 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     dealerHand.add(card);
     
     final cardComp = CardComponent(
-      position: deckPosition,
+      position: deckPosition.clone(),
       size: Vector2(cardWidth, cardHeight),
       card: card,
       isHidden: hidden,
-    )..priority = layerCards;
+    )..priority = layerCards + 10; // CHANGED: Higher priority
+    
     dealerCards.add(cardComp);
     add(cardComp);
+    
+    debugPrint('   ✅ Dealer card added: ${hidden ? "HIDDEN" : "${card.rank} of ${card.suit}"}'); // ADDED
   }
 
   // UPDATED: Position players like single-player mock players
@@ -583,6 +611,19 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
   }
 
+  // ADDED: Method to hide/show chip palette based on game state
+  void updateChipPaletteState() {
+    final shouldShow = gameState == GameState.betting;
+    
+    for (final chip in paletteChips) {
+      if (shouldShow) {
+        chip.priority = layerChips;
+      } else {
+        chip.priority = -100; // Hide behind everything
+      }
+    }
+  }
+
   // ===========================================
   // CHIP GAME INTERFACE IMPLEMENTATION
   // ===========================================
@@ -696,8 +737,18 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   // ===========================================
   
   void startRound() {
-    if (!isHost) return;
-    if (currentBet <= 0) return;
+    debugPrint('🔍 startRound called');
+    debugPrint('   isHost: $isHost');
+    debugPrint('   currentBet: $currentBet');
+    debugPrint('   gameState: $gameState');
+    if (!isHost){
+      debugPrint('❌ Cannot start - not host');
+      return;
+    }
+    if (currentBet <= 0) {
+      debugPrint('❌ Cannot start - no bet placed');
+      return;
+    }
     
     debugPrint('🎲 Starting round...');
     socketService.startRound(roomId: roomId);

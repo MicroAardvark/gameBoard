@@ -255,9 +255,13 @@ class MultiplayerHudManager {
 
   // ===========================================
   // Update HUD Visibility Based on Game State
+  // UPDATED: Now calls _updateChipPaletteState and manages Start button
   // ===========================================
   void updateHudVisibility() {
     final g = game;
+    
+    // ADDED: Update chip palette state
+    g.updateChipPaletteState();
     
     if (g.gameState == GameState.waiting) {
       _showOnlyButtons(_waitingBtns);
@@ -276,6 +280,15 @@ class MultiplayerHudManager {
       // Hide turn indicator
       turnIndicatorText?.removeFromParent();
       gameResultText?.text = '';
+      
+      // ADDED: Enable/disable Start button based on bet and host status
+      if (_bettingBtns.length >= 3) {
+        // Start button is index 2
+        _bettingBtns[2].isEnabled = g.currentBet > 0 && g.isHost;
+        
+        // Only show Start button for host
+        _bettingBtns[2].hidden = !g.isHost;
+      }
     } 
     else if (g.gameState == GameState.playing) {
       // Hide waiting status
