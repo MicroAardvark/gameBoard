@@ -148,6 +148,17 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
     _buildButtons();
   }
 
+  // 🔧 FIX: Override to only respond to taps on the chip circle itself
+  // This prevents the chip's rectangular hitbox from blocking buttons underneath
+  @override
+  bool containsLocalPoint(Vector2 point) {
+    // Only respond to taps on the chip circle, not the +/- buttons
+    // The ChipButton components handle their own tap detection
+    final chipCenter = size / 2;
+    final distance = point.distanceTo(chipCenter);
+    return distance <= radius;
+  }
+
   void _buildButtons() {
     _plus?.removeFromParent();
     _minus?.removeFromParent();

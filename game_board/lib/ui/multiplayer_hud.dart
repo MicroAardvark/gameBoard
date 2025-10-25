@@ -155,13 +155,34 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // BETTING BUTTONS - RESPONSIVE CENTERED IN HUD
+    // BETTING BUTTONS - STACKED VERTICALLY ON LEFT SIDE
     // ===========================================
-    final double buttonY = game.screenHeight - (game.hudPanelHeight / 2);
+    final double leftButtonX = game.screenWidth * 0.15;  // 15% from left edge
+    final double buttonSpacing = game.screenHeight * 0.10;  // 10% vertical spacing
+    final double startY = game.screenHeight * 0.35;  // Start position
 
     _bettingBtns = [
+      // Start button at top (index 0)
       GameButton(
-        position: Vector2(game.screenWidth * 0.25, buttonY),
+        position: Vector2(leftButtonX, startY),
+        size: Vector2(game.buttonWidth, game.buttonHeight),
+        text: 'Start',
+        onTap: () {
+          game.startRound();
+        },
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
+      // Confirm button in middle (index 1)
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing),
+        size: Vector2(game.buttonWidth, game.buttonHeight),
+        text: 'Confirm',
+        onTap: () async {
+          await game.confirmStagedToPot();
+        },
+      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
+      // Cancel button at bottom (index 2)
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing * 2),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Cancel',
         onTap: () {
@@ -170,27 +191,13 @@ class MultiplayerHudManager {
           }
         },
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
-      GameButton(
-        position: Vector2(game.screenWidth * 0.45, buttonY),
-        size: Vector2(game.buttonWidth, game.buttonHeight),
-        text: 'Confirm',
-        onTap: () async {
-          await game.confirmStagedToPot();
-        },
-      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
-      GameButton(
-        position: Vector2(game.screenWidth * 0.65, buttonY),
-        size: Vector2(game.buttonWidth, game.buttonHeight),
-        text: 'Start',
-        onTap: () {
-          game.startRound();
-        },
-      )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
     // ===========================================
     // PLAYING BUTTONS - MATCHING SINGLE PLAYER LAYOUT
     // ===========================================
+    final double buttonY = game.screenHeight - (game.hudPanelHeight / 2);
+    
     _playingBtns = [
       GameButton(
         position: Vector2(game.screenWidth * 0.35, buttonY),
@@ -276,8 +283,16 @@ class MultiplayerHudManager {
       turnIndicatorText?.removeFromParent();
       gameResultText?.text = '';
       if (_bettingBtns.length >= 3) {
-        _bettingBtns[2].isEnabled = g.currentBet > 0 && g.isHost;
-        _bettingBtns[2].hidden = !g.isHost;
+        // Index 0 is now Start button
+        _bettingBtns[0].isEnabled = g.currentBet > 0 && g.isHost;
+        _bettingBtns[0].hidden = !g.isHost;
+        
+        // Index 1 is Confirm button - always enabled if there's staged or current bet
+        _bettingBtns[1].isEnabled = g.stagedBet > 0 || g.currentBet > 0;
+        
+        // Index 2 is now Cancel button
+        _bettingBtns[2].isEnabled = g.stagedBet > 0;
+        _bettingBtns[2].hidden = g.stagedBet <= 0;
       }
     } 
     else if (g.gameState == GameState.playing) {
