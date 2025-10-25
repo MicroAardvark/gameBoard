@@ -2,62 +2,93 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
+/// Custom rectangular game button used in both single-player and multiplayer HUDs.
+/// This version fixes tap detection so the onTap callback actually fires
+/// (uses `onTapUp` instead of `onTapDown`).
 class GameButton extends PositionComponent with TapCallbacks {
   final String text;
   final VoidCallback? onTap;
+
   bool hidden = false;
   bool isEnabled = true;
+  bool _isPressed = false; // for optional visual feedback
 
   GameButton({
     required Vector2 position,
     required Vector2 size,
     required this.text,
     this.onTap,
-  }) : super(position: position, size: size, anchor: Anchor.center);
+  }) : super(
+          position: position,
+          size: size,
+          anchor: Anchor.center,
+        );
 
   @override
   void render(Canvas canvas) {
     if (hidden) return;
-    
-    // Create the button rectangle centered around (0, 0) in local coordinates
-    // Since anchor is center, we need to draw from negative coordinates
+
     final rect = Rect.fromLTWH(
-      -size.x / 2,  // Start from left edge
-      -size.y / 2,  // Start from top edge
-      size.x,       // Width
-      size.y,       // Height
+      -size.x / 2,
+      -size.y / 2,
+      size.x,
+      size.y,
     );
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
-    
-    // Draw button background
+
+    // Button background color
+    final Color bgColor;
+    if (!isEnabled) {
+      bgColor = Colors.grey;
+    } else if (_isPressed) {
+      bgColor = Colors.blue.shade700; // darker while pressed
+    } else {
+      bgColor = Colors.blue;
+    }
+
     final paint = Paint()
-      ..color = isEnabled ? Colors.blue : Colors.grey
+      ..color = bgColor
       ..style = PaintingStyle.fill;
     canvas.drawRRect(rrect, paint);
 
-    // Draw button text
-    final tp = TextPainter(
+    // Button text
+    final textPainter = TextPainter(
       text: TextSpan(
         text: text,
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
-          fontSize: 18,  // Explicit font size for visibility
+          fontSize: 18,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout(maxWidth: size.x);
-    
-    // Center the text around (0, 0)
-    tp.paint(
+
+    // Draw centered text
+    textPainter.paint(
       canvas,
-      Offset(-tp.width / 2, -tp.height / 2),
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
     );
   }
 
+  // Optional press visual
   @override
   void onTapDown(TapDownEvent event) {
+    if (hidden || !isEnabled) return;
+    _isPressed = true;
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
     if (hidden) return;
-    if (isEnabled && onTap != null) onTap!();
+    if (isEnabled && onTap != null) {
+      onTap!();
+    }
+    _isPressed = false;
+  }
+
+  @override
+  void onTapCancel(TapCancelEvent event) {
+    _isPressed = false;
   }
 }

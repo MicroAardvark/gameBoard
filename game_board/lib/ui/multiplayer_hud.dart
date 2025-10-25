@@ -155,11 +155,13 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // BETTING BUTTONS - MATCHING SINGLE PLAYER LAYOUT
+    // BETTING BUTTONS - RESPONSIVE CENTERED IN HUD
     // ===========================================
+    final double buttonY = game.screenHeight - (game.hudPanelHeight / 2);
+
     _bettingBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.25, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.25, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Cancel',
         onTap: () {
@@ -169,7 +171,7 @@ class MultiplayerHudManager {
         },
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.45, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.45, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Confirm',
         onTap: () async {
@@ -177,7 +179,7 @@ class MultiplayerHudManager {
         },
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.65, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Start',
         onTap: () {
@@ -191,19 +193,19 @@ class MultiplayerHudManager {
     // ===========================================
     _playingBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.35, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.35, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.55, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.55, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.75, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.75, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
@@ -215,13 +217,13 @@ class MultiplayerHudManager {
     // ===========================================
     _gameOverBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.35, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.35, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Next Round',
         onTap: () => game.newRound(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
       GameButton(
-        position: Vector2(game.screenWidth * 0.65, game.screenHeight - 70),
+        position: Vector2(game.screenWidth * 0.65, buttonY),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Leave',
         onTap: () => game.leaveRoom(),
@@ -255,49 +257,34 @@ class MultiplayerHudManager {
 
   // ===========================================
   // Update HUD Visibility Based on Game State
-  // UPDATED: Now calls _updateChipPaletteState and manages Start button
   // ===========================================
   void updateHudVisibility() {
     final g = game;
-    
-    // ADDED: Update chip palette state
     g.updateChipPaletteState();
     
     if (g.gameState == GameState.waiting) {
       _showOnlyButtons(_waitingBtns);
-      // Show waiting status
       if (!game.children.contains(waitingStatusText)) {
         game.add(waitingStatusText!);
       }
-      // Hide turn indicator
       turnIndicatorText?.removeFromParent();
       gameResultText?.text = '';
     } 
     else if (g.gameState == GameState.betting) {
       _showOnlyButtons(_bettingBtns);
-      // Hide waiting status
       waitingStatusText?.removeFromParent();
-      // Hide turn indicator
       turnIndicatorText?.removeFromParent();
       gameResultText?.text = '';
-      
-      // ADDED: Enable/disable Start button based on bet and host status
       if (_bettingBtns.length >= 3) {
-        // Start button is index 2
         _bettingBtns[2].isEnabled = g.currentBet > 0 && g.isHost;
-        
-        // Only show Start button for host
         _bettingBtns[2].hidden = !g.isHost;
       }
     } 
     else if (g.gameState == GameState.playing) {
-      // Hide waiting status
       waitingStatusText?.removeFromParent();
-      // Show turn indicator
       if (!game.children.contains(turnIndicatorText)) {
         game.add(turnIndicatorText!);
       }
-      
       if (g.isMyTurn) {
         _showOnlyButtons(_playingBtns);
       } else {
@@ -306,14 +293,12 @@ class MultiplayerHudManager {
     } 
     else if (g.gameState == GameState.dealerTurn) {
       _showOnlyButtons(const []);
-      // Show turn indicator
       if (!game.children.contains(turnIndicatorText)) {
         game.add(turnIndicatorText!);
       }
     } 
     else if (g.gameState == GameState.gameOver) {
       _showOnlyButtons(_gameOverBtns);
-      // Hide turn indicator
       turnIndicatorText?.removeFromParent();
     }
   }
@@ -382,7 +367,6 @@ class MultiplayerHudManager {
   void updateGameResult(String result, {bool isWin = false}) {
     gameResultText?.text = result;
     
-    // Simple color coding like single player
     Color resultColor = Colors.white;
     if (result.toLowerCase().contains('win') || result.toLowerCase().contains('blackjack')) {
       resultColor = Colors.green;
