@@ -1,6 +1,6 @@
 // ====================================
 // lib/ui/multiplayer_hud.dart
-// HUD for multiplayer blackjack game - MATCHES SINGLE PLAYER LAYOUT
+// HUD for multiplayer blackjack game - WITH TURN-BASED BETTING SUPPORT
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -263,7 +263,7 @@ class MultiplayerHudManager {
   }
 
   // ===========================================
-  // Update HUD Visibility Based on Game State
+  // Update HUD Visibility Based on Game State - WITH TURN-BASED BETTING
   // ===========================================
   void updateHudVisibility() {
     final g = game;
@@ -280,17 +280,24 @@ class MultiplayerHudManager {
     else if (g.gameState == GameState.betting) {
       _showOnlyButtons(_bettingBtns);
       waitingStatusText?.removeFromParent();
-      turnIndicatorText?.removeFromParent();
+      
+      // Show turn indicator during betting phase
+      if (!game.children.contains(turnIndicatorText)) {
+        game.add(turnIndicatorText!);
+      }
+      
       gameResultText?.text = '';
+      
       if (_bettingBtns.length >= 3) {
-        // Index 0 is now Start button
-        _bettingBtns[0].isEnabled = g.currentBet > 0 && g.isHost;
+        // Start button (index 0) - only for host, only when all bets placed
+        _bettingBtns[0].isEnabled = g.currentBet > 0 && g.isHost && g.allBetsPlaced;
         _bettingBtns[0].hidden = !g.isHost;
         
-        // Index 1 is Confirm button - always enabled if there's staged or current bet
-        _bettingBtns[1].isEnabled = g.stagedBet > 0 || g.currentBet > 0;
-        
-        // Index 2 is now Cancel button
+        // Confirm button (index 1) - UPDATED: only when it's your turn OR you already confirmed
+        // This allows players who already bet to see their confirmed bet, but not place another
+        _bettingBtns[1].isEnabled = g.stagedBet > 0 && (g.isMyTurn || g.currentBet == 0);
+  
+        // Cancel button (index 2)
         _bettingBtns[2].isEnabled = g.stagedBet > 0;
         _bettingBtns[2].hidden = g.stagedBet <= 0;
       }
@@ -331,7 +338,7 @@ class MultiplayerHudManager {
   }
 
   // ===========================================
-  // Update Turn Indicator
+  // Update Turn Indicator - WITH BETTING PHASE SUPPORT
   // ===========================================
   void updateTurnIndicator() {
     if (game.gameState == GameState.waiting) {
@@ -339,6 +346,45 @@ class MultiplayerHudManager {
       return;
     }
 
+    // NEW: Show turn indicator during betting phase
+    if (game.gameState == GameState.betting) {
+      if (game.isMyTurn && game.currentBet == 0) {
+        turnIndicatorText?.text = '🎯 YOUR TURN TO BET';
+        turnIndicatorText?.textRenderer = TextPaint(
+          style: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: game.largeFontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      } else if (game.currentBet > 0) {
+        turnIndicatorText?.text = '✅ Bet placed - waiting for others';
+        turnIndicatorText?.textRenderer = TextPaint(
+          style: TextStyle(
+            color: Colors.yellow,
+            fontSize: game.fontSize,
+            fontWeight: FontWeight.normal,
+          ),
+        );
+      } else if (game.currentTurnPlayerId.isNotEmpty) {
+        final currentPlayer = game.otherPlayers[game.currentTurnPlayerId];
+        if (currentPlayer != null) {
+          turnIndicatorText?.text = '⏳ ${currentPlayer.username} is betting';
+          turnIndicatorText?.textRenderer = TextPaint(
+            style: TextStyle(
+              color: Colors.orangeAccent,
+              fontSize: game.fontSize,
+              fontWeight: FontWeight.normal,
+            ),
+          );
+        } else {
+          turnIndicatorText?.text = '';
+        }
+      }
+      return;
+    }
+
+    // Playing phase turn indicators
     if (game.isMyTurn) {
       turnIndicatorText?.text = '🎯 YOUR TURN';
       turnIndicatorText?.textRenderer = TextPaint(

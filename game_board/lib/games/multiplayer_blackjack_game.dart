@@ -1,6 +1,6 @@
 // ====================================
 // lib/games/multiplayer_blackjack_game.dart
-// Multiplayer Flame game with socket integration - UPDATED UI TO MATCH SINGLE PLAYER
+// Multiplayer Flame game with socket integration - UPDATED WITH TURN-BASED BETTING
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
@@ -91,6 +91,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   String currentTurnPlayerId = '';
   int playerCount = 1;
   int maxPlayers = 3;
+  bool allBetsPlaced = false; // NEW: Track if all bets are placed
 
   // Socket event subscriptions
   StreamSubscription? _gameActionSub;
@@ -151,13 +152,42 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     _newRoundSub = socketService.onNewRoundStarting.listen((data) {
       debugPrint('🔄 New round starting - all players ready!');
       gameState = GameState.betting;
+      allBetsPlaced = false;
+      
+      // Reset turn state for new betting round
+      final room = data['room'];
+      if (room != null) {
+        final players = room['players'] as List?;
+        if (players != null && players.isNotEmpty) {
+          // First player starts betting
+          currentTurnPlayerId = players[0]['userId'];
+          isMyTurn = (currentTurnPlayerId == user.id);
+          debugPrint('🎯 Betting starts with: ${players[0]['username']} (isMyTurn: $isMyTurn)');
+        }
+      }
+      
       hud.updateHudVisibility();
+      hud.updateTurnIndicator();
     });
 
     _gameStartingSub = socketService.onGameStarting.listen((data) {
       debugPrint('🎮 Game starting! All players are ready - moving to betting phase');
       gameState = GameState.betting;
+      allBetsPlaced = false;
+      
+      // Initialize turn state - first player's turn
+      final room = data['room'];
+      if (room != null) {
+        final players = room['players'] as List?;
+        if (players != null && players.isNotEmpty) {
+          currentTurnPlayerId = players[0]['userId'];
+          isMyTurn = (currentTurnPlayerId == user.id);
+          debugPrint('🎯 First player to bet: ${players[0]['username']} (isMyTurn: $isMyTurn)');
+        }
+      }
+      
       hud.updateHudVisibility();
+      hud.updateTurnIndicator();
       _updateHUDTexts();
     });
   }
@@ -171,6 +201,12 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     switch (type) {
       case 'bet_placed':
         _handleBetPlaced(data);
+        break;
+      case 'next_player_bet_turn': // NEW
+        _handleNextPlayerBetTurn(data);
+        break;
+      case 'all_bets_placed': // NEW
+        _handleAllBetsPlaced(data);
         break;
       case 'round_started':
         _handleRoundStarted(data);
@@ -216,10 +252,38 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
   }
 
+  // NEW: Handle next player's turn to bet
+  void _handleNextPlayerBetTurn(Map<String, dynamic> data) {
+    final userId = data['userId'];
+    final username = data['username'];
+    
+    debugPrint('➡️ Next player bet turn: $username');
+    
+    currentTurnPlayerId = userId;
+    isMyTurn = (userId == user.id);
+    
+    if (isMyTurn) {
+      debugPrint('🎯 It\'s YOUR turn to bet!');
+    }
+    
+    hud.updateHudVisibility();
+    hud.updateTurnIndicator();
+  }
+
+  // NEW: Handle all bets placed notification
+  void _handleAllBetsPlaced(Map<String, dynamic> data) {
+    debugPrint('✅ All bets placed! Host can start the round');
+    allBetsPlaced = true;
+    
+    // Enable start button for host
+    hud.updateHudVisibility();
+  }
+
   void _handleRoundStarted(Map<String, dynamic> data) {
     debugPrint('🎲 Round started!');
     
     gameState = GameState.playing;
+    allBetsPlaced = false; // Reset for next round
     final room = data['room'];
     final gameData = room['gameState']['data'];
     final players = room['players'] as List;
@@ -740,13 +804,19 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     debugPrint('🔍 startRound called');
     debugPrint('   isHost: $isHost');
     debugPrint('   currentBet: $currentBet');
+    debugPrint('   allBetsPlaced: $allBetsPlaced');
     debugPrint('   gameState: $gameState');
+    
     if (!isHost){
       debugPrint('❌ Cannot start - not host');
       return;
     }
     if (currentBet <= 0) {
-      debugPrint('❌ Cannot start - no bet placed');
+      debugPrint('❌ Cannot start - host has not placed bet');
+      return;
+    }
+    if (!allBetsPlaced) {
+      debugPrint('❌ Cannot start - not all players have placed bets');
       return;
     }
     
@@ -795,6 +865,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     gameState = GameState.betting;
     gameResult = '';
     isMyTurn = false;
+    allBetsPlaced = false;
 
     for (final card in myCards) {
       card.removeFromParent();

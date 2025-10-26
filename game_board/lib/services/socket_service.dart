@@ -223,6 +223,16 @@ class SocketService {
       _gameActionController.add({'type': 'next_player_turn', 'data': data});
     });
 
+    _socket!.on('next_player_bet_turn', (data) {
+      print('➡️ Next player bet turn: ${data['username']}');
+      _gameActionController.add({'type': 'next_player_bet_turn', 'data': data});
+    });
+
+    _socket!.on('all_bets_placed', (data) {
+      print('✅ All bets placed!');
+      _gameActionController.add({'type': 'all_bets_placed', 'data': data});
+    });
+
     _socket!.on('dealer_reveal', (data) {
       _gameActionController.add({'type': 'dealer_reveal', 'data': data});
     });
