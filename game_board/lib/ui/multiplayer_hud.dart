@@ -194,25 +194,26 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // PLAYING BUTTONS - MATCHING SINGLE PLAYER LAYOUT
+    // PLAYING BUTTONS - SAME POSITION AS BETTING BUTTONS
     // ===========================================
-    final double buttonY = game.screenHeight - (game.hudPanelHeight / 2);
-    
     _playingBtns = [
+      // Hit button in same position as Confirm
       GameButton(
-        position: Vector2(game.screenWidth * 0.35, buttonY),
+        position: Vector2(leftButtonX, startY + buttonSpacing),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
+      // Stand button in same position as Cancel
       GameButton(
-        position: Vector2(game.screenWidth * 0.55, buttonY),
+        position: Vector2(leftButtonX, startY + buttonSpacing * 2),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
+      // Double button below Stand
       GameButton(
-        position: Vector2(game.screenWidth * 0.75, buttonY),
+        position: Vector2(leftButtonX, startY + buttonSpacing * 3),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
@@ -220,26 +221,26 @@ class MultiplayerHudManager {
     ];
 
     // ===========================================
-    // GAME OVER BUTTONS - MATCHING SINGLE PLAYER LAYOUT
+    // GAME OVER BUTTONS - SAME POSITION AS BETTING BUTTONS
     // ===========================================
     _gameOverBtns = [
+      // Next Round button in same position as Confirm
       GameButton(
-        position: Vector2(game.screenWidth * 0.35, buttonY),
+        position: Vector2(leftButtonX, startY + buttonSpacing),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Next Round',
         onTap: () => game.newRound(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
+      // Leave button in same position as Cancel
       GameButton(
-        position: Vector2(game.screenWidth * 0.65, buttonY),
+        position: Vector2(leftButtonX, startY + buttonSpacing * 2),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Leave',
         onTap: () => game.leaveRoom(),
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
     ];
 
-    // Add buttons to HUD panel like single player
-    hudPanel!.addAll(_bettingBtns + _playingBtns + _gameOverBtns);
-    game.addAll(_waitingBtns);
+    // 🔧 FIX: Don't add any buttons initially - let updateHudVisibility handle it
     
     _hudPanelShown = true;
 
@@ -255,7 +256,17 @@ class MultiplayerHudManager {
     waitingStatusText?.removeFromParent();
     turnIndicatorText?.removeFromParent();
     
+    // Remove all buttons
     for (final btn in _waitingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _bettingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _playingBtns) {
+      btn.removeFromParent();
+    }
+    for (final btn in _gameOverBtns) {
       btn.removeFromParent();
     }
     
@@ -324,13 +335,24 @@ class MultiplayerHudManager {
     }
   }
 
+  // 🔧 FIX: Actually add/remove buttons from the parent instead of just hiding them
   void _showOnlyButtons(List<GameButton> needed) {
     final all = _waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns;
+    
+    // Remove all buttons first
     for (final b in all) {
-      b.hidden = true;
-      b.isEnabled = false;
+      if (b.parent != null) {
+        b.removeFromParent();
+      }
     }
+    
+    // Add only the needed buttons
     for (final b in needed) {
+      if (_waitingBtns.contains(b)) {
+        game.add(b);  // Waiting buttons go on game
+      } else {
+        hudPanel?.add(b);  // Other buttons go on hudPanel
+      }
       b.hidden = false;
       b.isEnabled = true;
     }

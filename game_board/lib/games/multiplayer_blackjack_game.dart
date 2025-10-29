@@ -677,7 +677,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
   // ADDED: Method to hide/show chip palette based on game state
   void updateChipPaletteState() {
-    final shouldShow = gameState == GameState.betting;
+    final shouldShow = gameState == GameState.betting && isMyTurn;
     
     for (final chip in paletteChips) {
       if (shouldShow) {
