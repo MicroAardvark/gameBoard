@@ -742,6 +742,12 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
   Future<void> confirmStagedToPot() async {
     if (stagedBet <= 0) return;
+    
+    // 🔧 FIX: Add turn check to prevent out-of-turn betting
+    if (!isMyTurn) {
+      debugPrint('❌ Cannot confirm bet - not your turn!');
+      return;
+    }
 
     currentBet += stagedBet;
     

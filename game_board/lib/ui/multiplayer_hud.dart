@@ -293,9 +293,8 @@ class MultiplayerHudManager {
         _bettingBtns[0].isEnabled = g.currentBet > 0 && g.isHost && g.allBetsPlaced;
         _bettingBtns[0].hidden = !g.isHost;
         
-        // Confirm button (index 1) - UPDATED: only when it's your turn OR you already confirmed
-        // This allows players who already bet to see their confirmed bet, but not place another
-        _bettingBtns[1].isEnabled = g.stagedBet > 0 && (g.isMyTurn || g.currentBet == 0);
+        // 🔧 FIX: Confirm button (index 1) - ONLY when it's your turn AND you have staged chips
+        _bettingBtns[1].isEnabled = g.stagedBet > 0 && g.isMyTurn;
   
         // Cancel button (index 2)
         _bettingBtns[2].isEnabled = g.stagedBet > 0;
