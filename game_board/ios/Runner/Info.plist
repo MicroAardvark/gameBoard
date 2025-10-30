@@ -45,5 +45,38 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- NETWORK PERMISSIONS - Required for multiplayer functionality -->
+	
+	<!-- App Transport Security Settings -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Allow insecure HTTP connections (your backend uses HTTP) -->
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<!-- Alternative: Whitelist specific domains -->
+		<!--
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>51.21.236.10</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+			</dict>
+		</dict>
+		-->
+	</dict>
+	
+	<!-- Local Network Usage Description (required for socket connections) -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Game Board needs access to the local network to enable multiplayer gaming features and connect with other players.</string>
+	
+	<!-- Bonjour Services (optional, for local network discovery) -->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_gameroom._tcp</string>
+	</array>
 </dict>
 </plist>
