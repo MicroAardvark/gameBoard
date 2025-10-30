@@ -1,9 +1,10 @@
 // ====================================
 // lib/games/multiplayer_blackjack_game.dart
-// Multiplayer Flame game with socket integration - UPDATED WITH TURN-BASED BETTING
+// Multiplayer Flame game with socket integration - UPDATED WITH TURN-BASED BETTING & RESULT POPUP
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
@@ -17,8 +18,9 @@ import '../components/chip_components.dart';
 import '../components/multiplayer_player.dart';
 import '../ui/multiplayer_hud.dart';
 import '../services/socket_service.dart';
+import '../components/result_popup_component.dart';
 
-class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
+class MultiplayerBlackjackGame extends FlameGame with TapDetector implements ChipGameInterface {
   final User user;
   final String roomId;
   final SocketService socketService;
@@ -51,6 +53,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final List<PaletteChip> paletteChips = [];
   final List<BetChip> betChips = [];
   final List<BetChip> stagedChips = [];
+
+  // Result popup tracking
+  ResultPopupComponent? _activePopup;
 
   // Adaptive sizing
   double get screenWidth => size.x;
@@ -91,7 +96,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   String currentTurnPlayerId = '';
   int playerCount = 1;
   int maxPlayers = 3;
-  bool allBetsPlaced = false; // NEW: Track if all bets are placed
+  bool allBetsPlaced = false;
 
   // Socket event subscriptions
   StreamSubscription? _gameActionSub;
@@ -135,6 +140,21 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   }
 
   // ===========================================
+  // TAP DETECTION FOR POPUP DISMISSAL
+  // ===========================================
+  
+  @override
+  void onTapDown(TapDownEvent event) {
+    super.onTapDown(event);
+    
+    // If there's an active popup, dismiss it on tap
+    if (_activePopup != null && !_activePopup!.isDismissed) {
+      _activePopup!.dismiss();
+      _activePopup = null;
+    }
+  }
+
+  // ===========================================
   // SOCKET EVENT HANDLING
   // ===========================================
 
@@ -156,7 +176,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       gameResult = '';
       isMyTurn = false;
       
-      // 🔧 NEW: Clear cards for all players
+      // Clear cards for all players
       for (final card in myCards) {
         card.removeFromParent();
       }
@@ -223,10 +243,10 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       case 'bet_placed':
         _handleBetPlaced(data);
         break;
-      case 'next_player_bet_turn': // NEW
+      case 'next_player_bet_turn':
         _handleNextPlayerBetTurn(data);
         break;
-      case 'all_bets_placed': // NEW
+      case 'all_bets_placed':
         _handleAllBetsPlaced(data);
         break;
       case 'round_started':
@@ -273,7 +293,6 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
   }
 
-  // NEW: Handle next player's turn to bet
   void _handleNextPlayerBetTurn(Map<String, dynamic> data) {
     final userId = data['userId'];
     final username = data['username'];
@@ -291,7 +310,6 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     hud.updateTurnIndicator();
   }
 
-  // NEW: Handle all bets placed notification
   void _handleAllBetsPlaced(Map<String, dynamic> data) {
     debugPrint('✅ All bets placed! Host can start the round');
     allBetsPlaced = true;
@@ -304,12 +322,11 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     debugPrint('🎲 Round started!');
     
     gameState = GameState.playing;
-    allBetsPlaced = false; // Reset for next round
+    allBetsPlaced = false;
     final room = data['room'];
     final gameData = room['gameState']['data'];
     final players = room['players'] as List;
 
-    // ADDED: Debug logging
     debugPrint('📊 Game Data keys: ${gameData.keys}');
     debugPrint('👥 Players count: ${players.length}');
 
@@ -330,31 +347,31 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
     // Deal my cards
     final myHandData = gameData['playerHands'][user.id];
-    debugPrint('🃏 My hand data: $myHandData'); // ADDED
+    debugPrint('🃏 My hand data: $myHandData');
     
     if (myHandData != null) {
       for (final cardData in myHandData) {
-        debugPrint('   Adding card: ${cardData['rank']} of ${cardData['suit']}'); // ADDED
+        debugPrint('   Adding card: ${cardData['rank']} of ${cardData['suit']}');
         _addCardToMyHand(cardData, false);
       }
-      debugPrint('✅ Added ${myCards.length} cards to my hand'); // ADDED
+      debugPrint('✅ Added ${myCards.length} cards to my hand');
     } else {
-      debugPrint('❌ No hand data found for user: ${user.id}'); // ADDED
+      debugPrint('❌ No hand data found for user: ${user.id}');
     }
 
     // Deal dealer cards
     final dealerHandData = gameData['dealerHand'];
-    debugPrint('🎴 Dealer hand data: $dealerHandData'); // ADDED
+    debugPrint('🎴 Dealer hand data: $dealerHandData');
     
     if (dealerHandData != null) {
       for (final cardData in dealerHandData) {
         final isHidden = cardData['hidden'] ?? false;
-        debugPrint('   Adding dealer card: ${cardData['rank']} of ${cardData['suit']} (hidden: $isHidden)'); // ADDED
+        debugPrint('   Adding dealer card: ${cardData['rank']} of ${cardData['suit']} (hidden: $isHidden)');
         _addCardToDealerHand(cardData, isHidden);
       }
-      debugPrint('✅ Added ${dealerCards.length} dealer cards'); // ADDED
+      debugPrint('✅ Added ${dealerCards.length} dealer cards');
     } else {
-      debugPrint('❌ No dealer hand data found'); // ADDED
+      debugPrint('❌ No dealer hand data found');
     }
 
     // Deal cards to other players (visual count only)
@@ -372,7 +389,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     if (players.isNotEmpty) {
       currentTurnPlayerId = players[0]['userId'];
       isMyTurn = (currentTurnPlayerId == user.id);
-      debugPrint('🎯 First turn: ${players[0]['username']} (isMyTurn: $isMyTurn)'); // ADDED
+      debugPrint('🎯 First turn: ${players[0]['username']} (isMyTurn: $isMyTurn)');
     }
 
     _updateCardsPositions();
@@ -380,7 +397,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     hud.updateHudVisibility();
     hud.updateTurnIndicator();
     
-    debugPrint('🎮 Round started complete. Cards rendered: ${myCards.length + dealerCards.length}'); // ADDED
+    debugPrint('🎮 Round started complete. Cards rendered: ${myCards.length + dealerCards.length}');
   }
 
   void _handleCardDealt(Map<String, dynamic> data) {
@@ -399,7 +416,6 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     _updateHUDTexts();
   }
 
-  // UPDATED: Higher priority and debug logging
   void _addCardToMyHand(Map<String, dynamic> cardData, bool hidden) {
     final card = PlayingCard(
       cardData['suit'],
@@ -413,15 +429,14 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       size: Vector2(cardWidth, cardHeight),
       card: card,
       isHidden: hidden,
-    )..priority = layerCards + 10; // CHANGED: Higher priority
+    )..priority = layerCards + 10;
     
     myCards.add(cardComp);
     add(cardComp);
     
-    debugPrint('   ✅ Card component added: ${card.rank} of ${card.suit}'); // ADDED
+    debugPrint('   ✅ Card component added: ${card.rank} of ${card.suit}');
   }
 
-  // UPDATED: Higher priority and debug logging
   void _addCardToDealerHand(Map<String, dynamic> cardData, bool hidden) {
     final card = PlayingCard(
       cardData['suit'],
@@ -435,15 +450,14 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       size: Vector2(cardWidth, cardHeight),
       card: card,
       isHidden: hidden,
-    )..priority = layerCards + 10; // CHANGED: Higher priority
+    )..priority = layerCards + 10;
     
     dealerCards.add(cardComp);
     add(cardComp);
     
-    debugPrint('   ✅ Dealer card added: ${hidden ? "HIDDEN" : "${card.rank} of ${card.suit}"}'); // ADDED
+    debugPrint('   ✅ Dealer card added: ${hidden ? "HIDDEN" : "${card.rank} of ${card.suit}"}');
   }
 
-  // UPDATED: Position players like single-player mock players
   void _createOtherPlayers(List<dynamic> players) {
     // Clear existing
     for (final player in otherPlayers.values) {
@@ -568,23 +582,55 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       
       bankroll += payout.toDouble();
       
+      String mainText;
+      String amountText;
+      bool isWin = false;
+      
       switch (outcome) {
         case 'blackjack':
+          mainText = 'BLACKJACK!';
+          amountText = '+£${payout.toStringAsFixed(0)}';
+          isWin = true;
           gameResult = 'Blackjack! +£${payout.toStringAsFixed(0)}';
           break;
         case 'win':
+          mainText = 'YOU WIN!';
+          amountText = '+£${payout.toStringAsFixed(0)}';
+          isWin = true;
           gameResult = 'You win! +£${payout.toStringAsFixed(0)}';
           break;
         case 'loss':
+          mainText = 'DEALER WINS';
+          amountText = '-£${currentBet.toStringAsFixed(0)}';
+          isWin = false;
           gameResult = 'Dealer wins';
           break;
         case 'push':
+          mainText = 'PUSH';
+          amountText = '£0';
+          isWin = false;
           gameResult = 'Push';
           break;
         default:
+          mainText = outcome.toUpperCase();
+          amountText = payout > 0 ? '+£${payout.toStringAsFixed(0)}' : '£0';
+          isWin = payout > 0;
           gameResult = outcome;
       }
       
+      // Show the centered popup and track it
+      _activePopup = ResultPopupComponent(
+        mainText: mainText,
+        amountText: amountText,
+        isWin: isWin,
+        onDismiss: () {
+          debugPrint('📱 Popup dismissed');
+          _activePopup = null;
+        },
+      );
+      add(_activePopup!);
+      
+      // Also update the regular HUD text for consistency
       hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
       
       _syncBankrollToDatabase();
@@ -696,7 +742,6 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
   }
 
-  // ADDED: Method to hide/show chip palette based on game state
   void updateChipPaletteState() {
     // Only show chips if: betting phase, your turn, AND you haven't placed a bet yet
     final shouldShow = gameState == GameState.betting && isMyTurn && currentBet == 0;
@@ -771,7 +816,6 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   Future<void> confirmStagedToPot() async {
     if (stagedBet <= 0) return;
     
-    // 🔧 FIX: Add turn check to prevent out-of-turn betting
     if (!isMyTurn) {
       debugPrint('❌ Cannot confirm bet - not your turn!');
       return;
