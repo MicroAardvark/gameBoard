@@ -3,10 +3,11 @@
 // Centered pop-up for displaying round results
 // ====================================
 import 'package:flame/components.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
-class ResultPopupComponent extends PositionComponent {
+class ResultPopupComponent extends PositionComponent with TapCallbacks {
   final String mainText;
   final String amountText;
   final bool isWin;
@@ -14,7 +15,6 @@ class ResultPopupComponent extends PositionComponent {
   
   double _opacity = 0.0;
   double _scale = 0.5;
-  late Vector2 _centerPos;
   late Vector2 _screenSize;
   bool isDismissed = false;
   
@@ -37,14 +37,10 @@ class ResultPopupComponent extends PositionComponent {
       _screenSize = Vector2(800, 600); // Fallback
     }
     
-    // Center of the screen
-    _centerPos = Vector2(
-      _screenSize.x / 2,
-      _screenSize.y / 2,
-    );
-    
-    position = _centerPos;
-    anchor = Anchor.center;
+    // Position at origin with size covering full screen
+    position = Vector2.zero();
+    size = _screenSize;
+    anchor = Anchor.topLeft;
     
     // Auto-dismiss after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
@@ -57,6 +53,14 @@ class ResultPopupComponent extends PositionComponent {
   void dismiss() {
     if (isDismissed) return;
     isDismissed = true;
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    // Dismiss popup when tapped
+    if (!isDismissed) {
+      dismiss();
+    }
   }
 
   @override
@@ -84,27 +88,27 @@ class ResultPopupComponent extends PositionComponent {
     
     final paint = Paint();
     
-    // Draw semi-transparent overlay
+    // Draw semi-transparent overlay covering entire screen
     paint.color = Colors.black.withValues(alpha: 0.7 * _opacity);
     canvas.drawRect(
-      Rect.fromLTWH(
-        -_screenSize.x / 2,
-        -_screenSize.y / 2,
-        _screenSize.x,
-        _screenSize.y,
-      ),
+      Rect.fromLTWH(0, 0, _screenSize.x, _screenSize.y),
       paint,
     );
     
-    // Apply scale transform
+    // Calculate center of screen
+    final centerX = _screenSize.x / 2;
+    final centerY = _screenSize.y / 2;
+    
+    // Apply scale transform at center
     canvas.save();
+    canvas.translate(centerX, centerY);
     canvas.scale(_scale);
     
     // Calculate dimensions
     final boxWidth = _screenSize.x * 0.6;
     final boxHeight = _screenSize.y * 0.3;
     
-    // Draw background box with rounded corners
+    // Draw background box with rounded corners (centered at 0,0 after transform)
     final rect = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: Offset.zero,
@@ -232,7 +236,7 @@ class ResultPopupComponent extends PositionComponent {
 
   @override
   bool containsLocalPoint(Vector2 point) {
-    // Make entire screen tappable to dismiss
+    // Popup covers entire screen, so all points are within bounds when not dismissed
     return !isDismissed;
   }
 }

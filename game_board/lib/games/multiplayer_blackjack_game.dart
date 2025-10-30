@@ -4,7 +4,6 @@
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
-import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
@@ -20,7 +19,7 @@ import '../ui/multiplayer_hud.dart';
 import '../services/socket_service.dart';
 import '../components/result_popup_component.dart';
 
-class MultiplayerBlackjackGame extends FlameGame with TapDetector implements ChipGameInterface {
+class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
   final String roomId;
   final SocketService socketService;
@@ -53,9 +52,6 @@ class MultiplayerBlackjackGame extends FlameGame with TapDetector implements Chi
   final List<PaletteChip> paletteChips = [];
   final List<BetChip> betChips = [];
   final List<BetChip> stagedChips = [];
-
-  // Result popup tracking
-  ResultPopupComponent? _activePopup;
 
   // Adaptive sizing
   double get screenWidth => size.x;
@@ -137,21 +133,6 @@ class MultiplayerBlackjackGame extends FlameGame with TapDetector implements Chi
     _newRoundSub?.cancel();
     _gameStartingSub?.cancel();
     super.onRemove();
-  }
-
-  // ===========================================
-  // TAP DETECTION FOR POPUP DISMISSAL
-  // ===========================================
-  
-  @override
-  void onTapDown(TapDownInfo info) {
-    super.onTapDown(info);
-    
-    // If there's an active popup, dismiss it on tap
-    if (_activePopup != null && !_activePopup!.isDismissed) {
-      _activePopup!.dismiss();
-      _activePopup = null;
-    }
   }
 
   // ===========================================
@@ -618,17 +599,16 @@ class MultiplayerBlackjackGame extends FlameGame with TapDetector implements Chi
           gameResult = outcome;
       }
       
-      // Show the centered popup and track it
-      _activePopup = ResultPopupComponent(
+      // Show the centered popup
+      final popup = ResultPopupComponent(
         mainText: mainText,
         amountText: amountText,
         isWin: isWin,
         onDismiss: () {
           debugPrint('📱 Popup dismissed');
-          _activePopup = null;
         },
       );
-      add(_activePopup!);
+      add(popup);
       
       // Also update the regular HUD text for consistency
       hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
