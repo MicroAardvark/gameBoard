@@ -153,6 +153,26 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       debugPrint('🔄 New round starting - all players ready!');
       gameState = GameState.betting;
       allBetsPlaced = false;
+      gameResult = '';
+      isMyTurn = false;
+      
+      // 🔧 NEW: Clear cards for all players
+      for (final card in myCards) {
+        card.removeFromParent();
+      }
+      for (final card in dealerCards) {
+        card.removeFromParent();
+      }
+      myCards.clear();
+      dealerCards.clear();
+      myHand.clear();
+      dealerHand.clear();
+      
+      // Clear other players' cards
+      for (final player in otherPlayers.values) {
+        player.clearCards();
+        player.setStatus('Waiting');
+      }
       
       // Reset turn state for new betting round
       final room = data['room'];
@@ -166,6 +186,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
         }
       }
       
+      _updateHUDTexts();
       hud.updateHudVisibility();
       hud.updateTurnIndicator();
     });
@@ -677,13 +698,20 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
   // ADDED: Method to hide/show chip palette based on game state
   void updateChipPaletteState() {
-    final shouldShow = gameState == GameState.betting && isMyTurn;
+    // Only show chips if: betting phase, your turn, AND you haven't placed a bet yet
+    final shouldShow = gameState == GameState.betting && isMyTurn && currentBet == 0;
     
     for (final chip in paletteChips) {
       if (shouldShow) {
-        chip.priority = layerChips;
+        // Add chip back if it's not already in the tree
+        if (!chip.isMounted) {
+          add(chip);
+        }
       } else {
-        chip.priority = -100; // Hide behind everything
+        // Remove chip from tree
+        if (chip.isMounted) {
+          chip.removeFromParent();
+        }
       }
     }
   }

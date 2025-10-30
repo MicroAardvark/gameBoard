@@ -332,6 +332,15 @@ class MultiplayerHudManager {
     else if (g.gameState == GameState.gameOver) {
       _showOnlyButtons(_gameOverBtns);
       turnIndicatorText?.removeFromParent();
+      
+      // 🔧 NEW: Hide/show buttons based on host status
+      if (_gameOverBtns.length >= 2) {
+        // Next Round button (index 0) - only for host
+        _gameOverBtns[0].hidden = !g.isHost;
+        
+        // Leave button (index 1) - always visible
+        _gameOverBtns[1].hidden = false;
+      }
     }
   }
 
