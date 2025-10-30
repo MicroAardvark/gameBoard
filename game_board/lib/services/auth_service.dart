@@ -63,7 +63,7 @@ class AuthService {
     }
   }
 
-  // Verify Token (Auto-login)
+  // Verify Token (Auto-login) - FIXED VERSION
   static Future<Map<String, dynamic>> verifyToken() async {
     try {
       final token = await getToken();
@@ -71,14 +71,18 @@ class AuthService {
         return {'success': false, 'error': 'No token found'};
       }
 
-      final response = await http.post(
+      // FIXED: Changed to GET request with Authorization header
+      final response = await http.get(
         Uri.parse('$baseUrl/verify'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'token': token}),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',  // Token in Authorization header
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        // Backend returns {valid: true, user: {...}}
         return {'success': true, 'user': data['user']};
       } else {
         await clearToken();
@@ -89,7 +93,7 @@ class AuthService {
     }
   }
 
-  // Update Stats
+  // Update Stats - ALSO FIXED to use Authorization header
   static Future<bool> updateStats({
     required double bankroll,
     required int playerWins,
@@ -100,10 +104,12 @@ class AuthService {
       if (token == null) return false;
 
       final response = await http.put(
-        Uri.parse('$baseUrl/update-stats'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('http://51.21.236.10:3000/api/game/update-stats'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',  // Use Authorization header
+        },
         body: jsonEncode({
-          'token': token,
           'bankroll': bankroll,
           'playerWins': playerWins,
           'dealerWins': dealerWins,
@@ -112,7 +118,6 @@ class AuthService {
 
       return response.statusCode == 200;
     } catch (e) {
-      // ignore: avoid_print
       print('Update stats error: $e');
       return false;
     }
