@@ -144,8 +144,8 @@ class MultiplayerBlackjackGame extends FlameGame with TapDetector implements Chi
   // ===========================================
   
   @override
-  void onTapDown(TapDownEvent event) {
-    super.onTapDown(event);
+  void onTapDown(TapDownInfo info) {
+    super.onTapDown(info);
     
     // If there's an active popup, dismiss it on tap
     if (_activePopup != null && !_activePopup!.isDismissed) {

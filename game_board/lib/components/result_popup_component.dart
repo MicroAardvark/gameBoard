@@ -15,6 +15,7 @@ class ResultPopupComponent extends PositionComponent {
   double _opacity = 0.0;
   double _scale = 0.5;
   late Vector2 _centerPos;
+  late Vector2 _screenSize;
   bool isDismissed = false;
   
   ResultPopupComponent({
@@ -28,17 +29,22 @@ class ResultPopupComponent extends PositionComponent {
   Future<void> onLoad() async {
     await super.onLoad();
     
+    // Get screen size from game
+    final game = findGame();
+    if (game != null) {
+      _screenSize = game.size.clone();
+    } else {
+      _screenSize = Vector2(800, 600); // Fallback
+    }
+    
     // Center of the screen
     _centerPos = Vector2(
-      parent!.size.x / 2,
-      parent!.size.y / 2,
+      _screenSize.x / 2,
+      _screenSize.y / 2,
     );
     
     position = _centerPos;
     anchor = Anchor.center;
-    
-    // Animate in
-    _animateIn();
     
     // Auto-dismiss after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
@@ -48,48 +54,9 @@ class ResultPopupComponent extends PositionComponent {
     });
   }
 
-  void _animateIn() {
-    final startTime = DateTime.now().millisecondsSinceEpoch;
-    const duration = 300; // milliseconds
-    
-    void animate(double dt) {
-      final elapsed = DateTime.now().millisecondsSinceEpoch - startTime;
-      final progress = (elapsed / duration).clamp(0.0, 1.0);
-      
-      // Ease out cubic
-      final eased = 1 - (1 - progress) * (1 - progress) * (1 - progress);
-      
-      _opacity = eased;
-      _scale = 0.5 + (eased * 0.5); // Scale from 0.5 to 1.0
-      
-      if (progress >= 1.0) {
-        // Animation complete
-        return;
-      }
-    }
-    
-    // Simple animation using update loop
-  }
-
   void dismiss() {
     if (isDismissed) return;
     isDismissed = true;
-    
-    final startTime = DateTime.now().millisecondsSinceEpoch;
-    const duration = 200;
-    
-    void animateOut(double dt) {
-      final elapsed = DateTime.now().millisecondsSinceEpoch - startTime;
-      final progress = (elapsed / duration).clamp(0.0, 1.0);
-      
-      _opacity = 1.0 - progress;
-      _scale = 1.0 - (progress * 0.2);
-      
-      if (progress >= 1.0) {
-        removeFromParent();
-        onDismiss?.call();
-      }
-    }
   }
 
   @override
@@ -121,10 +88,10 @@ class ResultPopupComponent extends PositionComponent {
     paint.color = Colors.black.withValues(alpha: 0.7 * _opacity);
     canvas.drawRect(
       Rect.fromLTWH(
-        -parent!.size.x / 2,
-        -parent!.size.y / 2,
-        parent!.size.x,
-        parent!.size.y,
+        -_screenSize.x / 2,
+        -_screenSize.y / 2,
+        _screenSize.x,
+        _screenSize.y,
       ),
       paint,
     );
@@ -134,8 +101,8 @@ class ResultPopupComponent extends PositionComponent {
     canvas.scale(_scale);
     
     // Calculate dimensions
-    final boxWidth = parent!.size.x * 0.6;
-    final boxHeight = parent!.size.y * 0.3;
+    final boxWidth = _screenSize.x * 0.6;
+    final boxHeight = _screenSize.y * 0.3;
     
     // Draw background box with rounded corners
     final rect = RRect.fromRectAndRadius(
@@ -251,7 +218,7 @@ class ResultPopupComponent extends PositionComponent {
     );
     
     final hintPainter = TextPainter(
-      text: const TextSpan(text: 'Tap to continue', style: hintStyle),
+      text: TextSpan(text: 'Tap to continue', style: hintStyle),
       textDirection: TextDirection.ltr,
     )..layout();
     
