@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'blackjack_screen.dart';
 import 'multiplayer_lobby_screen.dart';
+import 'chat_test_screen.dart'; // ADD THIS IMPORT
 import '../models/user.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -207,6 +208,62 @@ class HomeScreen extends StatelessWidget {
                           height: buttonHeight,
                           isMultiplayer: true,
                         ),
+                        
+                        // ==========================================
+                        // TEMPORARY: CHAT TEST BUTTON (REMOVE AFTER TESTING)
+                        // ==========================================
+                        SizedBox(height: spacing * 2),
+                        
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.red,
+                              width: 2,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bug_report, color: Colors.red, size: 24),
+                              SizedBox(width: 8),
+                              Text(
+                                'DEBUG / TESTING',
+                                style: TextStyle(
+                                  fontSize: (titleSize * 0.4).clamp(14.0, 20.0),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: spacing),
+                        
+                        _GameButton(
+                          title: '🧪 Chat Test',
+                          icon: Icons.chat_bubble,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatTestScreen(user: user),
+                              ),
+                            );
+                          },
+                          enabled: true,
+                          width: buttonWidth,
+                          height: buttonHeight,
+                          isDebug: true,
+                        ),
+                        // ==========================================
+                        // END TEMPORARY SECTION
+                        // ==========================================
                       ],
                     ),
                   ),
@@ -247,6 +304,7 @@ class _GameButton extends StatelessWidget {
   final double width;
   final double height;
   final bool isMultiplayer;
+  final bool isDebug; // ADD THIS
 
   const _GameButton({
     required this.title,
@@ -256,6 +314,7 @@ class _GameButton extends StatelessWidget {
     required this.width,
     required this.height,
     this.isMultiplayer = false,
+    this.isDebug = false, // ADD THIS
   });
 
   @override
@@ -270,7 +329,9 @@ class _GameButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled 
-              ? (isMultiplayer ? const Color(0xFF1976D2) : const Color(0xFF2F5233))
+              ? (isDebug 
+                  ? Colors.orange.shade700  // ADD THIS
+                  : (isMultiplayer ? const Color(0xFF1976D2) : const Color(0xFF2F5233)))
               : Colors.grey.shade700,
           disabledBackgroundColor: Colors.grey.shade700,
           shape: RoundedRectangleBorder(
