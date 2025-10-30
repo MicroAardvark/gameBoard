@@ -1,6 +1,6 @@
 // ====================================
 // lib/services/socket_service.dart
-// Universal multiplayer socket service for all games - COMPLETE
+// Universal multiplayer socket service for all games + CHAT
 // ====================================
 // ignore_for_file: avoid_print
 
@@ -32,6 +32,10 @@ class SocketService {
   final _insuranceOfferedController = StreamController<Map<String, dynamic>>.broadcast();
   final _newRoundStartingController = StreamController<Map<String, dynamic>>.broadcast();
   
+  // NEW: Chat-specific stream controllers
+  final _chatHistoryController = StreamController<Map<String, dynamic>>.broadcast();
+  final _userTypingController = StreamController<Map<String, dynamic>>.broadcast();
+  
   // Getters for streams
   Stream<Map<String, dynamic>> get onRoomCreated => _roomCreatedController.stream;
   Stream<Map<String, dynamic>> get onPlayerJoined => _playerJoinedController.stream;
@@ -44,6 +48,10 @@ class SocketService {
   Stream<Map<String, dynamic>> get onChatMessage => _chatMessageController.stream;
   Stream<Map<String, dynamic>> get onInsuranceOffered => _insuranceOfferedController.stream;
   Stream<Map<String, dynamic>> get onNewRoundStarting => _newRoundStartingController.stream;
+  
+  // NEW: Chat stream getters
+  Stream<Map<String, dynamic>> get onChatHistory => _chatHistoryController.stream;
+  Stream<Map<String, dynamic>> get onUserTyping => _userTypingController.stream;
 
   // Connection state
   bool get isConnected => _socket?.connected ?? false;
@@ -255,6 +263,18 @@ class SocketService {
     _socket!.on('chat_message', (data) {
       print('💬 ${data['username']}: ${data['message']}');
       _chatMessageController.add(data);
+    });
+
+    // NEW: Chat history event
+    _socket!.on('chat_history', (data) {
+      print('📜 Received ${data['messages'].length} chat messages');
+      _chatHistoryController.add(data);
+    });
+
+    // NEW: Typing indicator event
+    _socket!.on('user_typing', (data) {
+      print('⌨️ ${data['username']} is ${data['isTyping'] ? "typing" : "stopped typing"}');
+      _userTypingController.add(data);
     });
 
     // Error handling
@@ -478,20 +498,79 @@ class SocketService {
   }
 
   // ===========================================
-  // CHAT
+  // CHAT METHODS (ENHANCED)
   // ===========================================
   
+  /// Send a chat message to the room
   void sendMessage({
     required String roomId,
     required String userId,
     required String message,
   }) {
-    if (!isConnected || message.trim().isEmpty) return;
+    if (!isConnected || message.trim().isEmpty) {
+      print('❌ Cannot send message: ${!isConnected ? "Not connected" : "Empty message"}');
+      return;
+    }
+
+    final trimmedMessage = message.trim();
+    if (trimmedMessage.length > 500) {
+      print('⚠️ Message too long, truncating to 500 chars');
+    }
+
+    print('📤 Sending message: $trimmedMessage');
 
     _socket!.emit('send_message', {
       'roomId': roomId,
       'userId': userId,
-      'message': message.trim(),
+      'message': trimmedMessage.substring(0, trimmedMessage.length > 500 ? 500 : trimmedMessage.length),
+    });
+  }
+
+  /// Request chat history for a room
+  void getChatHistory({
+    required String roomId,
+    int limit = 50,
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected to server');
+      return;
+    }
+
+    print('📜 Requesting chat history for room: $roomId');
+
+    _socket!.emit('get_chat_history', {
+      'roomId': roomId,
+      'limit': limit,
+    });
+  }
+
+  /// Send typing indicator (user started typing)
+  void sendTypingStart({
+    required String roomId,
+    required String userId,
+    required String username,
+  }) {
+    if (!isConnected) return;
+
+    _socket!.emit('typing_start', {
+      'roomId': roomId,
+      'userId': userId,
+      'username': username,
+    });
+  }
+
+  /// Send typing indicator (user stopped typing)
+  void sendTypingStop({
+    required String roomId,
+    required String userId,
+    required String username,
+  }) {
+    if (!isConnected) return;
+
+    _socket!.emit('typing_stop', {
+      'roomId': roomId,
+      'userId': userId,
+      'username': username,
     });
   }
 
@@ -533,5 +612,8 @@ class SocketService {
     _chatMessageController.close();
     _insuranceOfferedController.close();
     _newRoundStartingController.close();
+    // NEW: Close chat-specific controllers
+    _chatHistoryController.close();
+    _userTypingController.close();
   }
 }
