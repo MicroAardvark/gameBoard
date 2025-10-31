@@ -1,6 +1,6 @@
 // ====================================
 // lib/screens/multiplayer_blackjack_game_screen.dart
-// Multiplayer blackjack game screen - COMPLETE with ALL features + CONNECTION FIX
+// Multiplayer blackjack game screen - COMPLETE with ALL features + CHAT
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import 'dart:async';
 import '../games/multiplayer_blackjack_game.dart';
 import '../models/user.dart';
 import '../services/socket_service.dart';
+import '../widgets/chat_overlay.dart'; // NEW: Chat import
 
 class MultiplayerBlackjackGameScreen extends StatefulWidget {
   final User user;
@@ -37,35 +38,37 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   StreamSubscription? _errorSub;
   StreamSubscription? _connectionSub;
   StreamSubscription? _insuranceOfferedSub;
+  StreamSubscription? _chatMessageSub; // NEW: Chat subscription
 
   // UI State
   bool _isConnected = false;
   String _statusMessage = 'Connecting...';
   List<Map<String, dynamic>> _players = [];
   
-  // 🔧 FIX: Connection dialog control flags
+  // Connection dialog control flags
   bool _hasShownConnectionDialog = false;
   bool _initialConnectionCheck = true;
+  
+  // NEW: Chat state
+  bool _showChat = false;
+  int _unreadMessages = 0;
 
   @override
   void initState() {
     super.initState();
     
-    // 🔧 FIX: Add logging
     print('🎮 [GAME SCREEN] Initializing...');
     print('   Room ID: ${widget.roomId}');
     print('   Is Host: ${widget.isHost}');
     print('   Socket connected: ${_socketService.isConnected}');
     print('   Current room ID: ${_socketService.currentRoomId}');
     
-    // 🔧 FIX: Set initial connection state
     _isConnected = _socketService.isConnected;
     _statusMessage = _isConnected ? 'Connected' : 'Connecting...';
     
     _initializeGame();
     _setupSocketListeners();
     
-    // 🔧 FIX: Grace period before showing connection lost
     Future.delayed(Duration(milliseconds: 500), () {
       if (mounted) {
         setState(() {
@@ -93,10 +96,8 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           _statusMessage = connected ? 'Connected' : 'Disconnected';
         });
         
-        // 🔧 FIX: Only show dialog after grace period
         if (!connected && !_initialConnectionCheck && !_hasShownConnectionDialog) {
           _hasShownConnectionDialog = true;
-          // Connection lost overlay will show automatically via build method
         } else if (connected) {
           _hasShownConnectionDialog = false;
         }
@@ -114,7 +115,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           _statusMessage = '${data['player']['username']} joined';
         });
 
-        // Add player to game
         final player = data['player'];
         final playerId = player['userId'];
         if (playerId != widget.user.id) {
@@ -143,12 +143,10 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             _statusMessage = '${data['username']} left';
           });
 
-          // Remove player from game
           _game.removeOtherPlayer(data['userId']);
           _game.playerCount = players.length;
           _game.hud.updateRoomInfo(widget.roomId, players.length, _game.maxPlayers);
         } else {
-          // Room was deleted, go back
           _showMessage('Room was closed');
           _leaveRoom();
         }
@@ -162,7 +160,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           _statusMessage = '${data['username']} is ready';
         });
 
-        // Update player ready status in game
         final playerId = data['userId'];
         if (_game.otherPlayers.containsKey(playerId)) {
           _game.otherPlayers[playerId]!.setReady(true);
@@ -192,6 +189,15 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     _errorSub = _socketService.onError.listen((error) {
       if (mounted) {
         _showError(error);
+      }
+    });
+    
+    // NEW: Chat messages (for unread badge)
+    _chatMessageSub = _socketService.onChatMessage.listen((data) {
+      if (!_showChat && mounted) {
+        setState(() {
+          _unreadMessages++;
+        });
       }
     });
   }
@@ -301,7 +307,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   }
 
   void _leaveRoom() {
-    // 🔧 FIX: Add logging
     print('🚪 [GAME SCREEN] Leaving room: ${widget.roomId}');
     print('   Stack trace:');
     print(StackTrace.current);
@@ -318,7 +323,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
 
   @override
   void dispose() {
-    // 🔧 FIX: Add logging
     print('🧹 [GAME SCREEN] Disposing - Room: ${widget.roomId}');
     
     _playerJoinedSub?.cancel();
@@ -328,6 +332,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     _errorSub?.cancel();
     _connectionSub?.cancel();
     _insuranceOfferedSub?.cancel();
+    _chatMessageSub?.cancel(); // NEW: Cancel chat subscription
     super.dispose();
   }
 
@@ -352,7 +357,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             // Game widget
             GameWidget(game: _game),
 
-            // Top bar with back button and status
+            // NEW: Top bar with back button, status, and CHAT BUTTON
             Positioned(
               top: 0,
               left: 0,
@@ -469,13 +474,70 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           ],
                         ),
                       ),
+                      
+                      SizedBox(width: 12),
+                      
+                      // NEW: Chat button with unread badge
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.chat_bubble,
+                              color: Colors.white,
+                              size: buttonSize * 0.6,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _showChat = true;
+                                _unreadMessages = 0;
+                              });
+                            },
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black.withValues(alpha: 0.5),
+                              padding: EdgeInsets.all(buttonSize * 0.25),
+                            ),
+                            tooltip: 'Open Chat',
+                          ),
+                          // Unread badge
+                          if (_unreadMessages > 0)
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  _unreadMessages > 9 ? '9+' : '$_unreadMessages',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-            // 🔧 FIX: Only show connection lost overlay after grace period
+            // Connection lost overlay
             if (!_isConnected && !_initialConnectionCheck)
               Positioned.fill(
                 child: Container(
@@ -527,6 +589,20 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                     ),
                   ),
                 ),
+              ),
+            
+            // NEW: Chat overlay (shown when chat button is pressed)
+            if (_showChat)
+              ChatOverlay(
+                roomId: widget.roomId,
+                userId: widget.user.id,
+                username: widget.user.username,
+                socketService: _socketService,
+                onClose: () {
+                  setState(() {
+                    _showChat = false;
+                  });
+                },
               ),
           ],
         ),
