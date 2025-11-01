@@ -3,13 +3,15 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/events.dart';
+import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../models/uno_card.dart';
 import '../models/user.dart';
 import '../components/uno_card_component.dart';
 
-class UnoGame extends FlameGame with TapDetector {
+// FIXED: Removed TapDetector mixin - it was blocking component-level tap events!
+class UnoGame extends FlameGame {
   final User user;
   
   UnoGame({required this.user});
@@ -23,22 +25,23 @@ class UnoGame extends FlameGame with TapDetector {
   // Game state
   late UnoDeck deck;
   final List<UnoCard> discardPile = [];
-  UnoColor? currentWildColor; // For when a wild card is played
+  UnoColor? currentWildColor;
   
   // Player hands
   final List<UnoCard> playerHand = [];
-  final List<List<UnoCard>> aiHands = [[], [], []]; // 3 AI opponents
+  final List<List<UnoCard>> aiHands = [[], [], []];
   
   // Card components
   final List<UnoCardComponent> playerCardComponents = [];
   UnoCardComponent? discardTopComponent;
+  DrawPileComponent? drawPileComponent;
   final List<int> aiCardCounts = [0, 0, 0];
   
   // Game flow
-  int currentPlayerIndex = 0; // 0 = human player, 1-3 = AI
+  int currentPlayerIndex = 0;
   bool clockwise = true;
   bool needsToDrawCard = false;
-  int drawCount = 0; // For +2 and +4 stacking
+  int drawCount = 0;
   
   // UI state
   UnoCardComponent? selectedCard;
@@ -53,31 +56,21 @@ class UnoGame extends FlameGame with TapDetector {
   double get cardHeight => screenHeight * 0.28 * uiScale;
   double get cardWidth => cardHeight * 0.68;
 
-  // UI text
   String statusMessage = 'Your turn! Play a card or draw.';
-
-  // ============================================
-  // INITIALIZATION
-  // ============================================
 
   @override
   Future<void> onLoad() async {
     super.onLoad();
     
-    // Initialize deck and deal cards
     deck = UnoDeck();
     _dealInitialCards();
-    
-    // Place first card on discard pile (can't be action card)
     _placeFirstDiscardCard();
-    
     await _renderCards();
     
     debugPrint('UNO Game loaded!');
   }
 
   void _dealInitialCards() {
-    // Deal 7 cards to each player
     for (var i = 0; i < 7; i++) {
       playerHand.add(deck.drawCard());
       for (var j = 0; j < 3; j++) {
@@ -85,17 +78,14 @@ class UnoGame extends FlameGame with TapDetector {
       }
     }
     
-    // Sort player hand
     _sortPlayerHand();
     
-    // Update AI card counts
     for (var i = 0; i < 3; i++) {
       aiCardCounts[i] = aiHands[i].length;
     }
   }
 
   void _placeFirstDiscardCard() {
-    // Draw until we get a number card (not action or wild)
     UnoCard firstCard;
     do {
       firstCard = deck.drawCard();
@@ -106,17 +96,12 @@ class UnoGame extends FlameGame with TapDetector {
 
   void _sortPlayerHand() {
     playerHand.sort((a, b) {
-      // Sort by color first, then by value
       if (a.color.index != b.color.index) {
         return a.color.index.compareTo(b.color.index);
       }
       return a.value.index.compareTo(b.value.index);
     });
   }
-
-  // ============================================
-  // RENDERING
-  // ============================================
 
   Future<void> _renderCards() async {
     // Clear existing card components
@@ -125,18 +110,17 @@ class UnoGame extends FlameGame with TapDetector {
     }
     playerCardComponents.clear();
     
-    // Remove discard top component if it exists
-    if (discardTopComponent != null) {
-      discardTopComponent!.removeFromParent();
-      discardTopComponent = null;
-    }
+    discardTopComponent?.removeFromParent();
+    discardTopComponent = null;
+    
+    drawPileComponent?.removeFromParent();
+    drawPileComponent = null;
 
-    // Render player hand - FIXED positioning for center-anchored cards
-    final handSpacing = cardWidth * 0.8;  // Slight overlap
+    // Render player hand
+    final handSpacing = cardWidth * 0.8;
     final totalWidth = (playerHand.length - 1) * handSpacing + cardWidth;
     final startX = (screenWidth - totalWidth) / 2 + cardWidth / 2;
-    // Position cards near bottom with proper padding (center anchor)
-    final bottomPadding = 30.0;  // Space from bottom edge
+    final bottomPadding = 30.0;
     final cardY = screenHeight - (cardHeight / 2) - bottomPadding;
 
     debugPrint('🎴 Rendering ${playerHand.length} player cards at y=$cardY');
@@ -154,7 +138,7 @@ class UnoGame extends FlameGame with TapDetector {
             _handleCardTap(index);
           }
         },
-      )..priority = layerCards + 10 + i;  // Higher priority to ensure visibility
+      )..priority = layerCards + 10 + i;
 
       playerCardComponents.add(cardComp);
       add(cardComp);
@@ -162,7 +146,7 @@ class UnoGame extends FlameGame with TapDetector {
       debugPrint('  Card ${i + 1}: ${playerHand[i].displayText} at x=$cardX, y=$cardY');
     }
 
-    // Render discard pile (top card)
+    // Render discard pile (top card) with tap handler
     if (discardPile.isNotEmpty) {
       final topCard = discardPile.last;
       final discardX = screenWidth / 2 + cardWidth * 0.7;
@@ -172,12 +156,26 @@ class UnoGame extends FlameGame with TapDetector {
         position: Vector2(discardX, discardY),
         size: Vector2(cardWidth, cardHeight),
         card: topCard,
+        onTap: (_) => _handleDiscardPileTap(),
       )..priority = layerCards;
       
       add(discardTopComponent!);
       
       debugPrint('🃏 Discard pile: ${topCard.displayText}');
     }
+
+    // Render draw pile as tappable component
+    final deckX = screenWidth / 2 - cardWidth * 0.7;
+    final deckY = screenHeight / 2;
+    
+    drawPileComponent = DrawPileComponent(
+      position: Vector2(deckX, deckY),
+      size: Vector2(cardWidth, cardHeight),
+      remainingCards: deck.remainingCards,
+      onTap: () => _handleDrawCard(),
+    )..priority = layerCards;
+    
+    add(drawPileComponent!);
 
     // Update AI card counts
     for (var i = 0; i < 3; i++) {
@@ -189,19 +187,14 @@ class UnoGame extends FlameGame with TapDetector {
 
   @override
   void render(Canvas canvas) {
-    // Draw background FIRST
     final bgPaint = Paint()..color = const Color(0xFF1B5E20);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
     
-    // Draw game elements on top of background
     _drawGameInfo(canvas);
     _drawAIPlayers(canvas);
-    _drawDrawPile(canvas);
     
-    // THEN render all components (cards)
     super.render(canvas);
     
-    // Draw overlays last
     if (showColorPicker) {
       _drawColorPicker(canvas);
     }
@@ -212,7 +205,6 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   void _drawGameInfo(Canvas canvas) {
-    // Draw current status message
     final textStyle = TextStyle(
       color: Colors.white,
       fontSize: 20 * uiScale,
@@ -220,7 +212,7 @@ class UnoGame extends FlameGame with TapDetector {
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withValues(alpha: 0.5),
+          color: Colors.black.withOpacity(0.5),
           offset: const Offset(2, 2),
         ),
       ],
@@ -240,7 +232,6 @@ class UnoGame extends FlameGame with TapDetector {
       ),
     );
 
-    // Draw direction indicator
     final directionText = clockwise ? '→ Clockwise' : '← Counter-Clockwise';
     final dirStyle = TextStyle(
       color: Colors.amber,
@@ -258,7 +249,6 @@ class UnoGame extends FlameGame with TapDetector {
       Offset(screenWidth * 0.72, screenHeight * 0.05),
     );
 
-    // Show current wild color if applicable
     if (currentWildColor != null && !discardPile.last.isWild) {
       currentWildColor = null;
     }
@@ -305,11 +295,10 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   void _drawAIPlayers(Canvas canvas) {
-    // AI opponents positioned around the table
     final positions = [
-      Offset(screenWidth * 0.1, screenHeight * 0.3),  // Left
-      Offset(screenWidth * 0.5, screenHeight * 0.1),  // Top
-      Offset(screenWidth * 0.9, screenHeight * 0.3),  // Right
+      Offset(screenWidth * 0.1, screenHeight * 0.3),
+      Offset(screenWidth * 0.5, screenHeight * 0.1),
+      Offset(screenWidth * 0.9, screenHeight * 0.3),
     ];
 
     for (var i = 0; i < 3; i++) {
@@ -319,7 +308,6 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   void _drawAIPlayer(Canvas canvas, Offset position, int aiIndex, bool isActive) {
-    // Draw name and card count
     final name = 'Player ${aiIndex + 2}';
     final cardCount = '${aiCardCounts[aiIndex]} card${aiCardCounts[aiIndex] != 1 ? 's' : ''}';
     
@@ -330,7 +318,7 @@ class UnoGame extends FlameGame with TapDetector {
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withValues(alpha: 0.7),
+          color: Colors.black.withOpacity(0.7),
           offset: const Offset(1, 1),
         ),
       ],
@@ -347,7 +335,6 @@ class UnoGame extends FlameGame with TapDetector {
       Offset(position.dx - namePainter.width / 2, position.dy),
     );
 
-    // Draw card backs
     final cardBackSize = Size(cardWidth * 0.6, cardHeight * 0.6);
     final displayCards = min(aiCardCounts[aiIndex], 5);
     
@@ -363,7 +350,6 @@ class UnoGame extends FlameGame with TapDetector {
       final backPaint = Paint()..color = Colors.black;
       canvas.drawRRect(rrect, backPaint);
       
-      // UNO text on back
       final textStyle = TextStyle(
         color: Colors.white,
         fontSize: cardBackSize.height * 0.15,
@@ -390,7 +376,6 @@ class UnoGame extends FlameGame with TapDetector {
       canvas.drawRRect(rrect, borderPaint);
     }
 
-    // Show "+X more" if more than 5 cards
     if (aiCardCounts[aiIndex] > 5) {
       final moreStyle = TextStyle(
         color: Colors.white70,
@@ -412,56 +397,10 @@ class UnoGame extends FlameGame with TapDetector {
     }
   }
 
-  void _drawDrawPile(Canvas canvas) {
-    // Draw pile representation (deck) - positioned to the LEFT of discard
-    final deckX = screenWidth / 2 - cardWidth * 0.7;
-    final deckY = screenHeight / 2;
-    
-    final deckRect = Rect.fromCenter(
-      center: Offset(deckX, deckY),
-      width: cardWidth,
-      height: cardHeight,
-    );
-    
-    final rrect = RRect.fromRectAndRadius(deckRect, const Radius.circular(12));
-    final backPaint = Paint()..color = Colors.black;
-    canvas.drawRRect(rrect, backPaint);
-    
-    // "DRAW" text
-    final textStyle = TextStyle(
-      color: Colors.white,
-      fontSize: cardHeight * 0.1,
-      fontWeight: FontWeight.bold,
-    );
-    
-    final textPainter = TextPainter(
-      text: TextSpan(text: 'DRAW\n${deck.remainingCards}', style: textStyle),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-    
-    textPainter.paint(
-      canvas,
-      Offset(
-        deckX - textPainter.width / 2,
-        deckY - textPainter.height / 2,
-      ),
-    );
-
-    // Border
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = Colors.red;
-    canvas.drawRRect(rrect, borderPaint);
-  }
-
   void _drawColorPicker(Canvas canvas) {
-    // Semi-transparent overlay
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.7);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
-    // Color picker dialog
     final dialogWidth = screenWidth * 0.6;
     final dialogHeight = screenHeight * 0.3;
     final dialogRect = RRect.fromRectAndRadius(
@@ -476,7 +415,6 @@ class UnoGame extends FlameGame with TapDetector {
     final dialogPaint = Paint()..color = Colors.white;
     canvas.drawRRect(dialogRect, dialogPaint);
     
-    // Title
     final titleStyle = TextStyle(
       color: Colors.black,
       fontSize: 24 * uiScale,
@@ -496,7 +434,6 @@ class UnoGame extends FlameGame with TapDetector {
       ),
     );
     
-    // Color buttons
     final colorDisplays = [
       const Color(0xFFE53935),
       const Color(0xFF1E88E5),
@@ -519,22 +456,19 @@ class UnoGame extends FlameGame with TapDetector {
         const Radius.circular(12),
       );
       
-      // Draw color button
       final colorPaint = Paint()..color = colorDisplays[i];
       canvas.drawRRect(buttonRect, colorPaint);
       
-      // Draw border
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.black.withValues(alpha: 0.3);
+        ..color = Colors.black.withOpacity(0.3);
       canvas.drawRRect(buttonRect, borderPaint);
     }
   }
 
   void _drawGameOver(Canvas canvas) {
-    // Game over overlay
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.8);
+    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.8);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final resultText = winner == 'player' ? 'YOU WIN!' : 'YOU LOSE!';
@@ -568,7 +502,6 @@ class UnoGame extends FlameGame with TapDetector {
       ),
     );
 
-    // Subtitle
     final subtitleStyle = TextStyle(
       color: Colors.white,
       fontSize: 20 * uiScale,
@@ -590,71 +523,34 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   // ============================================
-  // INPUT HANDLING
+  // INPUT HANDLING - NOW COMPONENT-BASED!
   // ============================================
   
-  @override
-  void onTapDown(TapDownInfo info) {
-    final position = info.eventPosition.global.toOffset();
+  void _handleDiscardPileTap() {
+    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
     
-    if (gameOver) return;
-    
-    if (showColorPicker) {
-      _handleColorPickerTap(position);
-      return;
-    }
-    
-    if (currentPlayerIndex != 0) return;
-
-    // Check if tapped on discard pile to play selected card
-    if (discardTopComponent != null && selectedCard != null) {
-      final discardRect = Rect.fromCenter(
-        center: Offset(discardTopComponent!.position.x, discardTopComponent!.position.y),
-        width: cardWidth,
-        height: cardHeight,
-      );
-      
-      if (discardRect.contains(position)) {
-        final cardIndex = playerCardComponents.indexOf(selectedCard!);
-        if (cardIndex >= 0) {
-          final card = playerHand[cardIndex];
-          if (card.isWild) {
-            // Wild cards need color picker first
-            showColorPicker = true;
-            statusMessage = 'Choose a color for your wild card!';
-          } else {
-            _playCard(cardIndex, null);
-          }
+    if (selectedCard != null) {
+      final cardIndex = playerCardComponents.indexOf(selectedCard!);
+      if (cardIndex >= 0) {
+        final card = playerHand[cardIndex];
+        if (card.isWild) {
+          _showColorPicker();
+        } else {
+          _playCard(cardIndex, null);
         }
-        return;
       }
-    }
-
-    // Check if tapped on draw pile
-    final deckX = screenWidth / 2 - cardWidth * 0.7;
-    final deckY = screenHeight / 2;
-    final deckRect = Rect.fromCenter(
-      center: Offset(deckX, deckY),
-      width: cardWidth,
-      height: cardHeight,
-    );
-    
-    if (deckRect.contains(position)) {
-      // Deselect any selected card first
-      if (selectedCard != null) {
-        selectedCard!.setSelected(false);
-        selectedCard = null;
-      }
-      _handleDrawCard();
     }
   }
 
   void _handleCardTap(int cardIndex) {
+    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
+    
     final card = playerHand[cardIndex];
+    debugPrint('🃏 Card clicked: ${card.displayText} (${card.color} ${card.value})');
+    
     final topCard = discardPile.last;
     final cardComp = playerCardComponents[cardIndex];
 
-    // If this card is already selected, deselect it
     if (selectedCard == cardComp) {
       cardComp.setSelected(false);
       selectedCard = null;
@@ -662,22 +558,18 @@ class UnoGame extends FlameGame with TapDetector {
       return;
     }
 
-    // Check if card can be played
     if (!card.canPlayOn(topCard, currentWildColor)) {
       statusMessage = 'Cannot play that card! Match color or number.';
       return;
     }
 
-    // Deselect previous card if any
     if (selectedCard != null) {
       selectedCard!.setSelected(false);
     }
 
-    // Select this card
     selectedCard = cardComp;
     cardComp.setSelected(true);
     
-    // If it's a wild card, show instructions
     if (card.isWild) {
       statusMessage = 'Wild selected! Click discard pile to play.';
     } else {
@@ -685,8 +577,14 @@ class UnoGame extends FlameGame with TapDetector {
     }
   }
 
+  void _showColorPicker() {
+    showColorPicker = true;
+    statusMessage = 'Choose a color for your wild card!';
+  }
+
   void _handleColorPickerTap(Offset position) {
-    // Color buttons positioned in dialog
+    if (!showColorPicker) return;
+    
     final colors = [
       UnoColor.red,
       UnoColor.blue,
@@ -707,7 +605,6 @@ class UnoGame extends FlameGame with TapDetector {
       );
 
       if (buttonRect.contains(position)) {
-        // Find the selected wild card and play it
         if (selectedCard != null) {
           final cardIndex = playerCardComponents.indexOf(selectedCard!);
           if (cardIndex >= 0) {
@@ -722,8 +619,14 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   void _handleDrawCard() {
+    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
+    
+    if (selectedCard != null) {
+      selectedCard!.setSelected(false);
+      selectedCard = null;
+    }
+    
     if (drawCount > 0) {
-      // Must draw penalty cards
       for (var i = 0; i < drawCount; i++) {
         playerHand.add(deck.drawCard());
       }
@@ -733,16 +636,13 @@ class UnoGame extends FlameGame with TapDetector {
       statusMessage = 'Drew $drawCount penalty card(s).';
       drawCount = 0;
       
-      // After drawing penalty, turn ends
       _nextTurn();
     } else {
-      // Regular draw
       final drawnCard = deck.drawCard();
       playerHand.add(drawnCard);
       _sortPlayerHand();
       _renderCards();
       
-      // Check if drawn card can be played immediately
       final topCard = discardPile.last;
       if (drawnCard.canPlayOn(topCard, currentWildColor)) {
         statusMessage = 'Drew a card - you can play it or end turn.';
@@ -765,13 +665,11 @@ class UnoGame extends FlameGame with TapDetector {
     final card = playerHand.removeAt(cardIndex);
     discardPile.add(card);
     
-    // Deselect the card
     if (selectedCard != null) {
       selectedCard!.setSelected(false);
       selectedCard = null;
     }
     
-    // Handle wild cards
     if (card.isWild) {
       currentWildColor = chosenColor;
       statusMessage = 'You played ${card.displayText}!';
@@ -780,18 +678,14 @@ class UnoGame extends FlameGame with TapDetector {
       statusMessage = 'You played ${card.displayText}!';
     }
 
-    // Handle action cards
     _handleCardAction(card);
-
     _renderCards();
 
-    // Check for win
     if (playerHand.isEmpty) {
       _endGame('player');
       return;
     }
 
-    // Delay before next turn
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
         _nextTurn();
@@ -822,13 +716,11 @@ class UnoGame extends FlameGame with TapDetector {
         break;
       
       default:
-        // Regular card, no special action
         break;
     }
   }
 
   void _skipNextPlayer() {
-    // Skip happens by advancing turn twice
     _advanceTurn();
   }
 
@@ -836,10 +728,8 @@ class UnoGame extends FlameGame with TapDetector {
     _advanceTurn();
     
     if (currentPlayerIndex == 0) {
-      // Player's turn
       statusMessage = 'Your turn! Play a card or draw.';
     } else {
-      // AI turn
       statusMessage = 'Player ${currentPlayerIndex + 1}\'s turn...';
       _aiTakeTurn();
     }
@@ -866,9 +756,7 @@ class UnoGame extends FlameGame with TapDetector {
       final aiHand = aiHands[aiIndex];
       final topCard = discardPile.last;
 
-      // Check for penalty cards to draw
       if (drawCount > 0) {
-        // AI draws penalty cards
         for (var i = 0; i < drawCount; i++) {
           aiHand.add(deck.drawCard());
         }
@@ -882,7 +770,6 @@ class UnoGame extends FlameGame with TapDetector {
         return;
       }
 
-      // Find playable cards
       final playableCards = <int>[];
       for (var i = 0; i < aiHand.length; i++) {
         if (aiHand[i].canPlayOn(topCard, currentWildColor)) {
@@ -891,7 +778,6 @@ class UnoGame extends FlameGame with TapDetector {
       }
 
       if (playableCards.isEmpty) {
-        // AI must draw
         aiHand.add(deck.drawCard());
         aiCardCounts[aiIndex] = aiHand.length;
         statusMessage = 'Player ${currentPlayerIndex + 1} drew a card.';
@@ -902,13 +788,11 @@ class UnoGame extends FlameGame with TapDetector {
         return;
       }
 
-      // AI plays a card (with strategy)
       final cardIndex = _aiChooseCard(playableCards, aiHand);
       final card = aiHand.removeAt(cardIndex);
       discardPile.add(card);
       aiCardCounts[aiIndex] = aiHand.length;
 
-      // Handle wild cards (AI chooses most common color in hand)
       if (card.isWild) {
         currentWildColor = _aiChooseWildColor(aiHand);
         final colorNames = {
@@ -923,10 +807,8 @@ class UnoGame extends FlameGame with TapDetector {
         statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText}';
       }
 
-      // Handle actions
       _handleCardAction(card);
 
-      // Check for AI win
       if (aiHand.isEmpty) {
         _endGame('ai${aiIndex + 1}');
         return;
@@ -941,26 +823,22 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   int _aiChooseCard(List<int> playableCards, List<UnoCard> hand) {
-    // AI Strategy: Prioritize action cards, then wild cards, then highest number
     var bestIndex = playableCards[0];
     var bestCard = hand[playableCards[0]];
 
     for (var index in playableCards) {
       final card = hand[index];
       
-      // Prefer Draw Four over everything
       if (card.value == UnoValue.wildDrawFour) {
         return index;
       }
       
-      // Prefer Draw Two
       if (card.value == UnoValue.drawTwo && bestCard.value != UnoValue.wildDrawFour) {
         bestIndex = index;
         bestCard = card;
         continue;
       }
       
-      // Then other action cards
       if (card.isAction && !bestCard.isAction && 
           bestCard.value != UnoValue.wildDrawFour && 
           bestCard.value != UnoValue.drawTwo) {
@@ -969,13 +847,11 @@ class UnoGame extends FlameGame with TapDetector {
         continue;
       }
       
-      // Then regular wild cards
       if (card.value == UnoValue.wild && !bestCard.isAction && !bestCard.isWild) {
         bestIndex = index;
         bestCard = card;
       }
       
-      // If both are numbers, play higher value
       if (!card.isAction && !card.isWild && 
           !bestCard.isAction && !bestCard.isWild &&
           card.value.index > bestCard.value.index) {
@@ -988,7 +864,6 @@ class UnoGame extends FlameGame with TapDetector {
   }
 
   UnoColor _aiChooseWildColor(List<UnoCard> hand) {
-    // Count colors in hand
     final colorCounts = {
       UnoColor.red: 0,
       UnoColor.blue: 0,
@@ -1002,7 +877,6 @@ class UnoGame extends FlameGame with TapDetector {
       }
     }
 
-    // Choose most common color
     var maxColor = UnoColor.red;
     var maxCount = 0;
     colorCounts.forEach((color, count) {
@@ -1021,5 +895,70 @@ class UnoGame extends FlameGame with TapDetector {
     statusMessage = winner == 'player' ? 'YOU WIN!' : 'You lose!';
     
     debugPrint('Game Over! Winner: $winner');
+  }
+
+  // NEW: Handle color picker taps via render overlay
+  @override
+  void onTapDown(TapDownInfo info) {
+    if (showColorPicker) {
+      _handleColorPickerTap(info.eventPosition.global.toOffset());
+    }
+  }
+}
+
+// ============================================
+// NEW: Draw Pile Component
+// ============================================
+class DrawPileComponent extends PositionComponent with TapCallbacks {
+  final VoidCallback onTap;
+  final int remainingCards;
+
+  DrawPileComponent({
+    required Vector2 position,
+    required Vector2 size,
+    required this.onTap,
+    required this.remainingCards,
+  }) : super(position: position, size: size, anchor: Anchor.center);
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromCenter(
+      center: Offset.zero,
+      width: size.x,
+      height: size.y,
+    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    
+    final backPaint = Paint()..color = Colors.black;
+    canvas.drawRRect(rrect, backPaint);
+    
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: 'DRAW\n$remainingCards',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size.y * 0.1,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
+    );
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = Colors.red;
+    canvas.drawRRect(rrect, borderPaint);
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    onTap();
   }
 }
