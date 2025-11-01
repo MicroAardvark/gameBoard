@@ -1,5 +1,5 @@
 // lib/games/uno_game.dart
-import 'dart:async';
+import 'dart:async' as async_timer;
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/events.dart';
@@ -10,7 +10,6 @@ import '../models/uno_card.dart';
 import '../models/user.dart';
 import '../components/uno_card_component.dart';
 
-// FIXED: Removed TapDetector mixin - it was blocking component-level tap events!
 class UnoGame extends FlameGame {
   final User user;
   
@@ -21,6 +20,7 @@ class UnoGame extends FlameGame {
   static const int layerTable = 1;
   static const int layerCards = 2;
   static const int layerHud = 3;
+  static const int layerOverlay = 4;
 
   // Game state
   late UnoDeck deck;
@@ -35,6 +35,8 @@ class UnoGame extends FlameGame {
   final List<UnoCardComponent> playerCardComponents = [];
   UnoCardComponent? discardTopComponent;
   DrawPileComponent? drawPileComponent;
+  UnoButton? unoButton;
+  UnoButton? challengeButton;
   final List<int> aiCardCounts = [0, 0, 0];
   
   // Game flow
@@ -42,6 +44,16 @@ class UnoGame extends FlameGame {
   bool clockwise = true;
   bool needsToDrawCard = false;
   int drawCount = 0;
+  bool isDrawStacking = false;
+  
+  // NEW: UNO calling state
+  final List<bool> hasCalledUno = [false, false, false, false];
+  bool canChallenge = false;
+  int? challengeablePlayer;
+  async_timer.Timer? challengeTimer;
+  
+  // NEW: Jump-in state
+  bool jumpInEnabled = true;
   
   // UI state
   UnoCardComponent? selectedCard;
@@ -66,8 +78,9 @@ class UnoGame extends FlameGame {
     _dealInitialCards();
     _placeFirstDiscardCard();
     await _renderCards();
+    _createUnoButton();
     
-    debugPrint('UNO Game loaded!');
+    debugPrint('🎮 UNO Game loaded with advanced rules!');
   }
 
   void _dealInitialCards() {
@@ -103,8 +116,104 @@ class UnoGame extends FlameGame {
     });
   }
 
+  // NEW: Create UNO button
+  void _createUnoButton() {
+    unoButton?.removeFromParent();
+    unoButton = UnoButton(
+      position: Vector2(screenWidth * 0.85, screenHeight * 0.85),
+      size: Vector2(screenWidth * 0.12, screenHeight * 0.08),
+      text: 'UNO!',
+      onTap: () => _handleUnoCall(),
+    )..priority = layerHud;
+    add(unoButton!);
+  }
+
+  // NEW: UNO calling logic
+  void _handleUnoCall() {
+    if (playerHand.length == 1 && !hasCalledUno[0]) {
+      hasCalledUno[0] = true;
+      statusMessage = '🎯 UNO called!';
+      debugPrint('🎯 Player called UNO!');
+    } else if (playerHand.length != 1) {
+      statusMessage = 'You can only call UNO with 1 card!';
+    } else {
+      statusMessage = 'You already called UNO!';
+    }
+  }
+
+  // NEW: Check if player should have called UNO
+  void _checkUnoViolation(int playerIndex) {
+    final hand = playerIndex == 0 ? playerHand : aiHands[playerIndex - 1];
+    
+    if (hand.length == 1 && !hasCalledUno[playerIndex]) {
+      canChallenge = true;
+      challengeablePlayer = playerIndex;
+      
+      if (currentPlayerIndex != 0 && playerIndex != 0) {
+        _showChallengeButton();
+      }
+      
+      if (playerIndex != 0) {
+        async_timer.Future.delayed(const Duration(seconds: 2), () {
+          if (canChallenge && challengeablePlayer == playerIndex) {
+            _performAiChallenge();
+          }
+        });
+      }
+      
+      challengeTimer?.cancel();
+      challengeTimer = async_timer.Timer(const Duration(seconds: 5), () {
+        canChallenge = false;
+        challengeablePlayer = null;
+        challengeButton?.removeFromParent();
+        challengeButton = null;
+      });
+    }
+  }
+
+  void _showChallengeButton() {
+    challengeButton?.removeFromParent();
+    challengeButton = UnoButton(
+      position: Vector2(screenWidth * 0.85, screenHeight * 0.73),
+      size: Vector2(screenWidth * 0.12, screenHeight * 0.08),
+      text: 'Challenge!',
+      onTap: () => _handleChallenge(),
+    )..priority = layerHud;
+    add(challengeButton!);
+  }
+
+  void _handleChallenge() {
+    if (canChallenge && challengeablePlayer != null) {
+      final targetPlayer = challengeablePlayer!;
+      debugPrint('🚨 Player $targetPlayer challenged for not calling UNO!');
+      
+      if (targetPlayer == 0) {
+        playerHand.add(deck.drawCard());
+        playerHand.add(deck.drawCard());
+        _sortPlayerHand();
+        statusMessage = '❌ You were challenged! Drew 2 cards.';
+      } else {
+        aiHands[targetPlayer - 1].add(deck.drawCard());
+        aiHands[targetPlayer - 1].add(deck.drawCard());
+        aiCardCounts[targetPlayer - 1] += 2;
+        statusMessage = '✅ Player ${targetPlayer + 1} challenged! Drew 2 cards.';
+      }
+      
+      _renderCards();
+      canChallenge = false;
+      challengeablePlayer = null;
+      challengeButton?.removeFromParent();
+      challengeButton = null;
+    }
+  }
+
+  void _performAiChallenge() {
+    if (Random().nextDouble() < 0.7) {
+      _handleChallenge();
+    }
+  }
+
   Future<void> _renderCards() async {
-    // Clear existing card components
     for (var card in playerCardComponents) {
       card.removeFromParent();
     }
@@ -116,7 +225,6 @@ class UnoGame extends FlameGame {
     drawPileComponent?.removeFromParent();
     drawPileComponent = null;
 
-    // Render player hand
     final handSpacing = cardWidth * 0.8;
     final totalWidth = (playerHand.length - 1) * handSpacing + cardWidth;
     final startX = (screenWidth - totalWidth) / 2 + cardWidth / 2;
@@ -146,7 +254,6 @@ class UnoGame extends FlameGame {
       debugPrint('  Card ${i + 1}: ${playerHand[i].displayText} at x=$cardX, y=$cardY');
     }
 
-    // Render discard pile (top card) with tap handler
     if (discardPile.isNotEmpty) {
       final topCard = discardPile.last;
       final discardX = screenWidth / 2 + cardWidth * 0.7;
@@ -164,7 +271,6 @@ class UnoGame extends FlameGame {
       debugPrint('🃏 Discard pile: ${topCard.displayText}');
     }
 
-    // Render draw pile as tappable component
     final deckX = screenWidth / 2 - cardWidth * 0.7;
     final deckY = screenHeight / 2;
     
@@ -177,7 +283,6 @@ class UnoGame extends FlameGame {
     
     add(drawPileComponent!);
 
-    // Update AI card counts
     for (var i = 0; i < 3; i++) {
       aiCardCounts[i] = aiHands[i].length;
     }
@@ -212,7 +317,7 @@ class UnoGame extends FlameGame {
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withOpacity(0.5),
+          color: Colors.black.withValues(alpha: 0.5),
           offset: const Offset(2, 2),
         ),
       ],
@@ -231,6 +336,32 @@ class UnoGame extends FlameGame {
         screenHeight * 0.05,
       ),
     );
+
+    // NEW: Draw stack indicator
+    if (drawCount > 0) {
+      final stackStyle = TextStyle(
+        color: Colors.redAccent,
+        fontSize: 24 * uiScale,
+        fontWeight: FontWeight.bold,
+        shadows: [
+          Shadow(
+            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.7),
+            offset: const Offset(2, 2),
+          ),
+        ],
+      );
+      
+      final stackPainter = TextPainter(
+        text: TextSpan(text: '🎴 STACK: +$drawCount', style: stackStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      
+      stackPainter.paint(
+        canvas,
+        Offset(screenWidth * 0.05, screenHeight * 0.12),
+      );
+    }
 
     final directionText = clockwise ? '→ Clockwise' : '← Counter-Clockwise';
     final dirStyle = TextStyle(
@@ -311,6 +442,9 @@ class UnoGame extends FlameGame {
     final name = 'Player ${aiIndex + 2}';
     final cardCount = '${aiCardCounts[aiIndex]} card${aiCardCounts[aiIndex] != 1 ? 's' : ''}';
     
+    // NEW: Show UNO indicator
+    final unoStatus = hasCalledUno[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯UNO' : '';
+    
     final nameStyle = TextStyle(
       color: isActive ? Colors.amber : Colors.white,
       fontSize: 16 * uiScale,
@@ -318,14 +452,14 @@ class UnoGame extends FlameGame {
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withOpacity(0.7),
+          color: Colors.black.withValues(alpha: 0.7),
           offset: const Offset(1, 1),
         ),
       ],
     );
     
     final namePainter = TextPainter(
-      text: TextSpan(text: '$name\n$cardCount', style: nameStyle),
+      text: TextSpan(text: '$name\n$cardCount$unoStatus', style: nameStyle),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
@@ -398,7 +532,7 @@ class UnoGame extends FlameGame {
   }
 
   void _drawColorPicker(Canvas canvas) {
-    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.7);
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final dialogWidth = screenWidth * 0.6;
@@ -462,13 +596,13 @@ class UnoGame extends FlameGame {
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.black.withOpacity(0.3);
+        ..color = Colors.black.withValues(alpha: 0.3);
       canvas.drawRRect(buttonRect, borderPaint);
     }
   }
 
   void _drawGameOver(Canvas canvas) {
-    final overlayPaint = Paint()..color = Colors.black.withOpacity(0.8);
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.8);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final resultText = winner == 'player' ? 'YOU WIN!' : 'YOU LOSE!';
@@ -523,7 +657,7 @@ class UnoGame extends FlameGame {
   }
 
   // ============================================
-  // INPUT HANDLING - NOW COMPONENT-BASED!
+  // INPUT HANDLING
   // ============================================
   
   void _handleDiscardPileTap() {
@@ -543,10 +677,24 @@ class UnoGame extends FlameGame {
   }
 
   void _handleCardTap(int cardIndex) {
-    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
+    if (gameOver || showColorPicker) return;
     
     final card = playerHand[cardIndex];
     debugPrint('🃏 Card clicked: ${card.displayText} (${card.color} ${card.value})');
+    
+    // NEW: Check for jump-in (identical card)
+    if (currentPlayerIndex != 0 && jumpInEnabled) {
+      final topCard = discardPile.last;
+      if (_isIdenticalCard(card, topCard)) {
+        _performJumpIn(cardIndex);
+        return;
+      }
+    }
+    
+    if (currentPlayerIndex != 0) {
+      statusMessage = 'Not your turn!';
+      return;
+    }
     
     final topCard = discardPile.last;
     final cardComp = playerCardComponents[cardIndex];
@@ -558,7 +706,18 @@ class UnoGame extends FlameGame {
       return;
     }
 
-    if (!card.canPlayOn(topCard, currentWildColor)) {
+    // NEW: Allow stacking +2 or +4 cards
+    if (drawCount > 0 && _canStackDrawCard(card)) {
+      if (selectedCard != null) {
+        selectedCard!.setSelected(false);
+      }
+      selectedCard = cardComp;
+      cardComp.setSelected(true);
+      statusMessage = 'Stack +${card.value == UnoValue.drawTwo ? '2' : '4'}! Click discard to play.';
+      return;
+    }
+
+    if (!card.canPlayOn(topCard, currentWildColor) && drawCount == 0) {
       statusMessage = 'Cannot play that card! Match color or number.';
       return;
     }
@@ -575,6 +734,59 @@ class UnoGame extends FlameGame {
     } else {
       statusMessage = 'Click the discard pile to play ${card.displayText}';
     }
+  }
+
+  // NEW: Check if card is identical
+  bool _isIdenticalCard(UnoCard card1, UnoCard card2) {
+    return card1.color == card2.color && card1.value == card2.value;
+  }
+
+  // NEW: Check if card can stack
+  bool _canStackDrawCard(UnoCard card) {
+    if (drawCount == 0) return false;
+    final topCard = discardPile.last;
+    
+    if (topCard.value == UnoValue.drawTwo && card.value == UnoValue.drawTwo) {
+      return true;
+    }
+    
+    if (topCard.value == UnoValue.wildDrawFour && card.value == UnoValue.wildDrawFour) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // NEW: Perform jump-in
+  void _performJumpIn(int cardIndex) {
+    debugPrint('⚡ JUMP-IN! Player playing out of turn!');
+    
+    final card = playerHand.removeAt(cardIndex);
+    discardPile.add(card);
+    
+    statusMessage = '⚡ JUMP-IN! You played ${card.displayText}!';
+    
+    _handleCardAction(card);
+    
+    if (playerHand.length == 1) {
+      hasCalledUno[0] = false;
+    }
+    
+    _renderCards();
+    
+    if (playerHand.isEmpty) {
+      _endGame('player');
+      return;
+    }
+    
+    currentPlayerIndex = 0;
+    _checkUnoViolation(0);
+    
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!gameOver) {
+        _nextTurn();
+      }
+    });
   }
 
   void _showColorPicker() {
@@ -635,6 +847,7 @@ class UnoGame extends FlameGame {
       
       statusMessage = 'Drew $drawCount penalty card(s).';
       drawCount = 0;
+      isDrawStacking = false;
       
       _nextTurn();
     } else {
@@ -678,6 +891,10 @@ class UnoGame extends FlameGame {
       statusMessage = 'You played ${card.displayText}!';
     }
 
+    if (playerHand.length != 1) {
+      hasCalledUno[0] = false;
+    }
+
     _handleCardAction(card);
     _renderCards();
 
@@ -685,6 +902,8 @@ class UnoGame extends FlameGame {
       _endGame('player');
       return;
     }
+
+    _checkUnoViolation(0);
 
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
@@ -707,17 +926,65 @@ class UnoGame extends FlameGame {
       
       case UnoValue.drawTwo:
         drawCount += 2;
-        statusMessage += ' Next player draws 2!';
+        isDrawStacking = true;
+        statusMessage += ' +2 added to stack! Total: +$drawCount';
         break;
       
       case UnoValue.wildDrawFour:
         drawCount += 4;
-        statusMessage += ' Next player draws 4!';
+        isDrawStacking = true;
+        statusMessage += ' +4 added to stack! Total: +$drawCount';
+        break;
+      
+      case UnoValue.zero:
+        // NEW: Rotate hands when 0 is played
+        _rotateHands();
+        statusMessage += ' 🔄 Hands rotated!';
         break;
       
       default:
         break;
     }
+  }
+
+  // NEW: Rotate all hands
+  void _rotateHands() {
+    debugPrint('🔄 Rotating hands ${clockwise ? 'clockwise' : 'counter-clockwise'}');
+    
+    if (clockwise) {
+      final temp = List<UnoCard>.from(playerHand);
+      playerHand.clear();
+      playerHand.addAll(aiHands[2]);
+      
+      aiHands[2].clear();
+      aiHands[2].addAll(aiHands[1]);
+      
+      aiHands[1].clear();
+      aiHands[1].addAll(aiHands[0]);
+      
+      aiHands[0].clear();
+      aiHands[0].addAll(temp);
+    } else {
+      final temp = List<UnoCard>.from(playerHand);
+      playerHand.clear();
+      playerHand.addAll(aiHands[0]);
+      
+      aiHands[0].clear();
+      aiHands[0].addAll(aiHands[1]);
+      
+      aiHands[1].clear();
+      aiHands[1].addAll(aiHands[2]);
+      
+      aiHands[2].clear();
+      aiHands[2].addAll(temp);
+    }
+    
+    for (var i = 0; i < 4; i++) {
+      hasCalledUno[i] = false;
+    }
+    
+    _sortPlayerHand();
+    _renderCards();
   }
 
   void _skipNextPlayer() {
@@ -756,18 +1023,61 @@ class UnoGame extends FlameGame {
       final aiHand = aiHands[aiIndex];
       final topCard = discardPile.last;
 
+      // AI calls UNO when down to 2 cards
+      if (aiHand.length == 2 && !hasCalledUno[currentPlayerIndex]) {
+        hasCalledUno[currentPlayerIndex] = true;
+        debugPrint('🎯 AI Player ${currentPlayerIndex + 1} called UNO!');
+      }
+
       if (drawCount > 0) {
-        for (var i = 0; i < drawCount; i++) {
-          aiHand.add(deck.drawCard());
+        // Check if AI can stack
+        final stackableCards = <int>[];
+        for (var i = 0; i < aiHand.length; i++) {
+          if (_canStackDrawCard(aiHand[i])) {
+            stackableCards.add(i);
+          }
         }
-        aiCardCounts[aiIndex] = aiHand.length;
-        statusMessage = 'Player ${currentPlayerIndex + 1} drew $drawCount penalty card(s).';
-        drawCount = 0;
         
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (!gameOver) _nextTurn();
-        });
-        return;
+        if (stackableCards.isNotEmpty && Random().nextDouble() < 0.8) {
+          final cardIndex = stackableCards[0];
+          final card = aiHand.removeAt(cardIndex);
+          discardPile.add(card);
+          aiCardCounts[aiIndex] = aiHand.length;
+          
+          if (card.isWild) {
+            currentWildColor = _aiChooseWildColor(aiHand);
+          }
+          
+          drawCount += card.value == UnoValue.drawTwo ? 2 : 4;
+          statusMessage = 'Player ${currentPlayerIndex + 1} stacked! Total: +$drawCount';
+          
+          _renderCards();
+          
+          if (aiHand.isEmpty) {
+            _endGame('ai${aiIndex + 1}');
+            return;
+          }
+          
+          _checkUnoViolation(currentPlayerIndex);
+          
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (!gameOver) _nextTurn();
+          });
+          return;
+        } else {
+          for (var i = 0; i < drawCount; i++) {
+            aiHand.add(deck.drawCard());
+          }
+          aiCardCounts[aiIndex] = aiHand.length;
+          statusMessage = 'Player ${currentPlayerIndex + 1} drew $drawCount penalty card(s).';
+          drawCount = 0;
+          isDrawStacking = false;
+          
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (!gameOver) _nextTurn();
+          });
+          return;
+        }
       }
 
       final playableCards = <int>[];
@@ -807,6 +1117,10 @@ class UnoGame extends FlameGame {
         statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText}';
       }
 
+      if (aiHand.length != 1) {
+        hasCalledUno[currentPlayerIndex] = false;
+      }
+
       _handleCardAction(card);
 
       if (aiHand.isEmpty) {
@@ -815,6 +1129,7 @@ class UnoGame extends FlameGame {
       }
 
       _renderCards();
+      _checkUnoViolation(currentPlayerIndex);
       
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!gameOver) _nextTurn();
@@ -894,10 +1209,11 @@ class UnoGame extends FlameGame {
     winner = winnerName == 'player' ? 'player' : 'ai';
     statusMessage = winner == 'player' ? 'YOU WIN!' : 'You lose!';
     
+    challengeTimer?.cancel();
+    
     debugPrint('Game Over! Winner: $winner');
   }
 
-  // NEW: Handle color picker taps via render overlay
   @override
   void onTapDown(TapDownInfo info) {
     if (showColorPicker) {
@@ -907,7 +1223,7 @@ class UnoGame extends FlameGame {
 }
 
 // ============================================
-// NEW: Draw Pile Component
+// Draw Pile Component
 // ============================================
 class DrawPileComponent extends PositionComponent with TapCallbacks {
   final VoidCallback onTap;
@@ -960,5 +1276,73 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
   @override
   void onTapUp(TapUpEvent event) {
     onTap();
+  }
+}
+
+// ============================================
+// UNO Button Component
+// ============================================
+class UnoButton extends PositionComponent with TapCallbacks {
+  final String text;
+  final VoidCallback onTap;
+  bool isPressed = false;
+
+  UnoButton({
+    required Vector2 position,
+    required Vector2 size,
+    required this.text,
+    required this.onTap,
+  }) : super(position: position, size: size, anchor: Anchor.center);
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromCenter(
+      center: Offset.zero,
+      width: size.x,
+      height: size.y,
+    );
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    
+    final buttonPaint = Paint()..color = isPressed ? Colors.red.shade700 : Colors.red;
+    canvas.drawRRect(rrect, buttonPaint);
+    
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    textPainter.paint(
+      canvas,
+      Offset(-textPainter.width / 2, -textPainter.height / 2),
+    );
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = Colors.white;
+    canvas.drawRRect(rrect, borderPaint);
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    isPressed = true;
+  }
+
+  @override
+  void onTapUp(TapUpEvent event) {
+    isPressed = false;
+    onTap();
+  }
+
+  @override
+  void onTapCancel(TapCancelEvent event) {
+    isPressed = false;
   }
 }
