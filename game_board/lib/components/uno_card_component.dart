@@ -63,8 +63,9 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
 
   @override
   void render(Canvas canvas) {
+    // FIXED: Since anchor is center, draw relative to (0,0) which is the center
     final rect = Rect.fromCenter(
-      center: Offset(size.x / 2, size.y / 2),
+      center: Offset.zero,
       width: size.x,
       height: size.y,
     );
@@ -102,8 +103,8 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     textPainter.paint(
       canvas,
       Offset(
-        size.x / 2 - textPainter.width / 2,
-        size.y / 2 - textPainter.height / 2,
+        -textPainter.width / 2,
+        -textPainter.height / 2,
       ),
     );
 
@@ -128,7 +129,7 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     // White center oval
     final centerOval = RRect.fromRectAndRadius(
       Rect.fromCenter(
-        center: Offset(size.x / 2, size.y / 2),
+        center: Offset.zero,
         width: size.x * 0.65,
         height: size.y * 0.85,
       ),
@@ -164,17 +165,17 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     final halfWidth = size.x / 2;
     final halfHeight = size.y / 2;
 
-    // Draw four colored corners
+    // Draw four colored corners relative to center (0,0)
     final cornerPaint = Paint();
     
     // Top-left: Red
     cornerPaint.color = colors[0];
     canvas.drawPath(
       Path()
-        ..moveTo(0, 0)
-        ..lineTo(halfWidth, 0)
-        ..lineTo(halfWidth, halfHeight)
-        ..lineTo(0, halfHeight)
+        ..moveTo(-halfWidth, -halfHeight)
+        ..lineTo(0, -halfHeight)
+        ..lineTo(0, 0)
+        ..lineTo(-halfWidth, 0)
         ..close(),
       cornerPaint,
     );
@@ -183,10 +184,10 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     cornerPaint.color = colors[1];
     canvas.drawPath(
       Path()
-        ..moveTo(halfWidth, 0)
-        ..lineTo(size.x, 0)
-        ..lineTo(size.x, halfHeight)
-        ..lineTo(halfWidth, halfHeight)
+        ..moveTo(0, -halfHeight)
+        ..lineTo(halfWidth, -halfHeight)
+        ..lineTo(halfWidth, 0)
+        ..lineTo(0, 0)
         ..close(),
       cornerPaint,
     );
@@ -195,10 +196,10 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     cornerPaint.color = colors[2];
     canvas.drawPath(
       Path()
-        ..moveTo(0, halfHeight)
-        ..lineTo(halfWidth, halfHeight)
-        ..lineTo(halfWidth, size.y)
-        ..lineTo(0, size.y)
+        ..moveTo(-halfWidth, 0)
+        ..lineTo(0, 0)
+        ..lineTo(0, halfHeight)
+        ..lineTo(-halfWidth, halfHeight)
         ..close(),
       cornerPaint,
     );
@@ -207,10 +208,10 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     cornerPaint.color = colors[3];
     canvas.drawPath(
       Path()
-        ..moveTo(halfWidth, halfHeight)
-        ..lineTo(size.x, halfHeight)
-        ..lineTo(size.x, size.y)
-        ..lineTo(halfWidth, size.y)
+        ..moveTo(0, 0)
+        ..lineTo(halfWidth, 0)
+        ..lineTo(halfWidth, halfHeight)
+        ..lineTo(0, halfHeight)
         ..close(),
       cornerPaint,
     );
@@ -232,8 +233,8 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     textPainter.paint(
       canvas,
       Offset(
-        size.x / 2 - textPainter.width / 2,
-        size.y / 2 - textPainter.height / 2,
+        -textPainter.width / 2,
+        -textPainter.height / 2,
       ),
     );
   }
@@ -250,11 +251,14 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
       textDirection: TextDirection.ltr,
     )..layout();
 
+    final halfWidth = size.x / 2;
+    final halfHeight = size.y / 2;
+
     final offset = isTopLeft
-        ? Offset(size.x * 0.12, size.y * 0.08)
+        ? Offset(-halfWidth + size.x * 0.12, -halfHeight + size.y * 0.08)
         : Offset(
-            size.x - textPainter.width - size.x * 0.12,
-            size.y - textPainter.height - size.y * 0.08,
+            halfWidth - textPainter.width - size.x * 0.12,
+            halfHeight - textPainter.height - size.y * 0.08,
           );
 
     canvas.save();
