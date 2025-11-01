@@ -131,11 +131,13 @@ class UnoGame extends FlameGame with TapDetector {
       discardTopComponent = null;
     }
 
-    // Render player hand - FIXED positioning
-    final handSpacing = cardWidth * 0.5;  // Increased spacing
+    // Render player hand - FIXED positioning for center-anchored cards
+    final handSpacing = cardWidth * 0.8;  // Slight overlap
     final totalWidth = (playerHand.length - 1) * handSpacing + cardWidth;
     final startX = (screenWidth - totalWidth) / 2 + cardWidth / 2;
-    final cardY = screenHeight - cardHeight * 0.6;  // Changed to be higher up
+    // Position cards near bottom with proper padding (center anchor)
+    final bottomPadding = 30.0;  // Space from bottom edge
+    final cardY = screenHeight - (cardHeight / 2) - bottomPadding;
 
     debugPrint('🎴 Rendering ${playerHand.length} player cards at y=$cardY');
 
@@ -146,6 +148,12 @@ class UnoGame extends FlameGame with TapDetector {
         position: Vector2(cardX, cardY),
         size: Vector2(cardWidth, cardHeight),
         card: playerHand[i],
+        onTap: (tappedCard) {
+          final index = playerCardComponents.indexOf(tappedCard);
+          if (index >= 0) {
+            _handleCardTap(index);
+          }
+        },
       )..priority = layerCards + 10 + i;  // Higher priority to ensure visibility
 
       playerCardComponents.add(cardComp);
@@ -181,17 +189,19 @@ class UnoGame extends FlameGame with TapDetector {
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
-    
-    // Draw background
+    // Draw background FIRST
     final bgPaint = Paint()..color = const Color(0xFF1B5E20);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
     
-    // Draw game elements
+    // Draw game elements on top of background
     _drawGameInfo(canvas);
     _drawAIPlayers(canvas);
     _drawDrawPile(canvas);
     
+    // THEN render all components (cards)
+    super.render(canvas);
+    
+    // Draw overlays last
     if (showColorPicker) {
       _drawColorPicker(canvas);
     }
@@ -404,7 +414,7 @@ class UnoGame extends FlameGame with TapDetector {
 
   void _drawDrawPile(Canvas canvas) {
     // Draw pile representation (deck) - positioned to the LEFT of discard
-    final deckX = screenWidth / 2 - cardWidth * 0.7;  // Changed from -1.2
+    final deckX = screenWidth / 2 - cardWidth * 0.7;
     final deckY = screenHeight / 2;
     
     final deckRect = Rect.fromCenter(
@@ -596,24 +606,31 @@ class UnoGame extends FlameGame with TapDetector {
     
     if (currentPlayerIndex != 0) return;
 
-    // Check if tapped on player's cards
-    for (var i = 0; i < playerCardComponents.length; i++) {
-      final card = playerCardComponents[i];
-      
-      // Create Rect from card position and size
-      final cardRect = Rect.fromCenter(
-        center: Offset(card.position.x, card.position.y),
-        width: card.size.x,
-        height: card.size.y,
+    // Check if tapped on discard pile to play selected card
+    if (discardTopComponent != null && selectedCard != null) {
+      final discardRect = Rect.fromCenter(
+        center: Offset(discardTopComponent!.position.x, discardTopComponent!.position.y),
+        width: cardWidth,
+        height: cardHeight,
       );
       
-      if (cardRect.contains(position)) {
-        _handleCardTap(i);
+      if (discardRect.contains(position)) {
+        final cardIndex = playerCardComponents.indexOf(selectedCard!);
+        if (cardIndex >= 0) {
+          final card = playerHand[cardIndex];
+          if (card.isWild) {
+            // Wild cards need color picker first
+            showColorPicker = true;
+            statusMessage = 'Choose a color for your wild card!';
+          } else {
+            _playCard(cardIndex, null);
+          }
+        }
         return;
       }
     }
 
-    // Check if tapped on draw pile - FIXED: Updated position
+    // Check if tapped on draw pile
     final deckX = screenWidth / 2 - cardWidth * 0.7;
     final deckY = screenHeight / 2;
     final deckRect = Rect.fromCenter(
@@ -623,6 +640,11 @@ class UnoGame extends FlameGame with TapDetector {
     );
     
     if (deckRect.contains(position)) {
+      // Deselect any selected card first
+      if (selectedCard != null) {
+        selectedCard!.setSelected(false);
+        selectedCard = null;
+      }
       _handleDrawCard();
     }
   }
@@ -630,6 +652,15 @@ class UnoGame extends FlameGame with TapDetector {
   void _handleCardTap(int cardIndex) {
     final card = playerHand[cardIndex];
     final topCard = discardPile.last;
+    final cardComp = playerCardComponents[cardIndex];
+
+    // If this card is already selected, deselect it
+    if (selectedCard == cardComp) {
+      cardComp.setSelected(false);
+      selectedCard = null;
+      statusMessage = 'Card deselected. Pick another or draw.';
+      return;
+    }
 
     // Check if card can be played
     if (!card.canPlayOn(topCard, currentWildColor)) {
@@ -637,15 +668,21 @@ class UnoGame extends FlameGame with TapDetector {
       return;
     }
 
-    // If it's a wild card, show color picker
-    if (card.isWild) {
-      selectedCard = playerCardComponents[cardIndex];
-      showColorPicker = true;
-      return;
+    // Deselect previous card if any
+    if (selectedCard != null) {
+      selectedCard!.setSelected(false);
     }
 
-    // Play the card
-    _playCard(cardIndex, null);
+    // Select this card
+    selectedCard = cardComp;
+    cardComp.setSelected(true);
+    
+    // If it's a wild card, show instructions
+    if (card.isWild) {
+      statusMessage = 'Wild selected! Click discard pile to play.';
+    } else {
+      statusMessage = 'Click the discard pile to play ${card.displayText}';
+    }
   }
 
   void _handleColorPickerTap(Offset position) {
@@ -670,9 +707,13 @@ class UnoGame extends FlameGame with TapDetector {
       );
 
       if (buttonRect.contains(position)) {
-        // Find the selected wild card
-        final cardIndex = playerCardComponents.indexOf(selectedCard!);
-        _playCard(cardIndex, colors[i]);
+        // Find the selected wild card and play it
+        if (selectedCard != null) {
+          final cardIndex = playerCardComponents.indexOf(selectedCard!);
+          if (cardIndex >= 0) {
+            _playCard(cardIndex, colors[i]);
+          }
+        }
         showColorPicker = false;
         selectedCard = null;
         return;
@@ -723,6 +764,12 @@ class UnoGame extends FlameGame with TapDetector {
   void _playCard(int cardIndex, UnoColor? chosenColor) {
     final card = playerHand.removeAt(cardIndex);
     discardPile.add(card);
+    
+    // Deselect the card
+    if (selectedCard != null) {
+      selectedCard!.setSelected(false);
+      selectedCard = null;
+    }
     
     // Handle wild cards
     if (card.isWild) {

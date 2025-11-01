@@ -1,12 +1,19 @@
 // lib/components/uno_card_component.dart
 import 'package:flame/components.dart';
+import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/uno_card.dart';
 
-class UnoCardComponent extends PositionComponent {
+class UnoCardComponent extends PositionComponent with TapCallbacks {
   final UnoCard card;
   bool isHidden;
   bool isSelected;
+  final Function(UnoCardComponent)? onTap;
+  
+  // Store original position and size for animation
+  Vector2? _originalPosition;
+  Vector2? _originalSize;
+  int? _originalPriority;
 
   UnoCardComponent({
     required Vector2 position,
@@ -14,14 +21,44 @@ class UnoCardComponent extends PositionComponent {
     required this.card,
     this.isHidden = false,
     this.isSelected = false,
+    this.onTap,
   }) : super(position: position, size: size, anchor: Anchor.center);
 
   void toggleSelected() {
     isSelected = !isSelected;
+    _updateSelectionVisuals();
   }
 
   void setSelected(bool selected) {
-    isSelected = selected;
+    if (isSelected != selected) {
+      isSelected = selected;
+      _updateSelectionVisuals();
+    }
+  }
+
+  void _updateSelectionVisuals() {
+    if (isSelected) {
+      // Store original values
+      _originalPosition = position.clone();
+      _originalSize = size.clone();
+      _originalPriority = priority;
+      
+      // Scale up and move forward
+      size = _originalSize! * 1.3;
+      position = Vector2(_originalPosition!.x, _originalPosition!.y - 40);
+      priority = 1000; // Move to front
+    } else {
+      // Restore original values
+      if (_originalPosition != null) {
+        position = _originalPosition!.clone();
+      }
+      if (_originalSize != null) {
+        size = _originalSize!.clone();
+      }
+      if (_originalPriority != null) {
+        priority = _originalPriority!;
+      }
+    }
   }
 
   @override
@@ -248,5 +285,14 @@ class UnoCardComponent extends PositionComponent {
       ..color = Colors.yellow;
     
     canvas.drawRRect(rrect, borderPaint);
+  }
+
+  // Tap detection
+  @override
+  void onTapUp(TapUpEvent event) {
+    if (!isHidden && onTap != null) {
+      onTap!(this);
+    }
+    super.onTapUp(event);
   }
 }
