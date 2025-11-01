@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'blackjack_screen.dart';
 import 'multiplayer_lobby_screen.dart';
 import 'chat_test_screen.dart'; // ADD THIS IMPORT
+import '../screens/uno_screen.dart';
 import '../models/user.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -123,8 +124,15 @@ class HomeScreen extends StatelessWidget {
                         _GameButton(
                           title: 'UNO',
                           icon: Icons.style,
-                          onPressed: null,
-                          enabled: false,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UnoScreen(user: user),
+                              ),
+                            );
+                          },
+                          enabled: true,
                           width: buttonWidth,
                           height: buttonHeight,
                         ),
