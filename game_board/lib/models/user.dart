@@ -21,7 +21,7 @@ class User {
       bankroll: (json['bankroll'] ?? 1000).toDouble(),
       stats: json['stats'] ?? {
         'blackjack': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
-        'uno': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
+        'CrazyEights': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
         'checkers': {'wins': 0, 'losses': 0, 'totalPlayed': 0},
       },
     );

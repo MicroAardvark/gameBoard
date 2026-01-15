@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'blackjack_screen.dart';
 import 'multiplayer_lobby_screen.dart';
 import 'chat_test_screen.dart'; // ADD THIS IMPORT
-import '../screens/uno_screen.dart';
+import 'crazy_eights_screen.dart';
 import '../models/user.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -122,13 +122,13 @@ class HomeScreen extends StatelessWidget {
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: 'UNO',
+                          title: 'CrazyEights',
                           icon: Icons.style,
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => UnoScreen(user: user),
+                                builder: (context) => CrazyEightsScreen(user: user),
                               ),
                             );
                           },

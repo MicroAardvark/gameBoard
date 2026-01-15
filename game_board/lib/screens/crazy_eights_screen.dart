@@ -1,29 +1,29 @@
-// lib/screens/uno_screen.dart
+// lib/screens/CrazyEights_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
 
 import '../models/user.dart';
-import '../games/uno_game.dart';
+import '../games/crazy_eights_game.dart';
 
-class UnoScreen extends StatefulWidget {
+class CrazyEightsScreen extends StatefulWidget {
   final User user;
 
-  const UnoScreen({
+  const CrazyEightsScreen({
     Key? key,
     required this.user,
   }) : super(key: key);
 
   @override
-  State<UnoScreen> createState() => _UnoScreenState();
+  State<CrazyEightsScreen> createState() => _CrazyEightsScreenState();
 }
 
-class _UnoScreenState extends State<UnoScreen> {
-  late UnoGame _game;
+class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
+  late CrazyEightsGame _game;
 
   @override
   void initState() {
     super.initState();
-    _game = UnoGame(user: widget.user);
+    _game = CrazyEightsGame(user: widget.user);
   }
 
   @override
@@ -69,7 +69,7 @@ class _UnoScreenState extends State<UnoScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('UNO Rules'),
+        title: const Text('CrazyEights Rules'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

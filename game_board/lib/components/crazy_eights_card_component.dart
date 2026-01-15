@@ -1,21 +1,21 @@
-// lib/components/uno_card_component.dart
+// lib/components/CrazyEights_card_component.dart
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
-import '../models/uno_card.dart';
+import '../models/crazy_eights_card.dart';
 
-class UnoCardComponent extends PositionComponent with TapCallbacks {
-  final UnoCard card;
+class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
+  final CrazyEightsCard card;
   bool isHidden;
   bool isSelected;
-  final Function(UnoCardComponent)? onTap;
+  final Function(CrazyEightsCardComponent)? onTap;
   
   // Store original position and size for animation
   Vector2? _originalPosition;
   Vector2? _originalSize;
   int? _originalPriority;
 
-  UnoCardComponent({
+  CrazyEightsCardComponent({
     required Vector2 position,
     required Vector2 size,
     required this.card,
@@ -84,11 +84,11 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
   }
 
   void _renderCardBack(Canvas canvas, RRect rrect) {
-    // UNO card back - colorful pattern
+    // CrazyEights card back - colorful pattern
     final backPaint = Paint()..color = Colors.black;
     canvas.drawRRect(rrect, backPaint);
 
-    // Draw "UNO" text pattern
+    // Draw "CrazyEights" text pattern
     final textStyle = TextStyle(
       color: Colors.white,
       fontSize: size.y * 0.15,
@@ -96,7 +96,7 @@ class UnoCardComponent extends PositionComponent with TapCallbacks {
     );
 
     final textPainter = TextPainter(
-      text: TextSpan(text: 'UNO', style: textStyle),
+      text: TextSpan(text: 'CrazyEights', style: textStyle),
       textDirection: TextDirection.ltr,
     )..layout();
 

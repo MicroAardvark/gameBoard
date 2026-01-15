@@ -1,4 +1,4 @@
-// lib/games/uno_game.dart
+// lib/games/CrazyEights_game.dart
 import 'dart:async' as async_timer;
 import 'dart:math';
 import 'package:flame/game.dart';
@@ -6,14 +6,14 @@ import 'package:flame/events.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
-import '../models/uno_card.dart';
+import '../models/crazy_eights_card.dart';
 import '../models/user.dart';
-import '../components/uno_card_component.dart';
+import '../components/crazy_eights_card_component.dart';
 
-class UnoGame extends FlameGame {
+class CrazyEightsGame extends FlameGame {
   final User user;
   
-  UnoGame({required this.user});
+  CrazyEightsGame({required this.user});
 
   // Layer priorities
   static const int layerBackground = 0;
@@ -23,20 +23,20 @@ class UnoGame extends FlameGame {
   static const int layerOverlay = 4;
 
   // Game state
-  late UnoDeck deck;
-  final List<UnoCard> discardPile = [];
-  UnoColor? currentWildColor;
+  late CrazyEightsDeck deck;
+  final List<CrazyEightsCard> discardPile = [];
+  CrazyEightsColor? currentWildColor;
   
   // Player hands
-  final List<UnoCard> playerHand = [];
-  final List<List<UnoCard>> aiHands = [[], [], []];
+  final List<CrazyEightsCard> playerHand = [];
+  final List<List<CrazyEightsCard>> aiHands = [[], [], []];
   
   // Card components
-  final List<UnoCardComponent> playerCardComponents = [];
-  UnoCardComponent? discardTopComponent;
+  final List<CrazyEightsCardComponent> playerCardComponents = [];
+  CrazyEightsCardComponent? discardTopComponent;
   DrawPileComponent? drawPileComponent;
-  UnoButton? unoButton;
-  UnoButton? challengeButton;
+  CrazyEightsButton? CrazyEightsButton;
+  CrazyEightsButton? challengeButton;
   final List<int> aiCardCounts = [0, 0, 0];
   
   // Game flow
@@ -46,8 +46,8 @@ class UnoGame extends FlameGame {
   int drawCount = 0;
   bool isDrawStacking = false;
   
-  // NEW: UNO calling state
-  final List<bool> hasCalledUno = [false, false, false, false];
+  // NEW: CrazyEights calling state
+  final List<bool> hasCalledCrazyEights = [false, false, false, false];
   bool canChallenge = false;
   int? challengeablePlayer;
   async_timer.Timer? challengeTimer;
@@ -56,7 +56,7 @@ class UnoGame extends FlameGame {
   bool jumpInEnabled = true;
   
   // UI state
-  UnoCardComponent? selectedCard;
+  CrazyEightsCardComponent? selectedCard;
   bool showColorPicker = false;
   bool gameOver = false;
   String? winner;
@@ -74,13 +74,13 @@ class UnoGame extends FlameGame {
   Future<void> onLoad() async {
     super.onLoad();
     
-    deck = UnoDeck();
+    deck = CrazyEightsDeck();
     _dealInitialCards();
     _placeFirstDiscardCard();
     await _renderCards();
-    _createUnoButton();
+    _createCrazyEightsButton();
     
-    debugPrint('🎮 UNO Game loaded with advanced rules!');
+    debugPrint('🎮 CrazyEights Game loaded with advanced rules!');
   }
 
   void _dealInitialCards() {
@@ -99,7 +99,7 @@ class UnoGame extends FlameGame {
   }
 
   void _placeFirstDiscardCard() {
-    UnoCard firstCard;
+    CrazyEightsCard firstCard;
     do {
       firstCard = deck.drawCard();
     } while (firstCard.isAction || firstCard.isWild);
@@ -116,36 +116,36 @@ class UnoGame extends FlameGame {
     });
   }
 
-  // NEW: Create UNO button
-  void _createUnoButton() {
-    unoButton?.removeFromParent();
-    unoButton = UnoButton(
+  // NEW: Create CrazyEights button
+  void _createCrazyEightsButton() {
+    CrazyEightsButton?.removeFromParent();
+    CrazyEightsButton = CrazyEightsButton(
       position: Vector2(screenWidth * 0.85, screenHeight * 0.85),
       size: Vector2(screenWidth * 0.12, screenHeight * 0.08),
-      text: 'UNO!',
-      onTap: () => _handleUnoCall(),
+      text: 'CrazyEights!',
+      onTap: () => _handleCrazyEightsCall(),
     )..priority = layerHud;
-    add(unoButton!);
+    add(CrazyEightsButton!);
   }
 
-  // NEW: UNO calling logic
-  void _handleUnoCall() {
-    if (playerHand.length == 1 && !hasCalledUno[0]) {
-      hasCalledUno[0] = true;
-      statusMessage = '🎯 UNO called!';
-      debugPrint('🎯 Player called UNO!');
+  // NEW: CrazyEights calling logic
+  void _handleCrazyEightsCall() {
+    if (playerHand.length == 1 && !hasCalledCrazyEights[0]) {
+      hasCalledCrazyEights[0] = true;
+      statusMessage = '🎯 CrazyEights called!';
+      debugPrint('🎯 Player called CrazyEights!');
     } else if (playerHand.length != 1) {
-      statusMessage = 'You can only call UNO with 1 card!';
+      statusMessage = 'You can only call CrazyEights with 1 card!';
     } else {
-      statusMessage = 'You already called UNO!';
+      statusMessage = 'You already called CrazyEights!';
     }
   }
 
-  // NEW: Check if player should have called UNO
-  void _checkUnoViolation(int playerIndex) {
+  // NEW: Check if player should have called CrazyEights
+  void _checkCrazyEightsViolation(int playerIndex) {
     final hand = playerIndex == 0 ? playerHand : aiHands[playerIndex - 1];
     
-    if (hand.length == 1 && !hasCalledUno[playerIndex]) {
+    if (hand.length == 1 && !hasCalledCrazyEights[playerIndex]) {
       canChallenge = true;
       challengeablePlayer = playerIndex;
       
@@ -173,7 +173,7 @@ class UnoGame extends FlameGame {
 
   void _showChallengeButton() {
     challengeButton?.removeFromParent();
-    challengeButton = UnoButton(
+    challengeButton = CrazyEightsButton(
       position: Vector2(screenWidth * 0.85, screenHeight * 0.73),
       size: Vector2(screenWidth * 0.12, screenHeight * 0.08),
       text: 'Challenge!',
@@ -185,7 +185,7 @@ class UnoGame extends FlameGame {
   void _handleChallenge() {
     if (canChallenge && challengeablePlayer != null) {
       final targetPlayer = challengeablePlayer!;
-      debugPrint('🚨 Player $targetPlayer challenged for not calling UNO!');
+      debugPrint('🚨 Player $targetPlayer challenged for not calling CrazyEights!');
       
       if (targetPlayer == 0) {
         playerHand.add(deck.drawCard());
@@ -236,7 +236,7 @@ class UnoGame extends FlameGame {
     for (var i = 0; i < playerHand.length; i++) {
       final cardX = startX + (i * handSpacing);
       
-      final cardComp = UnoCardComponent(
+      final cardComp = CrazyEightsCardComponent(
         position: Vector2(cardX, cardY),
         size: Vector2(cardWidth, cardHeight),
         card: playerHand[i],
@@ -259,7 +259,7 @@ class UnoGame extends FlameGame {
       final discardX = screenWidth / 2 + cardWidth * 0.7;
       final discardY = screenHeight / 2;
       
-      discardTopComponent = UnoCardComponent(
+      discardTopComponent = CrazyEightsCardComponent(
         position: Vector2(discardX, discardY),
         size: Vector2(cardWidth, cardHeight),
         card: topCard,
@@ -386,10 +386,10 @@ class UnoGame extends FlameGame {
     
     if (currentWildColor != null) {
       final colorNames = {
-        UnoColor.red: 'Red',
-        UnoColor.blue: 'Blue',
-        UnoColor.green: 'Green',
-        UnoColor.yellow: 'Yellow',
+        CrazyEightsColor.red: 'Red',
+        CrazyEightsColor.blue: 'Blue',
+        CrazyEightsColor.green: 'Green',
+        CrazyEightsColor.yellow: 'Yellow',
       };
       
       final colorStyle = TextStyle(
@@ -410,15 +410,15 @@ class UnoGame extends FlameGame {
     }
   }
 
-  Color _getColorDisplay(UnoColor color) {
+  Color _getColorDisplay(CrazyEightsColor color) {
     switch (color) {
-      case UnoColor.red:
+      case CrazyEightsColor.red:
         return const Color(0xFFE53935);
-      case UnoColor.blue:
+      case CrazyEightsColor.blue:
         return const Color(0xFF1E88E5);
-      case UnoColor.green:
+      case CrazyEightsColor.green:
         return const Color(0xFF43A047);
-      case UnoColor.yellow:
+      case CrazyEightsColor.yellow:
         return const Color(0xFFFDD835);
       default:
         return Colors.white;
@@ -442,8 +442,8 @@ class UnoGame extends FlameGame {
     final name = 'Player ${aiIndex + 2}';
     final cardCount = '${aiCardCounts[aiIndex]} card${aiCardCounts[aiIndex] != 1 ? 's' : ''}';
     
-    // NEW: Show UNO indicator
-    final unoStatus = hasCalledUno[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯UNO' : '';
+    // NEW: Show CrazyEights indicator
+    final CrazyEightsStatus = hasCalledCrazyEights[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯CrazyEights' : '';
     
     final nameStyle = TextStyle(
       color: isActive ? Colors.amber : Colors.white,
@@ -459,7 +459,7 @@ class UnoGame extends FlameGame {
     );
     
     final namePainter = TextPainter(
-      text: TextSpan(text: '$name\n$cardCount$unoStatus', style: nameStyle),
+      text: TextSpan(text: '$name\n$cardCount$CrazyEightsStatus', style: nameStyle),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
@@ -491,7 +491,7 @@ class UnoGame extends FlameGame {
       );
       
       final textPainter = TextPainter(
-        text: TextSpan(text: 'UNO', style: textStyle),
+        text: TextSpan(text: 'CrazyEights', style: textStyle),
         textDirection: TextDirection.ltr,
       )..layout();
       
@@ -713,7 +713,7 @@ class UnoGame extends FlameGame {
       }
       selectedCard = cardComp;
       cardComp.setSelected(true);
-      statusMessage = 'Stack +${card.value == UnoValue.drawTwo ? '2' : '4'}! Click discard to play.';
+      statusMessage = 'Stack +${card.value == CrazyEightsValue.drawTwo ? '2' : '4'}! Click discard to play.';
       return;
     }
 
@@ -737,20 +737,20 @@ class UnoGame extends FlameGame {
   }
 
   // NEW: Check if card is identical
-  bool _isIdenticalCard(UnoCard card1, UnoCard card2) {
+  bool _isIdenticalCard(CrazyEightsCard card1, CrazyEightsCard card2) {
     return card1.color == card2.color && card1.value == card2.value;
   }
 
   // NEW: Check if card can stack
-  bool _canStackDrawCard(UnoCard card) {
+  bool _canStackDrawCard(CrazyEightsCard card) {
     if (drawCount == 0) return false;
     final topCard = discardPile.last;
     
-    if (topCard.value == UnoValue.drawTwo && card.value == UnoValue.drawTwo) {
+    if (topCard.value == CrazyEightsValue.drawTwo && card.value == CrazyEightsValue.drawTwo) {
       return true;
     }
     
-    if (topCard.value == UnoValue.wildDrawFour && card.value == UnoValue.wildDrawFour) {
+    if (topCard.value == CrazyEightsValue.wildDrawFour && card.value == CrazyEightsValue.wildDrawFour) {
       return true;
     }
     
@@ -769,7 +769,7 @@ class UnoGame extends FlameGame {
     _handleCardAction(card);
     
     if (playerHand.length == 1) {
-      hasCalledUno[0] = false;
+      hasCalledCrazyEights[0] = false;
     }
     
     _renderCards();
@@ -780,7 +780,7 @@ class UnoGame extends FlameGame {
     }
     
     currentPlayerIndex = 0;
-    _checkUnoViolation(0);
+    _checkCrazyEightsViolation(0);
     
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
@@ -798,10 +798,10 @@ class UnoGame extends FlameGame {
     if (!showColorPicker) return;
     
     final colors = [
-      UnoColor.red,
-      UnoColor.blue,
-      UnoColor.green,
-      UnoColor.yellow,
+      CrazyEightsColor.red,
+      CrazyEightsColor.blue,
+      CrazyEightsColor.green,
+      CrazyEightsColor.yellow,
     ];
 
     final buttonSize = screenWidth * 0.12;
@@ -874,7 +874,7 @@ class UnoGame extends FlameGame {
   // GAME LOGIC
   // ============================================
 
-  void _playCard(int cardIndex, UnoColor? chosenColor) {
+  void _playCard(int cardIndex, CrazyEightsColor? chosenColor) {
     final card = playerHand.removeAt(cardIndex);
     discardPile.add(card);
     
@@ -892,7 +892,7 @@ class UnoGame extends FlameGame {
     }
 
     if (playerHand.length != 1) {
-      hasCalledUno[0] = false;
+      hasCalledCrazyEights[0] = false;
     }
 
     _handleCardAction(card);
@@ -903,7 +903,7 @@ class UnoGame extends FlameGame {
       return;
     }
 
-    _checkUnoViolation(0);
+    _checkCrazyEightsViolation(0);
 
     Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
@@ -912,31 +912,31 @@ class UnoGame extends FlameGame {
     });
   }
 
-  void _handleCardAction(UnoCard card) {
+  void _handleCardAction(CrazyEightsCard card) {
     switch (card.value) {
-      case UnoValue.skip:
+      case CrazyEightsValue.skip:
         statusMessage += ' Next player skipped!';
         _skipNextPlayer();
         break;
       
-      case UnoValue.reverse:
+      case CrazyEightsValue.reverse:
         clockwise = !clockwise;
         statusMessage += ' Direction reversed!';
         break;
       
-      case UnoValue.drawTwo:
+      case CrazyEightsValue.drawTwo:
         drawCount += 2;
         isDrawStacking = true;
         statusMessage += ' +2 added to stack! Total: +$drawCount';
         break;
       
-      case UnoValue.wildDrawFour:
+      case CrazyEightsValue.wildDrawFour:
         drawCount += 4;
         isDrawStacking = true;
         statusMessage += ' +4 added to stack! Total: +$drawCount';
         break;
       
-      case UnoValue.zero:
+      case CrazyEightsValue.zero:
         // NEW: Rotate hands when 0 is played
         _rotateHands();
         statusMessage += ' 🔄 Hands rotated!';
@@ -952,7 +952,7 @@ class UnoGame extends FlameGame {
     debugPrint('🔄 Rotating hands ${clockwise ? 'clockwise' : 'counter-clockwise'}');
     
     if (clockwise) {
-      final temp = List<UnoCard>.from(playerHand);
+      final temp = List<CrazyEightsCard>.from(playerHand);
       playerHand.clear();
       playerHand.addAll(aiHands[2]);
       
@@ -965,7 +965,7 @@ class UnoGame extends FlameGame {
       aiHands[0].clear();
       aiHands[0].addAll(temp);
     } else {
-      final temp = List<UnoCard>.from(playerHand);
+      final temp = List<CrazyEightsCard>.from(playerHand);
       playerHand.clear();
       playerHand.addAll(aiHands[0]);
       
@@ -980,7 +980,7 @@ class UnoGame extends FlameGame {
     }
     
     for (var i = 0; i < 4; i++) {
-      hasCalledUno[i] = false;
+      hasCalledCrazyEights[i] = false;
     }
     
     _sortPlayerHand();
@@ -1023,10 +1023,10 @@ class UnoGame extends FlameGame {
       final aiHand = aiHands[aiIndex];
       final topCard = discardPile.last;
 
-      // AI calls UNO when down to 2 cards
-      if (aiHand.length == 2 && !hasCalledUno[currentPlayerIndex]) {
-        hasCalledUno[currentPlayerIndex] = true;
-        debugPrint('🎯 AI Player ${currentPlayerIndex + 1} called UNO!');
+      // AI calls CrazyEights when down to 2 cards
+      if (aiHand.length == 2 && !hasCalledCrazyEights[currentPlayerIndex]) {
+        hasCalledCrazyEights[currentPlayerIndex] = true;
+        debugPrint('🎯 AI Player ${currentPlayerIndex + 1} called CrazyEights!');
       }
 
       if (drawCount > 0) {
@@ -1048,7 +1048,7 @@ class UnoGame extends FlameGame {
             currentWildColor = _aiChooseWildColor(aiHand);
           }
           
-          drawCount += card.value == UnoValue.drawTwo ? 2 : 4;
+          drawCount += card.value == CrazyEightsValue.drawTwo ? 2 : 4;
           statusMessage = 'Player ${currentPlayerIndex + 1} stacked! Total: +$drawCount';
           
           _renderCards();
@@ -1058,7 +1058,7 @@ class UnoGame extends FlameGame {
             return;
           }
           
-          _checkUnoViolation(currentPlayerIndex);
+          _checkCrazyEightsViolation(currentPlayerIndex);
           
           Future.delayed(const Duration(milliseconds: 800), () {
             if (!gameOver) _nextTurn();
@@ -1106,10 +1106,10 @@ class UnoGame extends FlameGame {
       if (card.isWild) {
         currentWildColor = _aiChooseWildColor(aiHand);
         final colorNames = {
-          UnoColor.red: 'Red',
-          UnoColor.blue: 'Blue',
-          UnoColor.green: 'Green',
-          UnoColor.yellow: 'Yellow',
+          CrazyEightsColor.red: 'Red',
+          CrazyEightsColor.blue: 'Blue',
+          CrazyEightsColor.green: 'Green',
+          CrazyEightsColor.yellow: 'Yellow',
         };
         statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText} (chose ${colorNames[currentWildColor]})';
       } else {
@@ -1118,7 +1118,7 @@ class UnoGame extends FlameGame {
       }
 
       if (aiHand.length != 1) {
-        hasCalledUno[currentPlayerIndex] = false;
+        hasCalledCrazyEights[currentPlayerIndex] = false;
       }
 
       _handleCardAction(card);
@@ -1129,7 +1129,7 @@ class UnoGame extends FlameGame {
       }
 
       _renderCards();
-      _checkUnoViolation(currentPlayerIndex);
+      _checkCrazyEightsViolation(currentPlayerIndex);
       
       Future.delayed(const Duration(milliseconds: 800), () {
         if (!gameOver) _nextTurn();
@@ -1137,32 +1137,32 @@ class UnoGame extends FlameGame {
     });
   }
 
-  int _aiChooseCard(List<int> playableCards, List<UnoCard> hand) {
+  int _aiChooseCard(List<int> playableCards, List<CrazyEightsCard> hand) {
     var bestIndex = playableCards[0];
     var bestCard = hand[playableCards[0]];
 
     for (var index in playableCards) {
       final card = hand[index];
       
-      if (card.value == UnoValue.wildDrawFour) {
+      if (card.value == CrazyEightsValue.wildDrawFour) {
         return index;
       }
       
-      if (card.value == UnoValue.drawTwo && bestCard.value != UnoValue.wildDrawFour) {
+      if (card.value == CrazyEightsValue.drawTwo && bestCard.value != CrazyEightsValue.wildDrawFour) {
         bestIndex = index;
         bestCard = card;
         continue;
       }
       
       if (card.isAction && !bestCard.isAction && 
-          bestCard.value != UnoValue.wildDrawFour && 
-          bestCard.value != UnoValue.drawTwo) {
+          bestCard.value != CrazyEightsValue.wildDrawFour && 
+          bestCard.value != CrazyEightsValue.drawTwo) {
         bestIndex = index;
         bestCard = card;
         continue;
       }
       
-      if (card.value == UnoValue.wild && !bestCard.isAction && !bestCard.isWild) {
+      if (card.value == CrazyEightsValue.wild && !bestCard.isAction && !bestCard.isWild) {
         bestIndex = index;
         bestCard = card;
       }
@@ -1178,12 +1178,12 @@ class UnoGame extends FlameGame {
     return bestIndex;
   }
 
-  UnoColor _aiChooseWildColor(List<UnoCard> hand) {
+  CrazyEightsColor _aiChooseWildColor(List<CrazyEightsCard> hand) {
     final colorCounts = {
-      UnoColor.red: 0,
-      UnoColor.blue: 0,
-      UnoColor.green: 0,
-      UnoColor.yellow: 0,
+      CrazyEightsColor.red: 0,
+      CrazyEightsColor.blue: 0,
+      CrazyEightsColor.green: 0,
+      CrazyEightsColor.yellow: 0,
     };
 
     for (var card in hand) {
@@ -1192,7 +1192,7 @@ class UnoGame extends FlameGame {
       }
     }
 
-    var maxColor = UnoColor.red;
+    var maxColor = CrazyEightsColor.red;
     var maxCount = 0;
     colorCounts.forEach((color, count) {
       if (count > maxCount) {
@@ -1280,14 +1280,14 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
 }
 
 // ============================================
-// UNO Button Component
+// CrazyEights Button Component
 // ============================================
-class UnoButton extends PositionComponent with TapCallbacks {
+class CrazyEightsButton extends PositionComponent with TapCallbacks {
   final String text;
   final VoidCallback onTap;
   bool isPressed = false;
 
-  UnoButton({
+  CrazyEightsButton({
     required Vector2 position,
     required Vector2 size,
     required this.text,
