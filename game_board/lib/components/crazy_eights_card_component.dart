@@ -1,4 +1,4 @@
-// lib/components/CrazyEights_card_component.dart
+// lib/components/crazy_eights_card_component.dart
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +23,13 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     this.isSelected = false,
     this.onTap,
   }) : super(position: position, size: size, anchor: Anchor.center);
+
+  @override
+  void onTapDown(TapDownEvent event) {
+    if (onTap != null && !isHidden) {
+      onTap!(this);
+    }
+  }
 
   void toggleSelected() {
     isSelected = !isSelected;
@@ -63,7 +70,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
 
   @override
   void render(Canvas canvas) {
-    // FIXED: Since anchor is center, draw relative to (0,0) which is the center
+    // Draw relative to (0,0) which is the center due to Anchor.center
     final rect = Rect.fromCenter(
       center: Offset.zero,
       width: size.x,
@@ -84,66 +91,49 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   }
 
   void _renderCardBack(Canvas canvas, RRect rrect) {
-    // CrazyEights card back - colorful pattern
-    final backPaint = Paint()..color = Colors.black;
+    // Playing card back - blue pattern
+    final backPaint = Paint()..color = const Color(0xFF0B3A79);
     canvas.drawRRect(rrect, backPaint);
 
-    // Draw "CrazyEights" text pattern
-    final textStyle = TextStyle(
-      color: Colors.white,
-      fontSize: size.y * 0.15,
-      fontWeight: FontWeight.bold,
-    );
-
-    final textPainter = TextPainter(
-      text: TextSpan(text: 'CrazyEights', style: textStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    textPainter.paint(
-      canvas,
-      Offset(
-        -textPainter.width / 2,
-        -textPainter.height / 2,
-      ),
-    );
+    // Add decorative pattern
+    final patternPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    
+    // Draw diamond pattern
+    final centerX = 0.0; // Relative to center
+    final centerY = 0.0;
+    final spacing = size.x * 0.15;
+    
+    for (var i = -2; i <= 2; i++) {
+      for (var j = -3; j <= 3; j++) {
+        final x = centerX + (i * spacing);
+        final y = centerY + (j * spacing);
+        canvas.drawCircle(
+          Offset(x, y),
+          size.x * 0.05,
+          patternPaint,
+        );
+      }
+    }
 
     // Border
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.red;
+      ..color = Colors.white.withValues(alpha: 0.3);
     canvas.drawRRect(rrect, borderPaint);
   }
 
   void _renderCardFace(Canvas canvas, RRect rrect) {
-    // Card background
-    final backgroundPaint = Paint()..color = card.displayColor;
+    // White card background
+    final backgroundPaint = Paint()..color = Colors.white;
     canvas.drawRRect(rrect, backgroundPaint);
 
-    // Wild card special background
-    if (card.isWild) {
-      _drawWildBackground(canvas, rrect);
-    }
-
-    // White center oval
-    final centerOval = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: size.x * 0.65,
-        height: size.y * 0.85,
-      ),
-      const Radius.circular(60),
-    );
-    final centerPaint = Paint()..color = Colors.white;
-    canvas.drawRRect(centerOval, centerPaint);
-
-    // Draw value/symbol in center
+    // Draw card content
+    _drawCorners(canvas);
     _drawCenterSymbol(canvas);
-
-    // Top-left and bottom-right corner symbols
-    _drawCornerSymbol(canvas, isTopLeft: true);
-    _drawCornerSymbol(canvas, isTopLeft: false);
 
     // Border
     final borderPaint = Paint()
@@ -153,150 +143,138 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     canvas.drawRRect(rrect, borderPaint);
   }
 
-  void _drawWildBackground(Canvas canvas, RRect rrect) {
-    // Create quadrant colors for wild cards
-    final colors = [
-      const Color(0xFFE53935), // red
-      const Color(0xFF1E88E5), // blue
-      const Color(0xFF43A047), // green
-      const Color(0xFFFDD835), // yellow
-    ];
-
-    final halfWidth = size.x / 2;
-    final halfHeight = size.y / 2;
-
-    // Draw four colored corners relative to center (0,0)
-    final cornerPaint = Paint();
-    
-    // Top-left: Red
-    cornerPaint.color = colors[0];
-    canvas.drawPath(
-      Path()
-        ..moveTo(-halfWidth, -halfHeight)
-        ..lineTo(0, -halfHeight)
-        ..lineTo(0, 0)
-        ..lineTo(-halfWidth, 0)
-        ..close(),
-      cornerPaint,
-    );
-
-    // Top-right: Blue
-    cornerPaint.color = colors[1];
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, -halfHeight)
-        ..lineTo(halfWidth, -halfHeight)
-        ..lineTo(halfWidth, 0)
-        ..lineTo(0, 0)
-        ..close(),
-      cornerPaint,
-    );
-
-    // Bottom-left: Green
-    cornerPaint.color = colors[2];
-    canvas.drawPath(
-      Path()
-        ..moveTo(-halfWidth, 0)
-        ..lineTo(0, 0)
-        ..lineTo(0, halfHeight)
-        ..lineTo(-halfWidth, halfHeight)
-        ..close(),
-      cornerPaint,
-    );
-
-    // Bottom-right: Yellow
-    cornerPaint.color = colors[3];
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, 0)
-        ..lineTo(halfWidth, 0)
-        ..lineTo(halfWidth, halfHeight)
-        ..lineTo(0, halfHeight)
-        ..close(),
-      cornerPaint,
-    );
-  }
-
-  void _drawCenterSymbol(Canvas canvas) {
+  void _drawCorners(Canvas canvas) {
     final textStyle = TextStyle(
-      color: card.isWild ? Colors.white : card.displayColor,
-      fontSize: size.y * 0.35,
+      color: card.displayColor,
+      fontSize: size.y * 0.10,  // REDUCED from 0.12 and made proportional
       fontWeight: FontWeight.bold,
     );
 
-    final textPainter = TextPainter(
-      text: TextSpan(text: card.displayText, style: textStyle),
+    final text = '${card.rankText}\n${card.suitSymbol}';
+    
+    // Top-left corner
+    final topLeftPainter = TextPainter(
+      text: TextSpan(text: text, style: textStyle),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
 
-    textPainter.paint(
+    topLeftPainter.paint(
       canvas,
       Offset(
-        -textPainter.width / 2,
-        -textPainter.height / 2,
+        -(size.x / 2) + (size.x * 0.1),  // ADJUSTED padding
+        -(size.y / 2) + (size.y * 0.06),
+      ),
+    );
+
+    // Bottom-right corner (rotated 180°)
+    canvas.save();
+    canvas.translate(0, 0);
+    canvas.rotate(3.14159); // 180 degrees in radians
+    
+    final bottomRightPainter = TextPainter(
+      text: TextSpan(text: text, style: textStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    bottomRightPainter.paint(
+      canvas,
+      Offset(
+        -(size.x / 2) + (size.x * 0.1),
+        -(size.y / 2) + (size.y * 0.06),
+      ),
+    );
+    
+    canvas.restore();
+  }
+
+  void _drawCenterSymbol(Canvas canvas) {
+    // Draw large suit symbol(s) in center
+    final symbolStyle = TextStyle(
+      color: card.displayColor,
+      fontSize: size.y * 0.25,  // REDUCED from 0.35
+      fontWeight: FontWeight.bold,
+    );
+
+    String centerText;
+    
+    if (card.isAction) {
+      // Show special text for face cards
+      if (card.isJack) {
+        centerText = 'J\n${card.suitSymbol}';
+      } else if (card.isQueen) {
+        centerText = 'Q\n+2';  // SIMPLIFIED - removed suit to prevent overflow
+      } else if (card.isKing) {
+        centerText = 'K\n${card.suitSymbol}';
+      } else if (card.isAce) {
+        centerText = 'A\n+4';  // SIMPLIFIED - removed suit to prevent overflow
+      } else {
+        centerText = '${card.rankText}\n${card.suitSymbol}';
+      }
+    } else {
+      // Number cards - show rank and suit
+      centerText = '${card.rankText}\n${card.suitSymbol}';
+    }
+
+    final centerPainter = TextPainter(
+      text: TextSpan(text: centerText, style: symbolStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    centerPainter.paint(
+      canvas,
+      Offset(
+        -centerPainter.width / 2,
+        -centerPainter.height / 2,
+      ),
+    );
+
+    // Add special indicator for action cards - SMALLER
+    if (card.isJack) {
+      _drawActionHint(canvas, 'Skip/Rev');
+    } else if (card.isKing || card.isAce) {
+      _drawActionHint(canvas, 'Change');
+    }
+  }
+
+  void _drawActionHint(Canvas canvas, String hint) {
+    final hintStyle = TextStyle(
+      color: Colors.black.withValues(alpha: 0.4),
+      fontSize: size.y * 0.055,  // ADJUSTED from 0.06
+      fontStyle: FontStyle.italic,
+    );
+
+    final hintPainter = TextPainter(
+      text: TextSpan(text: hint, style: hintStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    hintPainter.paint(
+      canvas,
+      Offset(
+        -hintPainter.width / 2,
+        (size.y / 2) - (size.y * 0.18),  // ADJUSTED position
       ),
     );
   }
 
-  void _drawCornerSymbol(Canvas canvas, {required bool isTopLeft}) {
-    final textStyle = TextStyle(
-      color: card.isWild ? Colors.white : card.displayColor,
-      fontSize: size.y * 0.12,
-      fontWeight: FontWeight.bold,
-    );
-
-    final textPainter = TextPainter(
-      text: TextSpan(text: card.displayText, style: textStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final halfWidth = size.x / 2;
-    final halfHeight = size.y / 2;
-
-    final offset = isTopLeft
-        ? Offset(-halfWidth + size.x * 0.12, -halfHeight + size.y * 0.08)
-        : Offset(
-            halfWidth - textPainter.width - size.x * 0.12,
-            halfHeight - textPainter.height - size.y * 0.08,
-          );
-
-    canvas.save();
-    if (!isTopLeft) {
-      // Rotate bottom-right symbol 180 degrees
-      canvas.translate(offset.dx + textPainter.width / 2, offset.dy + textPainter.height / 2);
-      canvas.rotate(3.14159); // 180 degrees in radians
-      canvas.translate(-textPainter.width / 2, -textPainter.height / 2);
-      textPainter.paint(canvas, Offset.zero);
-    } else {
-      textPainter.paint(canvas, offset);
-    }
-    canvas.restore();
-  }
-
   void _renderSelectionIndicator(Canvas canvas, RRect rrect) {
+    final highlightPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..color = Colors.amber;
+    
+    canvas.drawRRect(rrect, highlightPaint);
+    
+    // Add glow effect
     final glowPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
-      ..color = Colors.yellowAccent
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+      ..strokeWidth = 8
+      ..color = Colors.amber.withValues(alpha: 0.3);
     
     canvas.drawRRect(rrect, glowPaint);
-
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = Colors.yellow;
-    
-    canvas.drawRRect(rrect, borderPaint);
-  }
-
-  // Tap detection
-  @override
-  void onTapUp(TapUpEvent event) {
-    if (!isHidden && onTap != null) {
-      onTap!(this);
-    }
-    super.onTapUp(event);
   }
 }

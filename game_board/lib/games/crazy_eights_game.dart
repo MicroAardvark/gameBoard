@@ -1,4 +1,4 @@
-// lib/games/CrazyEights_game.dart
+// lib/games/crazy_eights_game.dart
 import 'dart:async' as async_timer;
 import 'dart:math';
 import 'package:flame/game.dart';
@@ -25,7 +25,7 @@ class CrazyEightsGame extends FlameGame {
   // Game state
   late CrazyEightsDeck deck;
   final List<CrazyEightsCard> discardPile = [];
-  CrazyEightsColor? currentWildColor;
+  CardSuit? currentChosenSuit;  // CHANGED: from currentWildColor
   
   // Player hands
   final List<CrazyEightsCard> playerHand = [];
@@ -46,18 +46,23 @@ class CrazyEightsGame extends FlameGame {
   int drawCount = 0;
   bool isDrawStacking = false;
   
-  // NEW: CrazyEights calling state
+  // CrazyEights calling state
   final List<bool> hasCalledCrazyEights = [false, false, false, false];
   bool canChallenge = false;
   int? challengeablePlayer;
   async_timer.Timer? challengeTimer;
   
-  // NEW: Jump-in state
+  // Jump-in state
   bool jumpInEnabled = true;
+  
+  // NEW: Jack choice state
+  bool isAwaitingJackChoice = false;
+  CrazyEightsCard? pendingJackCard;
   
   // UI state
   CrazyEightsCardComponent? selectedCard;
-  bool showColorPicker = false;
+  bool showSuitPicker = false;  // CHANGED: from showColorPicker
+  bool showJackChoice = false;  // NEW
   bool gameOver = false;
   String? winner;
 
@@ -65,7 +70,7 @@ class CrazyEightsGame extends FlameGame {
   double get screenWidth => size.x;
   double get screenHeight => size.y;
   double get uiScale => (screenHeight / 720.0).clamp(0.6, 1.0);
-  double get cardHeight => screenHeight * 0.28 * uiScale;
+  double get cardHeight => screenHeight * 0.34 * uiScale;  // INCREASED from 0.28
   double get cardWidth => cardHeight * 0.68;
 
   String statusMessage = 'Your turn! Play a card or draw.';
@@ -80,7 +85,7 @@ class CrazyEightsGame extends FlameGame {
     await _renderCards();
     _createCrazyEightsButton();
     
-    debugPrint('🎮 CrazyEights Game loaded with advanced rules!');
+    debugPrint('🎮 Crazy Eights Enhanced loaded!');
   }
 
   void _dealInitialCards() {
@@ -102,21 +107,21 @@ class CrazyEightsGame extends FlameGame {
     CrazyEightsCard firstCard;
     do {
       firstCard = deck.drawCard();
-    } while (firstCard.isAction || firstCard.isWild);
+    } while (firstCard.isAction);  // CHANGED: no more isWild, just isAction
     
     discardPile.add(firstCard);
   }
 
   void _sortPlayerHand() {
     playerHand.sort((a, b) {
-      if (a.color.index != b.color.index) {
-        return a.color.index.compareTo(b.color.index);
+      // Sort by suit first, then rank
+      if (a.suit.index != b.suit.index) {
+        return a.suit.index.compareTo(b.suit.index);
       }
-      return a.value.index.compareTo(b.value.index);
+      return a.rank.index.compareTo(b.rank.index);
     });
   }
 
-  // NEW: Create CrazyEights button
   void _createCrazyEightsButton() {
     crazyEightsButton?.removeFromParent();
     crazyEightsButton = CrazyEightsButton(
@@ -128,20 +133,18 @@ class CrazyEightsGame extends FlameGame {
     add(crazyEightsButton!);
   }
 
-  // NEW: CrazyEights calling logic
   void _handleCrazyEightsCall() {
     if (playerHand.length == 1 && !hasCalledCrazyEights[0]) {
       hasCalledCrazyEights[0] = true;
-      statusMessage = '🎯 CrazyEights called!';
-      debugPrint('🎯 Player called CrazyEights!');
+      statusMessage = '🎯 Crazy Eights called!';
+      debugPrint('🎯 Player called Crazy Eights!');
     } else if (playerHand.length != 1) {
-      statusMessage = 'You can only call CrazyEights with 1 card!';
+      statusMessage = 'You can only call Crazy Eights with 1 card!';
     } else {
-      statusMessage = 'You already called CrazyEights!';
+      statusMessage = 'You already called Crazy Eights!';
     }
   }
 
-  // NEW: Check if player should have called CrazyEights
   void _checkCrazyEightsViolation(int playerIndex) {
     final hand = playerIndex == 0 ? playerHand : aiHands[playerIndex - 1];
     
@@ -185,7 +188,7 @@ class CrazyEightsGame extends FlameGame {
   void _handleChallenge() {
     if (canChallenge && challengeablePlayer != null) {
       final targetPlayer = challengeablePlayer!;
-      debugPrint('🚨 Player $targetPlayer challenged for not calling CrazyEights!');
+      debugPrint('🚨 Player $targetPlayer challenged for not calling Crazy Eights!');
       
       if (targetPlayer == 0) {
         playerHand.add(deck.drawCard());
@@ -231,8 +234,6 @@ class CrazyEightsGame extends FlameGame {
     final bottomPadding = 30.0;
     final cardY = screenHeight - (cardHeight / 2) - bottomPadding;
 
-    debugPrint('🎴 Rendering ${playerHand.length} player cards at y=$cardY');
-
     for (var i = 0; i < playerHand.length; i++) {
       final cardX = startX + (i * handSpacing);
       
@@ -250,8 +251,6 @@ class CrazyEightsGame extends FlameGame {
 
       playerCardComponents.add(cardComp);
       add(cardComp);
-      
-      debugPrint('  Card ${i + 1}: ${playerHand[i].displayText} at x=$cardX, y=$cardY');
     }
 
     if (discardPile.isNotEmpty) {
@@ -267,8 +266,6 @@ class CrazyEightsGame extends FlameGame {
       )..priority = layerCards;
       
       add(discardTopComponent!);
-      
-      debugPrint('🃏 Discard pile: ${topCard.displayText}');
     }
 
     final deckX = screenWidth / 2 - cardWidth * 0.7;
@@ -286,8 +283,6 @@ class CrazyEightsGame extends FlameGame {
     for (var i = 0; i < 3; i++) {
       aiCardCounts[i] = aiHands[i].length;
     }
-    
-    debugPrint('✅ Render complete. Total components: ${children.length}');
   }
 
   @override
@@ -300,8 +295,12 @@ class CrazyEightsGame extends FlameGame {
     
     super.render(canvas);
     
-    if (showColorPicker) {
-      _drawColorPicker(canvas);
+    if (showSuitPicker) {
+      _drawSuitPicker(canvas);
+    }
+    
+    if (showJackChoice) {
+      _drawJackChoice(canvas);
     }
     
     if (gameOver) {
@@ -337,7 +336,6 @@ class CrazyEightsGame extends FlameGame {
       ),
     );
 
-    // NEW: Draw stack indicator
     if (drawCount > 0) {
       final stackStyle = TextStyle(
         color: Colors.redAccent,
@@ -380,48 +378,47 @@ class CrazyEightsGame extends FlameGame {
       Offset(screenWidth * 0.72, screenHeight * 0.05),
     );
 
-    if (currentWildColor != null && !discardPile.last.isWild) {
-      currentWildColor = null;
+    // CHANGED: Clear chosen suit when no longer relevant
+    if (currentChosenSuit != null && !discardPile.last.canChangeSuit) {
+      currentChosenSuit = null;
     }
     
-    if (currentWildColor != null) {
-      final colorNames = {
-        CrazyEightsColor.red: 'Red',
-        CrazyEightsColor.blue: 'Blue',
-        CrazyEightsColor.green: 'Green',
-        CrazyEightsColor.yellow: 'Yellow',
+    // CHANGED: Show chosen suit instead of color
+    if (currentChosenSuit != null) {
+      final suitNames = {
+        CardSuit.hearts: '♥ Hearts',
+        CardSuit.diamonds: '♦ Diamonds',
+        CardSuit.clubs: '♣ Clubs',
+        CardSuit.spades: '♠ Spades',
       };
       
-      final colorStyle = TextStyle(
-        color: _getColorDisplay(currentWildColor!),
+      final suitStyle = TextStyle(
+        color: _getSuitColor(currentChosenSuit!),
         fontSize: 16 * uiScale,
         fontWeight: FontWeight.bold,
       );
       
-      final colorPainter = TextPainter(
-        text: TextSpan(text: 'Wild: ${colorNames[currentWildColor]}', style: colorStyle),
+      final suitPainter = TextPainter(
+        text: TextSpan(text: 'Suit: ${suitNames[currentChosenSuit]}', style: suitStyle),
         textDirection: TextDirection.ltr,
       )..layout();
       
-      colorPainter.paint(
+      suitPainter.paint(
         canvas,
         Offset(screenWidth * 0.05, screenHeight * 0.05),
       );
     }
   }
 
-  Color _getColorDisplay(CrazyEightsColor color) {
-    switch (color) {
-      case CrazyEightsColor.red:
+  // CHANGED: Get suit color
+  Color _getSuitColor(CardSuit suit) {
+    switch (suit) {
+      case CardSuit.hearts:
+      case CardSuit.diamonds:
         return const Color(0xFFE53935);
-      case CrazyEightsColor.blue:
-        return const Color(0xFF1E88E5);
-      case CrazyEightsColor.green:
-        return const Color(0xFF43A047);
-      case CrazyEightsColor.yellow:
-        return const Color(0xFFFDD835);
-      default:
-        return Colors.white;
+      case CardSuit.clubs:
+      case CardSuit.spades:
+        return Colors.black;
     }
   }
 
@@ -442,8 +439,7 @@ class CrazyEightsGame extends FlameGame {
     final name = 'Player ${aiIndex + 2}';
     final cardCount = '${aiCardCounts[aiIndex]} card${aiCardCounts[aiIndex] != 1 ? 's' : ''}';
     
-    // NEW: Show CrazyEights indicator
-    final CrazyEightsStatus = hasCalledCrazyEights[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯CrazyEights' : '';
+    final crazyEightsStatus = hasCalledCrazyEights[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯CE' : '';
     
     final nameStyle = TextStyle(
       color: isActive ? Colors.amber : Colors.white,
@@ -459,7 +455,7 @@ class CrazyEightsGame extends FlameGame {
     );
     
     final namePainter = TextPainter(
-      text: TextSpan(text: '$name\n$cardCount$CrazyEightsStatus', style: nameStyle),
+      text: TextSpan(text: '$name\n$cardCount$crazyEightsStatus', style: nameStyle),
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.center,
     )..layout();
@@ -481,32 +477,13 @@ class CrazyEightsGame extends FlameGame {
       );
       
       final rrect = RRect.fromRectAndRadius(cardRect, const Radius.circular(8));
-      final backPaint = Paint()..color = Colors.black;
+      final backPaint = Paint()..color = const Color(0xFF0B3A79);
       canvas.drawRRect(rrect, backPaint);
-      
-      final textStyle = TextStyle(
-        color: Colors.white,
-        fontSize: cardBackSize.height * 0.15,
-        fontWeight: FontWeight.bold,
-      );
-      
-      final textPainter = TextPainter(
-        text: TextSpan(text: 'CrazyEights', style: textStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      
-      textPainter.paint(
-        canvas,
-        Offset(
-          cardRect.left + cardBackSize.width / 2 - textPainter.width / 2,
-          cardRect.top + cardBackSize.height / 2 - textPainter.height / 2,
-        ),
-      );
       
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = Colors.red;
+        ..color = Colors.white.withValues(alpha: 0.5);
       canvas.drawRRect(rrect, borderPaint);
     }
 
@@ -531,12 +508,13 @@ class CrazyEightsGame extends FlameGame {
     }
   }
 
-  void _drawColorPicker(Canvas canvas) {
+  // CHANGED: Suit picker instead of color picker
+  void _drawSuitPicker(Canvas canvas) {
     final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final dialogWidth = screenWidth * 0.6;
-    final dialogHeight = screenHeight * 0.3;
+    final dialogHeight = screenHeight * 0.25;  // REDUCED from 0.35
     final dialogRect = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: Offset(screenWidth / 2, screenHeight / 2),
@@ -551,12 +529,12 @@ class CrazyEightsGame extends FlameGame {
     
     final titleStyle = TextStyle(
       color: Colors.black,
-      fontSize: 24 * uiScale,
+      fontSize: 20 * uiScale,  // REDUCED from 24
       fontWeight: FontWeight.bold,
     );
     
     final titlePainter = TextPainter(
-      text: TextSpan(text: 'Choose a color', style: titleStyle),
+      text: TextSpan(text: 'Choose a Suit', style: titleStyle),
       textDirection: TextDirection.ltr,
     )..layout();
     
@@ -564,34 +542,52 @@ class CrazyEightsGame extends FlameGame {
       canvas,
       Offset(
         screenWidth / 2 - titlePainter.width / 2,
-        screenHeight / 2 - dialogHeight / 2 + 20,
+        screenHeight / 2 - dialogHeight / 2 + 15,
       ),
     );
     
-    final colorDisplays = [
-      const Color(0xFFE53935),
-      const Color(0xFF1E88E5),
-      const Color(0xFF43A047),
-      const Color(0xFFFDD835),
+    // Draw 4 suit buttons in a horizontal row - CHANGED from 2x2 grid
+    final buttonSize = screenWidth * 0.11;  // REDUCED from 0.15
+    final totalWidth = (buttonSize * 4) + (screenWidth * 0.02 * 3);  // 4 buttons + 3 gaps
+    final startX = screenWidth / 2 - totalWidth / 2;
+    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    
+    final suits = [
+      {'suit': CardSuit.hearts, 'symbol': '♥', 'name': 'Hearts', 'color': const Color(0xFFE53935)},
+      {'suit': CardSuit.diamonds, 'symbol': '♦', 'name': 'Diamonds', 'color': const Color(0xFFE53935)},
+      {'suit': CardSuit.clubs, 'symbol': '♣', 'name': 'Clubs', 'color': Colors.black},
+      {'suit': CardSuit.spades, 'symbol': '♠', 'name': 'Spades', 'color': Colors.black},
     ];
     
-    final buttonSize = screenWidth * 0.12;
-    final spacing = screenWidth * 0.15;
-    final startX = screenWidth / 2 - (spacing * 1.5);
-    final buttonY = screenHeight / 2 + 20;
-    
     for (var i = 0; i < 4; i++) {
+      final x = startX + (i * (buttonSize + screenWidth * 0.02));
+      
       final buttonRect = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(startX + (i * spacing), buttonY),
-          width: buttonSize,
-          height: buttonSize,
-        ),
+        Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize),
         const Radius.circular(12),
       );
       
-      final colorPaint = Paint()..color = colorDisplays[i];
-      canvas.drawRRect(buttonRect, colorPaint);
+      final bgPaint = Paint()..color = Colors.grey.shade200;
+      canvas.drawRRect(buttonRect, bgPaint);
+      
+      final symbolStyle = TextStyle(
+        color: suits[i]['color'] as Color,
+        fontSize: buttonSize * 0.5,  // ADJUSTED for better fit
+        fontWeight: FontWeight.bold,
+      );
+      
+      final symbolPainter = TextPainter(
+        text: TextSpan(text: suits[i]['symbol'] as String, style: symbolStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      
+      symbolPainter.paint(
+        canvas,
+        Offset(
+          x + buttonSize / 2 - symbolPainter.width / 2,
+          buttonY - symbolPainter.height / 2,
+        ),
+      );
       
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
@@ -599,6 +595,109 @@ class CrazyEightsGame extends FlameGame {
         ..color = Colors.black.withValues(alpha: 0.3);
       canvas.drawRRect(buttonRect, borderPaint);
     }
+  }
+
+  // NEW: Jack choice dialog
+  void _drawJackChoice(Canvas canvas) {
+    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
+    
+    final dialogWidth = screenWidth * 0.65;
+    final dialogHeight = screenHeight * 0.22;  // REDUCED from 0.3
+    final dialogRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(screenWidth / 2, screenHeight / 2),
+        width: dialogWidth,
+        height: dialogHeight,
+      ),
+      const Radius.circular(20),
+    );
+    
+    final dialogPaint = Paint()..color = Colors.white;
+    canvas.drawRRect(dialogRect, dialogPaint);
+    
+    final titleStyle = TextStyle(
+      color: Colors.black,
+      fontSize: 20 * uiScale,  // REDUCED from 24
+      fontWeight: FontWeight.bold,
+    );
+    
+    final titlePainter = TextPainter(
+      text: TextSpan(text: 'Choose Jack Action', style: titleStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    titlePainter.paint(
+      canvas,
+      Offset(
+        screenWidth / 2 - titlePainter.width / 2,
+        screenHeight / 2 - dialogHeight / 2 + 15,
+      ),
+    );
+    
+    // Two buttons: Skip and Reverse
+    final buttonWidth = screenWidth * 0.25;  // REDUCED from 0.22
+    final buttonHeight = screenHeight * 0.07;  // REDUCED from 0.08
+    final spacing = screenWidth * 0.04;
+    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    
+    // Skip button
+    final skipRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(screenWidth / 2 - buttonWidth / 2 - spacing / 2, buttonY),
+        width: buttonWidth,
+        height: buttonHeight,
+      ),
+      const Radius.circular(12),
+    );
+    
+    final skipPaint = Paint()..color = Colors.blue;
+    canvas.drawRRect(skipRect, skipPaint);
+    
+    final skipTextPainter = TextPainter(
+      text: const TextSpan(
+        text: 'Skip Next',
+        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    skipTextPainter.paint(
+      canvas,
+      Offset(
+        screenWidth / 2 - buttonWidth / 2 - spacing / 2 - skipTextPainter.width / 2,
+        buttonY - skipTextPainter.height / 2,
+      ),
+    );
+    
+    // Reverse button
+    final reverseRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(screenWidth / 2 + buttonWidth / 2 + spacing / 2, buttonY),
+        width: buttonWidth,
+        height: buttonHeight,
+      ),
+      const Radius.circular(12),
+    );
+    
+    final reversePaint = Paint()..color = Colors.orange;
+    canvas.drawRRect(reverseRect, reversePaint);
+    
+    final reverseTextPainter = TextPainter(
+      text: const TextSpan(
+        text: 'Reverse',
+        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    
+    reverseTextPainter.paint(
+      canvas,
+      Offset(
+        screenWidth / 2 + buttonWidth / 2 + spacing / 2 - reverseTextPainter.width / 2,
+        buttonY - reverseTextPainter.height / 2,
+      ),
+    );
   }
 
   void _drawGameOver(Canvas canvas) {
@@ -661,14 +760,15 @@ class CrazyEightsGame extends FlameGame {
   // ============================================
   
   void _handleDiscardPileTap() {
-    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
+    if (gameOver || currentPlayerIndex != 0 || showSuitPicker || showJackChoice) return;
     
     if (selectedCard != null) {
       final cardIndex = playerCardComponents.indexOf(selectedCard!);
       if (cardIndex >= 0) {
         final card = playerHand[cardIndex];
-        if (card.isWild) {
-          _showColorPicker();
+        if (card.canChangeSuit) {
+          // King or Ace - show suit picker
+          _showSuitPicker();
         } else {
           _playCard(cardIndex, null);
         }
@@ -677,15 +777,15 @@ class CrazyEightsGame extends FlameGame {
   }
 
   void _handleCardTap(int cardIndex) {
-    if (gameOver || showColorPicker) return;
+    if (gameOver || showSuitPicker || showJackChoice) return;
     
     final card = playerHand[cardIndex];
-    debugPrint('🃏 Card clicked: ${card.displayText} (${card.color} ${card.value})');
+    debugPrint('🃏 Card clicked: ${card.displayText}');
     
-    // NEW: Check for jump-in (identical card)
+    // Check for jump-in (identical card)
     if (currentPlayerIndex != 0 && jumpInEnabled) {
       final topCard = discardPile.last;
-      if (_isIdenticalCard(card, topCard)) {
+      if (card.isIdenticalTo(topCard)) {
         _performJumpIn(cardIndex);
         return;
       }
@@ -706,19 +806,19 @@ class CrazyEightsGame extends FlameGame {
       return;
     }
 
-    // NEW: Allow stacking +2 or +4 cards
+    // Allow stacking draw cards
     if (drawCount > 0 && _canStackDrawCard(card)) {
       if (selectedCard != null) {
         selectedCard!.setSelected(false);
       }
       selectedCard = cardComp;
       cardComp.setSelected(true);
-      statusMessage = 'Stack +${card.value == CrazyEightsValue.drawTwo ? '2' : '4'}! Click discard to play.';
+      statusMessage = 'Stack +${card.isQueen ? '2' : '4'}! Click discard to play.';
       return;
     }
 
-    if (!card.canPlayOn(topCard, currentWildColor) && drawCount == 0) {
-      statusMessage = 'Cannot play that card! Match color or number.';
+    if (!card.canPlayOn(topCard, currentChosenSuit) && drawCount == 0) {
+      statusMessage = 'Cannot play that card! Match suit or rank.';
       return;
     }
 
@@ -729,35 +829,31 @@ class CrazyEightsGame extends FlameGame {
     selectedCard = cardComp;
     cardComp.setSelected(true);
     
-    if (card.isWild) {
-      statusMessage = 'Wild selected! Click discard pile to play.';
+    if (card.canChangeSuit) {
+      statusMessage = '${card.rankText} selected! Click discard pile to choose suit.';
     } else {
       statusMessage = 'Click the discard pile to play ${card.displayText}';
     }
   }
 
-  // NEW: Check if card is identical
-  bool _isIdenticalCard(CrazyEightsCard card1, CrazyEightsCard card2) {
-    return card1.color == card2.color && card1.value == card2.value;
-  }
-
-  // NEW: Check if card can stack
+  // CHANGED: Check if card can stack (Queens with Queens, Aces with Aces)
   bool _canStackDrawCard(CrazyEightsCard card) {
     if (drawCount == 0) return false;
     final topCard = discardPile.last;
     
-    if (topCard.value == CrazyEightsValue.drawTwo && card.value == CrazyEightsValue.drawTwo) {
+    // Queens stack with Queens
+    if (topCard.isQueen && card.isQueen) {
       return true;
     }
     
-    if (topCard.value == CrazyEightsValue.wildDrawFour && card.value == CrazyEightsValue.wildDrawFour) {
+    // Aces stack with Aces
+    if (topCard.isAce && card.isAce) {
       return true;
     }
     
     return false;
   }
 
-  // NEW: Perform jump-in
   void _performJumpIn(int cardIndex) {
     debugPrint('⚡ JUMP-IN! Player playing out of turn!');
     
@@ -766,12 +862,21 @@ class CrazyEightsGame extends FlameGame {
     
     statusMessage = '⚡ JUMP-IN! You played ${card.displayText}!';
     
-    _handleCardAction(card);
-    
     if (playerHand.length == 1) {
       hasCalledCrazyEights[0] = false;
     }
     
+    currentPlayerIndex = 0;
+    
+    // Handle Jack choice for jump-in
+    if (card.isJack) {
+      pendingJackCard = card;
+      showJackChoice = true;
+      statusMessage = '⚡ JUMP-IN! Choose Jack action...';
+      return;
+    }
+    
+    _handleCardAction(card);
     _renderCards();
     
     if (playerHand.isEmpty) {
@@ -779,59 +884,104 @@ class CrazyEightsGame extends FlameGame {
       return;
     }
     
-    currentPlayerIndex = 0;
     _checkCrazyEightsViolation(0);
     
-    Future.delayed(const Duration(milliseconds: 800), () {
+    async_timer.Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
         _nextTurn();
       }
     });
   }
 
-  void _showColorPicker() {
-    showColorPicker = true;
-    statusMessage = 'Choose a color for your wild card!';
+  void _showSuitPicker() {
+    showSuitPicker = true;
+    statusMessage = 'Choose a suit!';
   }
 
-  void _handleColorPickerTap(Offset position) {
-    if (!showColorPicker) return;
+  void _handleSuitPickerTap(Offset position) {
+    if (!showSuitPicker) return;
     
-    final colors = [
-      CrazyEightsColor.red,
-      CrazyEightsColor.blue,
-      CrazyEightsColor.green,
-      CrazyEightsColor.yellow,
-    ];
-
-    final buttonSize = screenWidth * 0.12;
-    final spacing = screenWidth * 0.15;
-    final startX = screenWidth / 2 - (spacing * 1.5);
-    final buttonY = screenHeight / 2 + 20;
-
-    for (var i = 0; i < colors.length; i++) {
-      final buttonRect = Rect.fromCenter(
-        center: Offset(startX + (i * spacing), buttonY),
-        width: buttonSize,
-        height: buttonSize,
-      );
+    final buttonSize = screenWidth * 0.11;
+    final totalWidth = (buttonSize * 4) + (screenWidth * 0.02 * 3);
+    final startX = screenWidth / 2 - totalWidth / 2;
+    final dialogHeight = screenHeight * 0.25;
+    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    
+    final suits = [CardSuit.hearts, CardSuit.diamonds, CardSuit.clubs, CardSuit.spades];
+    
+    for (var i = 0; i < 4; i++) {
+      final x = startX + (i * (buttonSize + screenWidth * 0.02));
+      final buttonRect = Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize);
 
       if (buttonRect.contains(position)) {
         if (selectedCard != null) {
           final cardIndex = playerCardComponents.indexOf(selectedCard!);
           if (cardIndex >= 0) {
-            _playCard(cardIndex, colors[i]);
+            _playCard(cardIndex, suits[i]);
           }
         }
-        showColorPicker = false;
+        showSuitPicker = false;
         selectedCard = null;
         return;
       }
     }
   }
 
+  // NEW: Handle Jack choice dialog tap
+  void _handleJackChoiceTap(Offset position) {
+    if (!showJackChoice) return;
+    
+    final buttonWidth = screenWidth * 0.25;
+    final buttonHeight = screenHeight * 0.07;
+    final spacing = screenWidth * 0.04;
+    final dialogHeight = screenHeight * 0.22;
+    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    
+    // Skip button
+    final skipRect = Rect.fromCenter(
+      center: Offset(screenWidth / 2 - buttonWidth / 2 - spacing / 2, buttonY),
+      width: buttonWidth,
+      height: buttonHeight,
+    );
+    
+    // Reverse button
+    final reverseRect = Rect.fromCenter(
+      center: Offset(screenWidth / 2 + buttonWidth / 2 + spacing / 2, buttonY),
+      width: buttonWidth,
+      height: buttonHeight,
+    );
+    
+    if (skipRect.contains(position)) {
+      _executeJackChoice('skip');
+    } else if (reverseRect.contains(position)) {
+      _executeJackChoice('reverse');
+    }
+  }
+
+  void _executeJackChoice(String choice) {
+    showJackChoice = false;
+    isAwaitingJackChoice = false;
+    
+    if (choice == 'skip') {
+      statusMessage += ' → Skipped next player!';
+      _skipNextPlayer();
+    } else {
+      clockwise = !clockwise;
+      statusMessage += ' → Direction reversed!';
+    }
+    
+    pendingJackCard = null;
+    
+    // Continue game flow
+    async_timer.Future.delayed(const Duration(milliseconds: 800), () {
+      if (!gameOver) {
+        _nextTurn();
+      }
+    });
+  }
+
   void _handleDrawCard() {
-    if (gameOver || currentPlayerIndex != 0 || showColorPicker) return;
+    if (gameOver || currentPlayerIndex != 0 || showSuitPicker || showJackChoice) return;
     
     if (selectedCard != null) {
       selectedCard!.setSelected(false);
@@ -857,11 +1007,11 @@ class CrazyEightsGame extends FlameGame {
       _renderCards();
       
       final topCard = discardPile.last;
-      if (drawnCard.canPlayOn(topCard, currentWildColor)) {
+      if (drawnCard.canPlayOn(topCard, currentChosenSuit)) {
         statusMessage = 'Drew a card - you can play it or end turn.';
       } else {
         statusMessage = 'Drew a card - turn ending...';
-        Future.delayed(const Duration(milliseconds: 800), () {
+        async_timer.Future.delayed(const Duration(milliseconds: 800), () {
           if (!gameOver && currentPlayerIndex == 0) {
             _nextTurn();
           }
@@ -874,7 +1024,7 @@ class CrazyEightsGame extends FlameGame {
   // GAME LOGIC
   // ============================================
 
-  void _playCard(int cardIndex, CrazyEightsColor? chosenColor) {
+  void _playCard(int cardIndex, CardSuit? chosenSuit) {
     final card = playerHand.removeAt(cardIndex);
     discardPile.add(card);
     
@@ -883,16 +1033,24 @@ class CrazyEightsGame extends FlameGame {
       selectedCard = null;
     }
     
-    if (card.isWild) {
-      currentWildColor = chosenColor;
+    if (card.canChangeSuit) {
+      currentChosenSuit = chosenSuit;
       statusMessage = 'You played ${card.displayText}!';
     } else {
-      currentWildColor = null;
+      currentChosenSuit = null;
       statusMessage = 'You played ${card.displayText}!';
     }
 
     if (playerHand.length != 1) {
       hasCalledCrazyEights[0] = false;
+    }
+
+    // Handle Jack choice
+    if (card.isJack) {
+      pendingJackCard = card;
+      showJackChoice = true;
+      _renderCards();
+      return;
     }
 
     _handleCardAction(card);
@@ -905,86 +1063,32 @@ class CrazyEightsGame extends FlameGame {
 
     _checkCrazyEightsViolation(0);
 
-    Future.delayed(const Duration(milliseconds: 800), () {
+    async_timer.Future.delayed(const Duration(milliseconds: 800), () {
       if (!gameOver) {
         _nextTurn();
       }
     });
   }
 
+  // CHANGED: Updated for playing card actions
   void _handleCardAction(CrazyEightsCard card) {
-    switch (card.value) {
-      case CrazyEightsValue.skip:
-        statusMessage += ' Next player skipped!';
-        _skipNextPlayer();
-        break;
-      
-      case CrazyEightsValue.reverse:
-        clockwise = !clockwise;
-        statusMessage += ' Direction reversed!';
-        break;
-      
-      case CrazyEightsValue.drawTwo:
-        drawCount += 2;
-        isDrawStacking = true;
-        statusMessage += ' +2 added to stack! Total: +$drawCount';
-        break;
-      
-      case CrazyEightsValue.wildDrawFour:
-        drawCount += 4;
-        isDrawStacking = true;
-        statusMessage += ' +4 added to stack! Total: +$drawCount';
-        break;
-      
-      case CrazyEightsValue.zero:
-        // NEW: Rotate hands when 0 is played
-        _rotateHands();
-        statusMessage += ' 🔄 Hands rotated!';
-        break;
-      
-      default:
-        break;
+    if (card.isJack) {
+      // Jack choice handled separately via dialog
+      return;
+    } else if (card.isQueen) {
+      // Queen: Draw 2, stackable
+      drawCount += 2;
+      isDrawStacking = true;
+      statusMessage += ' +2 added! Total: +$drawCount';
+    } else if (card.isKing) {
+      // King: Change suit only (no draw)
+      // Suit already chosen
+    } else if (card.isAce) {
+      // Ace: Change suit + Draw 4, stackable
+      drawCount += 4;
+      isDrawStacking = true;
+      statusMessage += ' +4 added! Total: +$drawCount';
     }
-  }
-
-  // NEW: Rotate all hands
-  void _rotateHands() {
-    debugPrint('🔄 Rotating hands ${clockwise ? 'clockwise' : 'counter-clockwise'}');
-    
-    if (clockwise) {
-      final temp = List<CrazyEightsCard>.from(playerHand);
-      playerHand.clear();
-      playerHand.addAll(aiHands[2]);
-      
-      aiHands[2].clear();
-      aiHands[2].addAll(aiHands[1]);
-      
-      aiHands[1].clear();
-      aiHands[1].addAll(aiHands[0]);
-      
-      aiHands[0].clear();
-      aiHands[0].addAll(temp);
-    } else {
-      final temp = List<CrazyEightsCard>.from(playerHand);
-      playerHand.clear();
-      playerHand.addAll(aiHands[0]);
-      
-      aiHands[0].clear();
-      aiHands[0].addAll(aiHands[1]);
-      
-      aiHands[1].clear();
-      aiHands[1].addAll(aiHands[2]);
-      
-      aiHands[2].clear();
-      aiHands[2].addAll(temp);
-    }
-    
-    for (var i = 0; i < 4; i++) {
-      hasCalledCrazyEights[i] = false;
-    }
-    
-    _sortPlayerHand();
-    _renderCards();
   }
 
   void _skipNextPlayer() {
@@ -1016,17 +1120,17 @@ class CrazyEightsGame extends FlameGame {
   // ============================================
 
   void _aiTakeTurn() {
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    async_timer.Future.delayed(const Duration(milliseconds: 1500), () {
       if (gameOver) return;
 
       final aiIndex = currentPlayerIndex - 1;
       final aiHand = aiHands[aiIndex];
       final topCard = discardPile.last;
 
-      // AI calls CrazyEights when down to 2 cards
+      // AI calls Crazy Eights when down to 2 cards
       if (aiHand.length == 2 && !hasCalledCrazyEights[currentPlayerIndex]) {
         hasCalledCrazyEights[currentPlayerIndex] = true;
-        debugPrint('🎯 AI Player ${currentPlayerIndex + 1} called CrazyEights!');
+        debugPrint('🎯 AI Player ${currentPlayerIndex + 1} called Crazy Eights!');
       }
 
       if (drawCount > 0) {
@@ -1044,11 +1148,11 @@ class CrazyEightsGame extends FlameGame {
           discardPile.add(card);
           aiCardCounts[aiIndex] = aiHand.length;
           
-          if (card.isWild) {
-            currentWildColor = _aiChooseWildColor(aiHand);
+          if (card.canChangeSuit) {
+            currentChosenSuit = _aiChooseSuit(aiHand);
           }
           
-          drawCount += card.value == CrazyEightsValue.drawTwo ? 2 : 4;
+          drawCount += card.isQueen ? 2 : 4;
           statusMessage = 'Player ${currentPlayerIndex + 1} stacked! Total: +$drawCount';
           
           _renderCards();
@@ -1060,7 +1164,7 @@ class CrazyEightsGame extends FlameGame {
           
           _checkCrazyEightsViolation(currentPlayerIndex);
           
-          Future.delayed(const Duration(milliseconds: 800), () {
+          async_timer.Future.delayed(const Duration(milliseconds: 800), () {
             if (!gameOver) _nextTurn();
           });
           return;
@@ -1073,7 +1177,7 @@ class CrazyEightsGame extends FlameGame {
           drawCount = 0;
           isDrawStacking = false;
           
-          Future.delayed(const Duration(milliseconds: 800), () {
+          async_timer.Future.delayed(const Duration(milliseconds: 800), () {
             if (!gameOver) _nextTurn();
           });
           return;
@@ -1082,7 +1186,7 @@ class CrazyEightsGame extends FlameGame {
 
       final playableCards = <int>[];
       for (var i = 0; i < aiHand.length; i++) {
-        if (aiHand[i].canPlayOn(topCard, currentWildColor)) {
+        if (aiHand[i].canPlayOn(topCard, currentChosenSuit)) {
           playableCards.add(i);
         }
       }
@@ -1092,7 +1196,7 @@ class CrazyEightsGame extends FlameGame {
         aiCardCounts[aiIndex] = aiHand.length;
         statusMessage = 'Player ${currentPlayerIndex + 1} drew a card.';
         
-        Future.delayed(const Duration(milliseconds: 800), () {
+        async_timer.Future.delayed(const Duration(milliseconds: 800), () {
           if (!gameOver) _nextTurn();
         });
         return;
@@ -1103,17 +1207,17 @@ class CrazyEightsGame extends FlameGame {
       discardPile.add(card);
       aiCardCounts[aiIndex] = aiHand.length;
 
-      if (card.isWild) {
-        currentWildColor = _aiChooseWildColor(aiHand);
-        final colorNames = {
-          CrazyEightsColor.red: 'Red',
-          CrazyEightsColor.blue: 'Blue',
-          CrazyEightsColor.green: 'Green',
-          CrazyEightsColor.yellow: 'Yellow',
+      if (card.canChangeSuit) {
+        currentChosenSuit = _aiChooseSuit(aiHand);
+        final suitNames = {
+          CardSuit.hearts: 'Hearts',
+          CardSuit.diamonds: 'Diamonds',
+          CardSuit.clubs: 'Clubs',
+          CardSuit.spades: 'Spades',
         };
-        statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText} (chose ${colorNames[currentWildColor]})';
+        statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText} (chose ${suitNames[currentChosenSuit]})';
       } else {
-        currentWildColor = null;
+        currentChosenSuit = null;
         statusMessage = 'Player ${currentPlayerIndex + 1} played ${card.displayText}';
       }
 
@@ -1121,7 +1225,19 @@ class CrazyEightsGame extends FlameGame {
         hasCalledCrazyEights[currentPlayerIndex] = false;
       }
 
-      _handleCardAction(card);
+      // Handle Jack choice for AI
+      if (card.isJack) {
+        final choice = _aiChooseJackAction();
+        if (choice == 'skip') {
+          statusMessage += ' (skip)';
+          _skipNextPlayer();
+        } else {
+          statusMessage += ' (reverse)';
+          clockwise = !clockwise;
+        }
+      } else {
+        _handleCardAction(card);
+      }
 
       if (aiHand.isEmpty) {
         _endGame('ai${aiIndex + 1}');
@@ -1131,7 +1247,7 @@ class CrazyEightsGame extends FlameGame {
       _renderCards();
       _checkCrazyEightsViolation(currentPlayerIndex);
       
-      Future.delayed(const Duration(milliseconds: 800), () {
+      async_timer.Future.delayed(const Duration(milliseconds: 800), () {
         if (!gameOver) _nextTurn();
       });
     });
@@ -1144,32 +1260,33 @@ class CrazyEightsGame extends FlameGame {
     for (var index in playableCards) {
       final card = hand[index];
       
-      if (card.value == CrazyEightsValue.wildDrawFour) {
+      // Prioritize Aces (change suit + draw 4)
+      if (card.isAce) {
         return index;
       }
       
-      if (card.value == CrazyEightsValue.drawTwo && bestCard.value != CrazyEightsValue.wildDrawFour) {
+      // Then Queens (draw 2)
+      if (card.isQueen && !bestCard.isAce) {
         bestIndex = index;
         bestCard = card;
         continue;
       }
       
-      if (card.isAction && !bestCard.isAction && 
-          bestCard.value != CrazyEightsValue.wildDrawFour && 
-          bestCard.value != CrazyEightsValue.drawTwo) {
+      // Then Jacks (skip/reverse)
+      if (card.isJack && !bestCard.isQueen && !bestCard.isAce) {
         bestIndex = index;
         bestCard = card;
         continue;
       }
       
-      if (card.value == CrazyEightsValue.wild && !bestCard.isAction && !bestCard.isWild) {
+      // Then Kings (change suit)
+      if (card.isKing && !bestCard.isAction) {
         bestIndex = index;
         bestCard = card;
       }
       
-      if (!card.isAction && !card.isWild && 
-          !bestCard.isAction && !bestCard.isWild &&
-          card.value.index > bestCard.value.index) {
+      // Finally number cards - play highest
+      if (!card.isAction && !bestCard.isAction && card.numericValue > bestCard.numericValue) {
         bestIndex = index;
         bestCard = card;
       }
@@ -1178,30 +1295,53 @@ class CrazyEightsGame extends FlameGame {
     return bestIndex;
   }
 
-  CrazyEightsColor _aiChooseWildColor(List<CrazyEightsCard> hand) {
-    final colorCounts = {
-      CrazyEightsColor.red: 0,
-      CrazyEightsColor.blue: 0,
-      CrazyEightsColor.green: 0,
-      CrazyEightsColor.yellow: 0,
+  // NEW: AI chooses Jack action
+  String _aiChooseJackAction() {
+    // If only 2 players, skip and reverse do the same thing
+    if (aiHands.length <= 1) {
+      return Random().nextBool() ? 'skip' : 'reverse';
+    }
+    
+    // Get next player's card count
+    int nextPlayerIndex = clockwise ? (currentPlayerIndex + 1) % 4 : (currentPlayerIndex - 1 + 4) % 4;
+    int nextPlayerCards = nextPlayerIndex == 0 
+        ? playerHand.length 
+        : aiHands[nextPlayerIndex - 1].length;
+    
+    // If next player has few cards, prefer to skip them
+    if (nextPlayerCards <= 2) {
+      return 'skip';
+    }
+    
+    // Otherwise random
+    return Random().nextBool() ? 'skip' : 'reverse';
+  }
+
+  // CHANGED: AI chooses suit instead of color
+  CardSuit _aiChooseSuit(List<CrazyEightsCard> hand) {
+    final suitCounts = {
+      CardSuit.hearts: 0,
+      CardSuit.diamonds: 0,
+      CardSuit.clubs: 0,
+      CardSuit.spades: 0,
     };
 
     for (var card in hand) {
-      if (!card.isWild) {
-        colorCounts[card.color] = (colorCounts[card.color] ?? 0) + 1;
+      if (!card.canChangeSuit) {
+        suitCounts[card.suit] = (suitCounts[card.suit] ?? 0) + 1;
       }
     }
 
-    var maxColor = CrazyEightsColor.red;
+    var maxSuit = CardSuit.hearts;
     var maxCount = 0;
-    colorCounts.forEach((color, count) {
+    suitCounts.forEach((suit, count) {
       if (count > maxCount) {
         maxCount = count;
-        maxColor = color;
+        maxSuit = suit;
       }
     });
 
-    return maxColor;
+    return maxSuit;
   }
 
   void _endGame(String winnerName) {
@@ -1216,8 +1356,12 @@ class CrazyEightsGame extends FlameGame {
 
   @override
   void onTapDown(TapDownInfo info) {
-    if (showColorPicker) {
-      _handleColorPickerTap(info.eventPosition.global.toOffset());
+    final position = info.eventPosition.global.toOffset();
+    
+    if (showSuitPicker) {
+      _handleSuitPickerTap(position);
+    } else if (showJackChoice) {
+      _handleJackChoiceTap(position);
     }
   }
 }
@@ -1245,7 +1389,7 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
     );
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
     
-    final backPaint = Paint()..color = Colors.black;
+    final backPaint = Paint()..color = const Color(0xFF0B3A79);
     canvas.drawRRect(rrect, backPaint);
     
     final textPainter = TextPainter(
@@ -1269,7 +1413,7 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.red;
+      ..color = Colors.white.withValues(alpha: 0.5);
     canvas.drawRRect(rrect, borderPaint);
   }
 

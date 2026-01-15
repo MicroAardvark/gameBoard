@@ -1,17 +1,14 @@
-// lib/models/CrazyEights_card.dart
+// lib/models/crazy_eights_card.dart
 import 'package:flutter/material.dart';
 
-enum CrazyEightsColor {
-  red,
-  blue,
-  green,
-  yellow,
-  wild, // For Wild and Wild Draw Four cards
+enum CardSuit {
+  hearts,
+  diamonds,
+  clubs,
+  spades,
 }
 
-enum CrazyEightsValue {
-  zero,
-  one,
+enum CardRank {
   two,
   three,
   four,
@@ -20,103 +17,130 @@ enum CrazyEightsValue {
   seven,
   eight,
   nine,
-  skip,
-  reverse,
-  drawTwo,
-  wild,
-  wildDrawFour,
+  jack,    // Choose: skip OR reverse
+  queen,   // Draw 2, stackable
+  king,    // Change suit
+  ace,     // Change suit & draw 4, stackable
 }
 
 class CrazyEightsCard {
-  final CrazyEightsColor color;
-  final CrazyEightsValue value;
+  final CardSuit suit;
+  final CardRank rank;
   
-  CrazyEightsCard({required this.color, required this.value});
+  CrazyEightsCard({required this.suit, required this.rank});
 
-  // Check if card is an action card
-  bool get isAction => [
-    CrazyEightsValue.skip,
-    CrazyEightsValue.reverse,
-    CrazyEightsValue.drawTwo,
-  ].contains(value);
+  // Check if card is a special action card
+  bool get isJack => rank == CardRank.jack;
+  bool get isQueen => rank == CardRank.queen;
+  bool get isKing => rank == CardRank.king;
+  bool get isAce => rank == CardRank.ace;
+  
+  bool get isAction => isJack || isQueen || isKing || isAce;
+  bool get canChangeSuit => isKing || isAce;
+  bool get isDrawCard => isQueen || isAce;
+  
+  // Get numeric value for number cards
+  int get numericValue {
+    switch (rank) {
+      case CardRank.two: return 2;
+      case CardRank.three: return 3;
+      case CardRank.four: return 4;
+      case CardRank.five: return 5;
+      case CardRank.six: return 6;
+      case CardRank.seven: return 7;
+      case CardRank.eight: return 8;
+      case CardRank.nine: return 9;
+      default: return 0; // Face cards don't have numeric values
+    }
+  }
 
-  // Check if card is a wild card
-  bool get isWild => value == CrazyEightsValue.wild || value == CrazyEightsValue.wildDrawFour;
-
-  // Get the display color for the card
+  // Get the display color for the card suit
   Color get displayColor {
-    switch (color) {
-      case CrazyEightsColor.red:
-        return const Color(0xFFE53935);
-      case CrazyEightsColor.blue:
-        return const Color(0xFF1E88E5);
-      case CrazyEightsColor.green:
-        return const Color(0xFF43A047);
-      case CrazyEightsColor.yellow:
-        return const Color(0xFFFDD835);
-      case CrazyEightsColor.wild:
+    switch (suit) {
+      case CardSuit.hearts:
+        return const Color(0xFFE53935); // Red
+      case CardSuit.diamonds:
+        return const Color(0xFFE53935); // Red
+      case CardSuit.clubs:
+        return Colors.black;
+      case CardSuit.spades:
         return Colors.black;
     }
   }
 
-  // Get display text for the card value
-  String get displayText {
-    switch (value) {
-      case CrazyEightsValue.zero:
-        return '0';
-      case CrazyEightsValue.one:
-        return '1';
-      case CrazyEightsValue.two:
-        return '2';
-      case CrazyEightsValue.three:
-        return '3';
-      case CrazyEightsValue.four:
-        return '4';
-      case CrazyEightsValue.five:
-        return '5';
-      case CrazyEightsValue.six:
-        return '6';
-      case CrazyEightsValue.seven:
-        return '7';
-      case CrazyEightsValue.eight:
-        return '8';
-      case CrazyEightsValue.nine:
-        return '9';
-      case CrazyEightsValue.skip:
-        return '⊘';
-      case CrazyEightsValue.reverse:
-        return '⇄';
-      case CrazyEightsValue.drawTwo:
-        return '+2';
-      case CrazyEightsValue.wild:
-        return 'W';
-      case CrazyEightsValue.wildDrawFour:
-        return '+4';
+  // Get suit symbol
+  String get suitSymbol {
+    switch (suit) {
+      case CardSuit.hearts:
+        return '♥';
+      case CardSuit.diamonds:
+        return '♦';
+      case CardSuit.clubs:
+        return '♣';
+      case CardSuit.spades:
+        return '♠';
     }
   }
 
-  // Check if this card can be played on another card
-  bool canPlayOn(CrazyEightsCard otherCard, CrazyEightsColor? currentWildColor) {
-    // Wild cards can always be played
-    if (isWild) return true;
+  // Get display text for the card rank
+  String get rankText {
+    switch (rank) {
+      case CardRank.two: return '2';
+      case CardRank.three: return '3';
+      case CardRank.four: return '4';
+      case CardRank.five: return '5';
+      case CardRank.six: return '6';
+      case CardRank.seven: return '7';
+      case CardRank.eight: return '8';
+      case CardRank.nine: return '9';
+      case CardRank.jack: return 'J';
+      case CardRank.queen: return 'Q';
+      case CardRank.king: return 'K';
+      case CardRank.ace: return 'A';
+    }
+  }
 
-    // If the last card was wild, check against the chosen color
-    if (otherCard.isWild && currentWildColor != null) {
-      return color == currentWildColor;
+  // Get full display text (e.g., "A♠")
+  String get displayText => '$rankText$suitSymbol';
+
+  // Check if this card can be played on another card
+  bool canPlayOn(CrazyEightsCard otherCard, CardSuit? currentChosenSuit) {
+    // Kings and Aces can change suit - always playable
+    if (canChangeSuit) return true;
+
+    // If the last card was a suit-changing card, check against the chosen suit
+    if (otherCard.canChangeSuit && currentChosenSuit != null) {
+      return suit == currentChosenSuit;
     }
 
-    // Match color or value
-    return color == otherCard.color || value == otherCard.value;
+    // Match suit or rank
+    return suit == otherCard.suit || rank == otherCard.rank;
+  }
+
+  // Check if two cards are identical (for jump-in rule)
+  bool isIdenticalTo(CrazyEightsCard other) {
+    return suit == other.suit && rank == other.rank;
   }
 
   @override
-  String toString() => '$color $value';
+  String toString() => displayText;
 
-  // For copying/comparing
-  CrazyEightsCard copyWith({CrazyEightsColor? color, CrazyEightsValue? value}) {
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is CrazyEightsCard && 
+           other.suit == suit && 
+           other.rank == rank;
+  }
+
+  @override
+  int get hashCode => suit.hashCode ^ rank.hashCode;
+
+  // For copying
+  CrazyEightsCard copyWith({CardSuit? suit, CardRank? rank}) {
     return CrazyEightsCard(
-      color: color ?? this.color,
-      value: value ?? this.value,
+      suit: suit ?? this.suit,
+      rank: rank ?? this.rank,
     );
   }
 }
@@ -132,34 +156,13 @@ class CrazyEightsDeck {
   void _init() {
     _cards.clear();
 
-    // Add number cards (0-9)
-    // One 0 per color, two of each 1-9 per color
-    for (var color in [CrazyEightsColor.red, CrazyEightsColor.blue, CrazyEightsColor.green, CrazyEightsColor.yellow]) {
-      // One zero per color
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.zero));
-
-      // Two of each 1-9
-      for (var i = 1; i <= 9; i++) {
-        final value = CrazyEightsValue.values[i]; // one through nine
-        _cards.add(CrazyEightsCard(color: color, value: value));
-        _cards.add(CrazyEightsCard(color: color, value: value));
+    // Create 2 standard 52-card decks = 104 cards total
+    for (var deckNum = 0; deckNum < 2; deckNum++) {
+      for (var suit in CardSuit.values) {
+        for (var rank in CardRank.values) {
+          _cards.add(CrazyEightsCard(suit: suit, rank: rank));
+        }
       }
-
-      // Two of each action card per color
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.skip));
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.skip));
-      
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.reverse));
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.reverse));
-      
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.drawTwo));
-      _cards.add(CrazyEightsCard(color: color, value: CrazyEightsValue.drawTwo));
-    }
-
-    // Add wild cards (4 of each)
-    for (var i = 0; i < 4; i++) {
-      _cards.add(CrazyEightsCard(color: CrazyEightsColor.wild, value: CrazyEightsValue.wild));
-      _cards.add(CrazyEightsCard(color: CrazyEightsColor.wild, value: CrazyEightsValue.wildDrawFour));
     }
 
     shuffle();
@@ -189,4 +192,11 @@ class CrazyEightsDeck {
   int get remainingCards => _cards.length - _index;
   
   bool get isEmpty => _index >= _cards.length;
+
+  // Reset with cards from discard pile (keep top card)
+  void resetWithDiscard(List<CrazyEightsCard> discardCards) {
+    _cards.clear();
+    _cards.addAll(discardCards);
+    shuffle();
+  }
 }
