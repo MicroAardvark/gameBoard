@@ -4,6 +4,7 @@ import 'package:flame/game.dart';
 
 import '../models/user.dart';
 import '../games/crazy_eights_game.dart';
+import '../theme/app_theme.dart';
 
 class CrazyEightsScreen extends StatefulWidget {
   final User user;
@@ -41,7 +42,7 @@ class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
               top: 16,
               left: 16,
               child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary, size: 32),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
@@ -53,7 +54,7 @@ class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
               top: 16,
               right: 16,
               child: IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white, size: 28),
+                icon: const Icon(Icons.info_outline, color: AppColors.textPrimary, size: 28),
                 onPressed: () {
                   _showRulesDialog();
                 },

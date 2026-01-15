@@ -10,6 +10,7 @@ import '../components/card_component.dart';
 import '../components/chip_components.dart';
 import '../components/mock_player.dart';
 import '../ui/hud.dart';
+import '../theme/app_theme.dart';
 
 class BlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
@@ -181,11 +182,11 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
         case 10:
           return Colors.blue;
         case 25:
-          return Colors.green;
+          return AppColors.primaryNavyLight;
         case 50:
           return Colors.purple;
         case 100:
-          return Colors.black;
+          return AppColors.primaryNavyDark;
         default:
           return Colors.grey;
       }
@@ -577,7 +578,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     innerBorderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.black.withValues(alpha: 0.25);
+      ..color = AppColors.primaryNavyDark.withValues(alpha: 0.25);
 
     final innerRect = Rect.fromLTWH(18, 18, size.x - 36, size.y - 36);
     feltShader = const LinearGradient(
@@ -642,7 +643,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     final stagedStroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.white.withValues(alpha: 0.25);
+      ..color = AppColors.textPrimary.withValues(alpha: 0.25);
     canvas.drawCircle(Offset(stagedCenter.x, stagedCenter.y), potRadius * 0.7, stagedStroke);
 
     super.render(canvas);

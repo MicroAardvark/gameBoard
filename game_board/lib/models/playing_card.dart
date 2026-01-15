@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class PlayingCard {
   final String rank;
@@ -12,7 +13,7 @@ class PlayingCard {
   // Added getters for card_component.dart
   String get display => '$rank$suit';
   bool get isRed => (suit == '♥' || suit == '♦');
-  Color get suitColor => isRed ? Colors.red : Colors.black;
+  Color get suitColor => isRed ? Colors.red : AppColors.primaryNavyDark;
 
   @override
   String toString() => '$rank$suit';

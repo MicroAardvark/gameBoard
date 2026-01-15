@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import 'multiplayer_blackjack_screen.dart';
+import '../theme/app_theme.dart';
 
 class MultiplayerLobbyScreen extends StatelessWidget {
   final User user;
@@ -42,10 +43,10 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                       onPressed: () => Navigator.pop(context),
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withValues(alpha: (0.3)),
+                        backgroundColor: AppColors.primaryNavyDark.withValues(alpha: (0.3)),
                       ),
                     ),
                     SizedBox(width: 16),
@@ -56,7 +57,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             'Multiplayer Games',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: titleSize.clamp(20.0, 32.0),
                               fontWeight: FontWeight.bold,
                             ),
@@ -65,7 +66,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             'Select a game to play online',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AppColors.textPrimary,
                               fontSize: titleSize.clamp(12.0, 16.0) * 0.5,
                             ),
                           ),
@@ -81,7 +82,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                 margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: (0.3)),
+                  color: AppColors.primaryNavyDark.withValues(alpha: (0.3)),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: Colors.amber.withValues(alpha: (0.3)),
@@ -98,7 +99,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: AppColors.primaryNavyDark,
                         ),
                       ),
                     ),
@@ -110,7 +111,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             user.username,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -279,7 +280,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
             width: 3,
           ),
         ),
-        color: isAvailable ? Color(0xFF2F5233) : Colors.grey.shade800,
+        color: isAvailable ? AppColors.primaryNavyDark : Colors.grey.shade800,
         child: InkWell(
           onTap: isAvailable ? onTap : null,
           borderRadius: BorderRadius.circular(20),
@@ -330,7 +331,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
-                        color: isAvailable ? Colors.white : Colors.grey,
+                        color: isAvailable ? AppColors.textPrimary : Colors.grey,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -343,7 +344,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       description,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: isAvailable ? Colors.white70 : Colors.grey.shade600,
+                        color: isAvailable ? AppColors.textPrimary : Colors.grey.shade600,
                         fontSize: 14,
                       ),
                     ),
@@ -368,14 +369,14 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                         children: [
                           Icon(
                             isAvailable ? Icons.play_arrow : Icons.lock,
-                            color: isAvailable ? Colors.white : Colors.grey,
+                            color: isAvailable ? AppColors.textPrimary : Colors.grey,
                             size: 20,
                           ),
                           SizedBox(width: 8),
                           Text(
                             isAvailable ? 'Play Now' : 'Coming Soon',
                             style: TextStyle(
-                              color: isAvailable ? Colors.white : Colors.grey,
+                              color: isAvailable ? AppColors.textPrimary : Colors.grey,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
@@ -395,7 +396,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.green,
+                      color: AppColors.primaryNavyLight,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -406,14 +407,14 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         SizedBox(width: 6),
                         Text(
                           'Online',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),

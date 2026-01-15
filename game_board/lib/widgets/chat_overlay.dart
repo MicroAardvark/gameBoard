@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
 import '../models/chat_message.dart';
+import '../theme/app_theme.dart';
 
 class ChatOverlay extends StatefulWidget {
   final String roomId;
@@ -184,7 +185,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
       onTap: _close,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        color: Colors.black.withOpacity(0.5),
+        color: AppColors.primaryNavyDark.withOpacity(0.5),
         child: Center(
           child: GestureDetector(
             onTap: () {}, // Prevent tap from closing when tapping inside
@@ -199,7 +200,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
+                      color: AppColors.primaryNavyDark.withOpacity(0.5),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -229,7 +230,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                             child: Text(
                               'Game Chat',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                                 fontSize: isSmall ? 16 : 18,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -246,7 +247,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                           IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: _close,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             iconSize: isSmall ? 20 : 24,
                           ),
                         ],
@@ -328,7 +329,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                             child: TextField(
                               controller: _messageController,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                                 fontSize: isSmall ? 12 : 14,
                               ),
                               decoration: InputDecoration(
@@ -338,7 +339,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                   fontSize: isSmall ? 12 : 14,
                                 ),
                                 filled: true,
-                                fillColor: Colors.black54,
+                                fillColor: AppColors.primaryNavyDark,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(20),
                                   borderSide: BorderSide.none,
@@ -435,7 +436,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
               child: Text(
                 message.username[0].toUpperCase(),
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: isSmall ? 10 : 12,
                 ),
               ),
@@ -480,7 +481,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                       Text(
                         message.message,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontSize: isSmall ? 12 : 14,
                         ),
                       ),
@@ -504,11 +505,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
             SizedBox(width: isSmall ? 6 : 8),
             CircleAvatar(
               radius: isSmall ? 14 : 16,
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.primaryNavyLight,
               child: Text(
                 widget.username[0].toUpperCase(),
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: isSmall ? 10 : 12,
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 /// Custom rectangular game button used in both single-player and multiplayer HUDs.
 /// This version fixes tap detection so the onTap callback actually fires
@@ -56,7 +57,7 @@ class GameButton extends PositionComponent with TapCallbacks {
       text: TextSpan(
         text: text,
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),

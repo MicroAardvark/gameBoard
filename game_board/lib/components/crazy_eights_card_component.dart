@@ -3,6 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import '../models/crazy_eights_card.dart';
+import '../theme/app_theme.dart';
 
 class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   final CrazyEightsCard card;
@@ -97,7 +98,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
 
     // Add decorative pattern
     final patternPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.2)
+      ..color = AppColors.textPrimary.withValues(alpha: 0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     
@@ -122,13 +123,13 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.white.withValues(alpha: 0.3);
+      ..color = AppColors.textPrimary.withValues(alpha: 0.3);
     canvas.drawRRect(rrect, borderPaint);
   }
 
   void _renderCardFace(Canvas canvas, RRect rrect) {
     // White card background
-    final backgroundPaint = Paint()..color = Colors.white;
+    final backgroundPaint = Paint()..color = AppColors.textPrimary;
     canvas.drawRRect(rrect, backgroundPaint);
 
     // Draw card content
@@ -139,7 +140,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.black.withValues(alpha: 0.3);
+      ..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
     canvas.drawRRect(rrect, borderPaint);
   }
 
@@ -241,7 +242,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
 
   void _drawActionHint(Canvas canvas, String hint) {
     final hintStyle = TextStyle(
-      color: Colors.black.withValues(alpha: 0.4),
+      color: AppColors.primaryNavyDark.withValues(alpha: 0.4),
       fontSize: size.y * 0.055,  // ADJUSTED from 0.06
       fontStyle: FontStyle.italic,
     );

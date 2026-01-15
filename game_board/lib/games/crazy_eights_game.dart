@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../models/crazy_eights_card.dart';
 import '../models/user.dart';
 import '../components/crazy_eights_card_component.dart';
+import '../theme/app_theme.dart';
 
 class CrazyEightsGame extends FlameGame {
   final User user;
@@ -310,13 +311,13 @@ class CrazyEightsGame extends FlameGame {
 
   void _drawGameInfo(Canvas canvas) {
     final textStyle = TextStyle(
-      color: Colors.white,
+      color: AppColors.textPrimary,
       fontSize: 20 * uiScale,
       fontWeight: FontWeight.bold,
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withValues(alpha: 0.5),
+          color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
           offset: const Offset(2, 2),
         ),
       ],
@@ -344,7 +345,7 @@ class CrazyEightsGame extends FlameGame {
         shadows: [
           Shadow(
             blurRadius: 6,
-            color: Colors.black.withValues(alpha: 0.7),
+            color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
             offset: const Offset(2, 2),
           ),
         ],
@@ -418,7 +419,7 @@ class CrazyEightsGame extends FlameGame {
         return const Color(0xFFE53935);
       case CardSuit.clubs:
       case CardSuit.spades:
-        return Colors.black;
+        return AppColors.primaryNavyDark;
     }
   }
 
@@ -442,13 +443,13 @@ class CrazyEightsGame extends FlameGame {
     final crazyEightsStatus = hasCalledCrazyEights[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯CE' : '';
     
     final nameStyle = TextStyle(
-      color: isActive ? Colors.amber : Colors.white,
+      color: isActive ? Colors.amber : AppColors.textPrimary,
       fontSize: 16 * uiScale,
       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withValues(alpha: 0.7),
+          color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
           offset: const Offset(1, 1),
         ),
       ],
@@ -483,13 +484,13 @@ class CrazyEightsGame extends FlameGame {
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = Colors.white.withValues(alpha: 0.5);
+        ..color = AppColors.textPrimary.withValues(alpha: 0.5);
       canvas.drawRRect(rrect, borderPaint);
     }
 
     if (aiCardCounts[aiIndex] > 5) {
       final moreStyle = TextStyle(
-        color: Colors.white70,
+        color: AppColors.textPrimary,
         fontSize: 12 * uiScale,
       );
       
@@ -510,7 +511,7 @@ class CrazyEightsGame extends FlameGame {
 
   // CHANGED: Suit picker instead of color picker
   void _drawSuitPicker(Canvas canvas) {
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.7);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final dialogWidth = screenWidth * 0.6;
@@ -524,11 +525,11 @@ class CrazyEightsGame extends FlameGame {
       const Radius.circular(20),
     );
     
-    final dialogPaint = Paint()..color = Colors.white;
+    final dialogPaint = Paint()..color = AppColors.textPrimary;
     canvas.drawRRect(dialogRect, dialogPaint);
     
     final titleStyle = TextStyle(
-      color: Colors.black,
+      color: AppColors.primaryNavyDark,
       fontSize: 20 * uiScale,  // REDUCED from 24
       fontWeight: FontWeight.bold,
     );
@@ -555,8 +556,8 @@ class CrazyEightsGame extends FlameGame {
     final suits = [
       {'suit': CardSuit.hearts, 'symbol': '♥', 'name': 'Hearts', 'color': const Color(0xFFE53935)},
       {'suit': CardSuit.diamonds, 'symbol': '♦', 'name': 'Diamonds', 'color': const Color(0xFFE53935)},
-      {'suit': CardSuit.clubs, 'symbol': '♣', 'name': 'Clubs', 'color': Colors.black},
-      {'suit': CardSuit.spades, 'symbol': '♠', 'name': 'Spades', 'color': Colors.black},
+      {'suit': CardSuit.clubs, 'symbol': '♣', 'name': 'Clubs', 'color': AppColors.primaryNavyDark},
+      {'suit': CardSuit.spades, 'symbol': '♠', 'name': 'Spades', 'color': AppColors.primaryNavyDark},
     ];
     
     for (var i = 0; i < 4; i++) {
@@ -592,14 +593,14 @@ class CrazyEightsGame extends FlameGame {
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.black.withValues(alpha: 0.3);
+        ..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
       canvas.drawRRect(buttonRect, borderPaint);
     }
   }
 
   // NEW: Jack choice dialog
   void _drawJackChoice(Canvas canvas) {
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.7);
+    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.7);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final dialogWidth = screenWidth * 0.65;
@@ -613,11 +614,11 @@ class CrazyEightsGame extends FlameGame {
       const Radius.circular(20),
     );
     
-    final dialogPaint = Paint()..color = Colors.white;
+    final dialogPaint = Paint()..color = AppColors.textPrimary;
     canvas.drawRRect(dialogRect, dialogPaint);
     
     final titleStyle = TextStyle(
-      color: Colors.black,
+      color: AppColors.primaryNavyDark,
       fontSize: 20 * uiScale,  // REDUCED from 24
       fontWeight: FontWeight.bold,
     );
@@ -657,7 +658,7 @@ class CrazyEightsGame extends FlameGame {
     final skipTextPainter = TextPainter(
       text: const TextSpan(
         text: 'Skip Next',
-        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+        style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -686,7 +687,7 @@ class CrazyEightsGame extends FlameGame {
     final reverseTextPainter = TextPainter(
       text: const TextSpan(
         text: 'Reverse',
-        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+        style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -701,7 +702,7 @@ class CrazyEightsGame extends FlameGame {
   }
 
   void _drawGameOver(Canvas canvas) {
-    final overlayPaint = Paint()..color = Colors.black.withValues(alpha: 0.8);
+    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.8);
     canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
     
     final resultText = winner == 'player' ? 'YOU WIN!' : 'YOU LOSE!';
@@ -710,13 +711,13 @@ class CrazyEightsGame extends FlameGame {
         : 'Better luck next time!';
     
     final textStyle = TextStyle(
-      color: winner == 'player' ? Colors.greenAccent : Colors.redAccent,
+      color: winner == 'player' ? AppColors.primaryNavyLight : Colors.redAccent,
       fontSize: 48 * uiScale,
       fontWeight: FontWeight.bold,
       shadows: [
         Shadow(
           blurRadius: 10,
-          color: Colors.black,
+          color: AppColors.primaryNavyDark,
           offset: const Offset(2, 2),
         ),
       ],
@@ -736,7 +737,7 @@ class CrazyEightsGame extends FlameGame {
     );
 
     final subtitleStyle = TextStyle(
-      color: Colors.white,
+      color: AppColors.textPrimary,
       fontSize: 20 * uiScale,
       fontWeight: FontWeight.normal,
     );
@@ -1396,7 +1397,7 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
       text: TextSpan(
         text: 'DRAW\n$remainingCards',
         style: TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: size.y * 0.1,
           fontWeight: FontWeight.bold,
         ),
@@ -1413,7 +1414,7 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.white.withValues(alpha: 0.5);
+      ..color = AppColors.textPrimary.withValues(alpha: 0.5);
     canvas.drawRRect(rrect, borderPaint);
   }
 
@@ -1454,7 +1455,7 @@ class CrazyEightsButton extends PositionComponent with TapCallbacks {
       text: TextSpan(
         text: text,
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
@@ -1470,7 +1471,7 @@ class CrazyEightsButton extends PositionComponent with TapCallbacks {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Colors.white;
+      ..color = AppColors.textPrimary;
     canvas.drawRRect(rrect, borderPaint);
   }
 

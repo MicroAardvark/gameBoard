@@ -1,5 +1,6 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class InfoTextComponent extends TextComponent {
   InfoTextComponent({
@@ -11,7 +12,7 @@ class InfoTextComponent extends TextComponent {
           position: position,
           anchor: Anchor.topLeft,
           textRenderer: TextPaint(
-            style: TextStyle(color: Colors.white, fontSize: fontSize),
+            style: TextStyle(color: AppColors.textPrimary, fontSize: fontSize),
           ),
         );
 

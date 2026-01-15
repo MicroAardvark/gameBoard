@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 
 class ChatTestScreen extends StatefulWidget {
   final User user;
@@ -144,7 +145,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
         backgroundColor: Colors.grey[900],
         title: const Text(
           'Join Room',
-          style: TextStyle(color: Colors.white, fontSize: 18),
+          style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -157,12 +158,12 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _roomIdController,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
                 decoration: InputDecoration(
                   hintText: 'blackjack_xxxxx',
                   hintStyle: TextStyle(color: Colors.grey[600], fontSize: 10),
                   filled: true,
-                  fillColor: Colors.black54,
+                  fillColor: AppColors.primaryNavyDark,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -243,7 +244,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
         const SnackBar(
           content: Text('Room ID copied!'),
           duration: Duration(seconds: 1),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.primaryNavyLight,
         ),
       );
     }
@@ -270,7 +271,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
     final buttonFontSize = isSmall ? 10.0 : 12.0;
     
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.primaryNavyDark,
       appBar: AppBar(
         title: Text(
           'Chat Test',
@@ -299,14 +300,14 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                   children: [
                     Icon(
                       _socketService.isConnected ? Icons.check_circle : Icons.cancel,
-                      color: _socketService.isConnected ? Colors.green : Colors.red,
+                      color: _socketService.isConnected ? AppColors.primaryNavyLight : Colors.red,
                       size: isSmall ? 16 : 20,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       _socketService.isConnected ? 'Connected' : 'Disconnected',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: isSmall ? 12 : 14,
                       ),
@@ -337,7 +338,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           child: Text(
                             _roomId!,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: isSmall ? 9 : 10,
                               fontFamily: 'monospace',
                             ),
@@ -398,7 +399,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                         child: ElevatedButton(
                           onPressed: _createRoom,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: AppColors.primaryNavyLight,
                             padding: EdgeInsets.symmetric(
                               vertical: isSmall ? 8 : 10,
                               horizontal: isSmall ? 4 : 8,
@@ -489,7 +490,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
           // Logs Display
           Expanded(
             child: Container(
-              color: Colors.black,
+              color: AppColors.primaryNavyDark,
               child: _logs.isEmpty
                   ? Center(
                       child: Column(
@@ -525,12 +526,12 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                       reverse: true,
                       itemBuilder: (context, index) {
                         final log = _logs[index];
-                        Color logColor = Colors.white;
+                        Color logColor = AppColors.textPrimary;
 
                         if (log.contains('❌')) {
                           logColor = Colors.red;
                         } else if (log.contains('✅') || log.contains('📥')) {
-                          logColor = Colors.green;
+                          logColor = AppColors.primaryNavyLight;
                         } else if (log.contains('📤')) {
                           logColor = Colors.blue;
                         } else if (log.contains('⌨️')) {
@@ -563,7 +564,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                   child: TextField(
                     controller: _messageController,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: isSmall ? 12 : 14,
                     ),
                     decoration: InputDecoration(
@@ -575,7 +576,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                         fontSize: isSmall ? 11 : 13,
                       ),
                       filled: true,
-                      fillColor: Colors.black54,
+                      fillColor: AppColors.primaryNavyDark,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,

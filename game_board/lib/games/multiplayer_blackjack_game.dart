@@ -18,6 +18,7 @@ import '../components/multiplayer_player.dart';
 import '../ui/multiplayer_hud.dart';
 import '../services/socket_service.dart';
 import '../components/result_popup_component.dart';
+import '../theme/app_theme.dart';
 
 class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
@@ -696,11 +697,11 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
         case 10:
           return Colors.blue;
         case 25:
-          return Colors.green;
+          return AppColors.primaryNavyLight;
         case 50:
           return Colors.purple;
         case 100:
-          return Colors.black;
+          return AppColors.primaryNavyDark;
         default:
           return Colors.grey;
       }
@@ -1074,7 +1075,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       ..strokeWidth = 3;
 
     hudPanelPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.7)
+      ..color = AppColors.primaryNavyDark.withValues(alpha: 0.7)
       ..style = PaintingStyle.fill;
 
     greenGradientShader = const LinearGradient(

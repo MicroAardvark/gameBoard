@@ -6,6 +6,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
+import '../theme/app_theme.dart';
 
 class ResultPopupComponent extends PositionComponent with TapCallbacks {
   final String mainText;
@@ -89,7 +90,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     final paint = Paint();
     
     // Draw semi-transparent overlay covering entire screen
-    paint.color = Colors.black.withValues(alpha: 0.7 * _opacity);
+    paint.color = AppColors.primaryNavyDark.withValues(alpha: 0.7 * _opacity);
     canvas.drawRect(
       Rect.fromLTWH(0, 0, _screenSize.x, _screenSize.y),
       paint,
@@ -140,14 +141,14 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     paint.shader = null;
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 3;
-    paint.color = (isWin ? Colors.greenAccent : Colors.redAccent)
+    paint.color = (isWin ? AppColors.primaryNavyLight : Colors.redAccent)
         .withValues(alpha: 0.8 * _opacity);
     canvas.drawRRect(rect, paint);
     
     // Draw icon (emoji)
     final iconStyle = TextStyle(
       fontSize: boxHeight * 0.25,
-      color: Colors.white.withValues(alpha: _opacity),
+      color: AppColors.textPrimary.withValues(alpha: _opacity),
     );
     
     final iconPainter = TextPainter(
@@ -167,11 +168,11 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     final mainStyle = TextStyle(
       fontSize: boxHeight * 0.15,
       fontWeight: FontWeight.bold,
-      color: Colors.white.withValues(alpha: _opacity),
+      color: AppColors.textPrimary.withValues(alpha: _opacity),
       shadows: [
         Shadow(
           blurRadius: 4,
-          color: Colors.black.withValues(alpha: 0.5),
+          color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
           offset: const Offset(2, 2),
         ),
       ],
@@ -192,12 +193,12 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     final amountStyle = TextStyle(
       fontSize: boxHeight * 0.18,
       fontWeight: FontWeight.bold,
-      color: (isWin ? Colors.yellowAccent : Colors.white70)
+      color: (isWin ? Colors.yellowAccent : AppColors.textPrimary)
           .withValues(alpha: _opacity),
       shadows: [
         Shadow(
           blurRadius: 6,
-          color: Colors.black.withValues(alpha: 0.6),
+          color: AppColors.primaryNavyDark.withValues(alpha: 0.6),
           offset: const Offset(2, 2),
         ),
       ],
@@ -217,7 +218,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     // Draw "Tap to continue" hint
     final hintStyle = TextStyle(
       fontSize: boxHeight * 0.08,
-      color: Colors.white60.withValues(alpha: _opacity * 0.8),
+      color: AppColors.textPrimary.withValues(alpha: _opacity * 0.8),
       fontStyle: FontStyle.italic,
     );
     

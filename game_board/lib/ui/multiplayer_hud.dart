@@ -8,6 +8,7 @@ import '../games/multiplayer_blackjack_game.dart';
 import '../components/text_component.dart';
 import '../components/button_component.dart';
 import '../models/enums.dart';
+import '../theme/app_theme.dart';
 
 class MultiplayerHudManager {
   final MultiplayerBlackjackGame game;
@@ -382,7 +383,7 @@ class MultiplayerHudManager {
         turnIndicatorText?.text = '🎯 YOUR TURN TO BET';
         turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
-            color: Colors.greenAccent,
+            color: AppColors.primaryNavyLight,
             fontSize: game.largeFontSize,
             fontWeight: FontWeight.bold,
           ),
@@ -419,7 +420,7 @@ class MultiplayerHudManager {
       turnIndicatorText?.text = '🎯 YOUR TURN';
       turnIndicatorText?.textRenderer = TextPaint(
         style: TextStyle(
-          color: Colors.greenAccent,
+          color: AppColors.primaryNavyLight,
           fontSize: game.largeFontSize,
           fontWeight: FontWeight.bold,
         ),
@@ -458,9 +459,9 @@ class MultiplayerHudManager {
   void updateGameResult(String result, {bool isWin = false}) {
     gameResultText?.text = result;
     
-    Color resultColor = Colors.white;
+    Color resultColor = AppColors.textPrimary;
     if (result.toLowerCase().contains('win') || result.toLowerCase().contains('blackjack')) {
-      resultColor = Colors.green;
+      resultColor = AppColors.primaryNavyLight;
     } else if (result.toLowerCase().contains('push')) {
       resultColor = Colors.yellow;
     } else if (result.toLowerCase().contains('dealer') || result.toLowerCase().contains('bust')) {
@@ -505,8 +506,8 @@ class HudPanel extends PositionComponent {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.black.withValues(alpha: 0.3),
-        Colors.black.withValues(alpha: 0.6),
+        AppColors.primaryNavyDark.withValues(alpha: 0.3),
+        AppColors.primaryNavyDark.withValues(alpha: 0.6),
       ],
     );
     

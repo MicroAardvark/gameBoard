@@ -4,6 +4,7 @@
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class MultiplayerPlayerUI extends PositionComponent {
   final String playerId;
@@ -103,13 +104,13 @@ class MultiplayerPlayerUI extends PositionComponent {
     final displayText = '$username • £${bankroll.toStringAsFixed(0)}';
     
     final textStyle = TextStyle(
-      color: isCurrentTurn ? Colors.amber : Colors.white,
+      color: isCurrentTurn ? Colors.amber : AppColors.textPrimary,
       fontWeight: isCurrentTurn ? FontWeight.bold : FontWeight.w600,
       fontSize: 16,
       shadows: [
         Shadow(
           blurRadius: 8,
-          color: Colors.black.withValues(alpha: 0.8),
+          color: AppColors.primaryNavyDark.withValues(alpha: 0.8),
           offset: const Offset(1, 1),
         ),
       ],
@@ -136,7 +137,7 @@ class MultiplayerPlayerUI extends PositionComponent {
         shadows: [
           Shadow(
             blurRadius: 6,
-            color: Colors.black.withValues(alpha: 0.8),
+            color: AppColors.primaryNavyDark.withValues(alpha: 0.8),
             offset: const Offset(1, 1),
           ),
         ],
@@ -163,7 +164,7 @@ class MultiplayerPlayerUI extends PositionComponent {
 
   Color _getStatusColor() {
     if (status.contains('Won') || status.contains('Blackjack')) {
-      return Colors.greenAccent;
+      return AppColors.primaryNavyLight;
     } else if (status.contains('Lost') || status.contains('Busted')) {
       return Colors.redAccent;
     } else if (status.contains('Stand')) {
@@ -171,7 +172,7 @@ class MultiplayerPlayerUI extends PositionComponent {
     } else if (status.contains('Bet')) {
       return Colors.amber;
     } else {
-      return Colors.white70;
+      return AppColors.textPrimary;
     }
   }
 
@@ -207,12 +208,12 @@ class MultiplayerPlayerUI extends PositionComponent {
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2
-      ..color = Colors.white.withValues(alpha: 0.3);
+      ..color = AppColors.textPrimary.withValues(alpha: 0.3);
     canvas.drawRRect(rrect, borderPaint);
     
     // Simple pattern
     final patternPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.15)
+      ..color = AppColors.textPrimary.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     

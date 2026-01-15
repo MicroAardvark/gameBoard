@@ -2,6 +2,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../games/blackjack_game.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 
 class BlackjackScreen extends StatefulWidget {
   final User user;
@@ -41,14 +42,14 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
               child: IconButton(
                 icon: Icon(
                   Icons.arrow_back,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   size: buttonSize * 0.7,
                 ),
                 onPressed: () {
                   Navigator.pop(context);
                 },
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: (0.5)),
+                  backgroundColor: AppColors.primaryNavyDark.withValues(alpha: (0.5)),
                   padding: EdgeInsets.all(buttonSize * 0.25),
                 ),
               ),

@@ -2,6 +2,7 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../models/playing_card.dart';
+import '../theme/app_theme.dart';
 
 class CardComponent extends PositionComponent {
   final PlayingCard card;
@@ -33,14 +34,14 @@ class CardComponent extends PositionComponent {
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.black.withValues(alpha: 0.5);
+        ..color = AppColors.primaryNavyDark.withValues(alpha: 0.5);
       
       canvas.drawRRect(rrect, backPaint);
       canvas.drawRRect(rrect, borderPaint);
       
       // Optional: Add pattern to card back
       final patternPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.1)
+        ..color = AppColors.textPrimary.withValues(alpha: 0.1)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawCircle(
@@ -50,11 +51,11 @@ class CardComponent extends PositionComponent {
       );
     } else {
       // Card face
-      final facePaint = Paint()..color = Colors.white;
+      final facePaint = Paint()..color = AppColors.textPrimary;
       final borderPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = Colors.black.withValues(alpha: 0.3);
+        ..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
       
       canvas.drawRRect(rrect, facePaint);
       canvas.drawRRect(rrect, borderPaint);

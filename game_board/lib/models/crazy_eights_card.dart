@@ -1,5 +1,6 @@
 // lib/models/crazy_eights_card.dart
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 enum CardSuit {
   hearts,
@@ -62,9 +63,9 @@ class CrazyEightsCard {
       case CardSuit.diamonds:
         return const Color(0xFFE53935); // Red
       case CardSuit.clubs:
-        return Colors.black;
+        return AppColors.primaryNavyDark;
       case CardSuit.spades:
-        return Colors.black;
+        return AppColors.primaryNavyDark;
     }
   }
 

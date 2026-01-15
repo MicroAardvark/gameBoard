@@ -1,12 +1,25 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'models/user.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set system UI overlay style to match theme
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.primaryNavyDark,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+  
   runApp(const MyApp());
 }
 
@@ -94,14 +107,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Game Collection',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        brightness: Brightness.dark,
-      ),
+      title: 'Microvark Gaming',  // Using the brand name from report
+      debugShowCheckedModeBanner: false,
+      
+      // Apply the new theme following report specifications
+      theme: AppTheme.darkTheme,
+      
       home: _isLoading
-          ? const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+          ? Scaffold(
+              backgroundColor: AppColors.primaryNavy,
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.accentElectricBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Loading...',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             )
           : _currentUser == null
               ? LoginScreen(onLoginSuccess: _onLoginSuccess)

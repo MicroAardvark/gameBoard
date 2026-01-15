@@ -4,6 +4,7 @@ import 'multiplayer_lobby_screen.dart';
 import 'chat_test_screen.dart'; // ADD THIS IMPORT
 import 'crazy_eights_screen.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -64,11 +65,11 @@ class HomeScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: titleSize.clamp(24.0, 56.0),
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             shadows: const [
                               Shadow(
                                 blurRadius: 10,
-                                color: Colors.black54,
+                                color: AppColors.primaryNavyDark,
                                 offset: Offset(0, 4),
                               ),
                             ],
@@ -81,14 +82,14 @@ class HomeScreen extends StatelessWidget {
                           'Welcome, ${user.username}!',
                           style: TextStyle(
                             fontSize: (titleSize * 0.4).clamp(16.0, 24.0),
-                            color: Colors.white70,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         Text(
                           'Bankroll: £${user.bankroll.toStringAsFixed(0)}',
                           style: TextStyle(
                             fontSize: (titleSize * 0.35).clamp(14.0, 20.0),
-                            color: Colors.white60,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         SizedBox(height: spacing * 2),
@@ -183,7 +184,7 @@ class HomeScreen extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.green,
+                                  color: AppColors.primaryNavyLight,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -191,7 +192,7 @@ class HomeScreen extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                               ),
@@ -288,7 +289,7 @@ class HomeScreen extends StatelessWidget {
                   label: const Text('Logout'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade700,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.textPrimary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,
@@ -337,11 +338,11 @@ class _GameButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled 
-              ? (isDebug 
-                  ? Colors.orange.shade700  // ADD THIS
-                  : (isMultiplayer ? const Color(0xFF1976D2) : const Color(0xFF2F5233)))
-              : Colors.grey.shade700,
-          disabledBackgroundColor: Colors.grey.shade700,
+              ? (isDebug) 
+                  ? AppColors.secondaryAmber  // ADD THIS
+                  : (isMultiplayer ? AppColors.accentElectricBlue : AppColors.primaryNavyDark)
+              : AppColors.surfaceDark,
+          disabledBackgroundColor: AppColors.surfaceDark,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -354,7 +355,7 @@ class _GameButton extends StatelessWidget {
             Icon(
               icon,
               size: iconSize,
-              color: enabled ? Colors.white : Colors.grey.shade500,
+              color: enabled ? AppColors.textPrimary : Colors.grey.shade500,
             ),
             SizedBox(width: width * 0.04),
             Flexible(
@@ -363,7 +364,7 @@ class _GameButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: fontSize,
                   fontWeight: FontWeight.bold,
-                  color: enabled ? Colors.white : Colors.grey.shade500,
+                  color: enabled ? AppColors.textPrimary : Colors.grey.shade500,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -376,7 +377,7 @@ class _GameButton extends StatelessWidget {
                   vertical: height * 0.08,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade700,
+                  color: AppColors.secondaryAmber,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -384,7 +385,7 @@ class _GameButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: (fontSize * 0.5).clamp(10.0, 14.0),
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ),

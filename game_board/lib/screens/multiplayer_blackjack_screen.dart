@@ -10,6 +10,7 @@ import '../models/user.dart';
 import '../services/socket_service.dart';
 import 'multiplayer_blackjack_game_screen.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class MultiplayerBlackjackScreen extends StatefulWidget {
   final User user;
@@ -224,7 +225,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         ),
         title: Text(
           'Create Room',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -235,7 +236,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppColors.textPrimary,
               ),
             ),
             SizedBox(height: 12),
@@ -272,7 +273,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
               _createRoom();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2F5233),
+              backgroundColor: AppColors.primaryNavyDark,
             ),
             child: Text('Create'),
           ),
@@ -287,7 +288,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: AppColors.primaryNavyLight,
         duration: Duration(seconds: 2),
       ),
     );
@@ -336,7 +337,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_back, color: Colors.white),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                       onPressed: () => Navigator.pop(context),
                     ),
                     Expanded(
@@ -346,7 +347,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                           Text(
                             'Multiplayer Blackjack',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
                             ),
@@ -361,7 +362,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                                   color: _isConnecting
                                       ? Colors.orange
                                       : _isConnected
-                                          ? Colors.green
+                                          ? AppColors.primaryNavyLight
                                           : Colors.red,
                                 ),
                               ),
@@ -373,7 +374,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                                         ? 'Connected'
                                         : 'Disconnected',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: AppColors.textPrimary,
                                   fontSize: 14,
                                 ),
                               ),
@@ -384,10 +385,10 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                     ),
                     // Refresh button
                     IconButton(
-                      icon: Icon(Icons.refresh, color: Colors.white),
+                      icon: Icon(Icons.refresh, color: AppColors.textPrimary),
                       onPressed: _isLoadingRooms ? null : _loadAvailableRooms,
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.black.withValues(alpha: 0.3),
+                        backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.3),
                       ),
                     ),
                   ],
@@ -410,7 +411,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                              valueColor: AlwaysStoppedAnimation(AppColors.textPrimary),
                             ),
                           )
                         : Icon(Icons.add_circle, size: 28),
@@ -419,9 +420,9 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF2F5233),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade700,
+                      backgroundColor: AppColors.primaryNavyDark,
+                      foregroundColor: AppColors.textPrimary,
+                      disabledBackgroundColor: AppColors.surfaceDark,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -435,18 +436,18 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    Expanded(child: Divider(color: Colors.white24)),
+                    Expanded(child: Divider(color: AppColors.textPrimary)),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'Available Rooms',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    Expanded(child: Divider(color: Colors.white24)),
+                    Expanded(child: Divider(color: AppColors.textPrimary)),
                   ],
                 ),
               ),
@@ -476,11 +477,11 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.wifi_off, size: 64, color: Colors.white54),
+            Icon(Icons.wifi_off, size: 64, color: AppColors.textPrimary),
             SizedBox(height: 16),
             Text(
               'Not connected to server',
-              style: TextStyle(color: Colors.white70, fontSize: 18),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
             ),
             SizedBox(height: 16),
             ElevatedButton.icon(
@@ -488,7 +489,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
               icon: Icon(Icons.refresh),
               label: Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF2F5233),
+                backgroundColor: AppColors.primaryNavyDark,
               ),
             ),
           ],
@@ -501,16 +502,16 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.casino, size: 64, color: Colors.white54),
+            Icon(Icons.casino, size: 64, color: AppColors.textPrimary),
             SizedBox(height: 16),
             Text(
               'No rooms available',
-              style: TextStyle(color: Colors.white70, fontSize: 18),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
             ),
             SizedBox(height: 8),
             Text(
               'Create a room to start playing!',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
           ],
         ),
@@ -576,7 +577,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                         Text(
                           'Blackjack Room',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -584,7 +585,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                         Text(
                           timeAgo,
                           style: TextStyle(
-                            color: Colors.white54,
+                            color: AppColors.textPrimary,
                             fontSize: 12,
                           ),
                         ),
@@ -617,15 +618,15 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                 spacing: 8,
                 children: players.map((player) {
                   return Chip(
-                    avatar: Icon(Icons.person, size: 16, color: Colors.white70),
+                    avatar: Icon(Icons.person, size: 16, color: AppColors.textPrimary),
                     label: Text(
                       player['username'] ?? 'Unknown',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: AppColors.textPrimary,
                         fontSize: 14,
                       ),
                     ),
-                    backgroundColor: Colors.black26,
+                    backgroundColor: AppColors.primaryNavyDark,
                   );
                 }).toList(),
               ),

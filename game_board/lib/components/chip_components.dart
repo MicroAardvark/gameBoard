@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 /// Layout options for +/- buttons around a chip.
 enum ButtonsLayout {
@@ -44,7 +45,7 @@ class ChipButton extends PositionComponent with TapCallbacks {
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: Colors.black,
+          color: AppColors.primaryNavyDark,
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -130,13 +131,13 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
       position: size / 2,
       textRenderer: TextPaint(
         style: TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: radius * 0.62,
           fontWeight: FontWeight.bold,
           shadows: [
             Shadow(
               blurRadius: 2,
-              color: Colors.black.withValues(alpha: 0.45),
+              color: AppColors.primaryNavyDark.withValues(alpha: 0.45),
               offset: const Offset(0, 1),
             ),
           ],
@@ -226,7 +227,7 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
     final center = size / 2;
 
     final outerPaint = Paint()
-      ..color = Colors.white
+      ..color = AppColors.textPrimary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
     canvas.drawCircle(center.toOffset(), radius, outerPaint);
@@ -281,7 +282,7 @@ class BetChip extends PositionComponent with HasGameReference<FlameGame> {
 
     // Outer ring
     final outerPaint = Paint()
-      ..color = Colors.white
+      ..color = AppColors.textPrimary
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     canvas.drawCircle(center.toOffset(), radius, outerPaint);
@@ -305,13 +306,13 @@ class BetChip extends PositionComponent with HasGameReference<FlameGame> {
       text: TextSpan(
         text: '£${value.toInt()}',
         style: TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontSize: radius * 0.62,
           fontWeight: FontWeight.bold,
           shadows: [
             Shadow(
               blurRadius: 2,
-              color: Colors.black.withValues(alpha: 0.45),
+              color: AppColors.primaryNavyDark.withValues(alpha: 0.45),
               offset: const Offset(0, 1),
             ),
           ],

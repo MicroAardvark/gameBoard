@@ -5,6 +5,7 @@ import '../games/blackjack_game.dart';
 import '../components/text_component.dart';
 import '../components/button_component.dart';
 import '../models/enums.dart';
+import '../theme/app_theme.dart';
 
 class HudManager {
   final BlackjackGame game;
@@ -212,7 +213,7 @@ class HudPanel extends PositionComponent {
       game.hudPanelHeight,
     );
     final paint = Paint()
-      ..color = Colors.black.withValues(alpha:(0.4))
+      ..color = AppColors.primaryNavyDark.withValues(alpha:(0.4))
       ..style = PaintingStyle.fill;
     canvas.drawRect(rect, paint);
   }

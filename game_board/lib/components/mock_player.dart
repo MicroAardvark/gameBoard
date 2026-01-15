@@ -1,6 +1,7 @@
 // lib/components/mock_player.dart
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class MockPlayerUI extends PositionComponent {
   final String name;
@@ -26,7 +27,7 @@ class MockPlayerUI extends PositionComponent {
       text: TextSpan(
         text: '$name  •  £${bank.toStringAsFixed(0)}',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.textPrimary,
           fontWeight: FontWeight.w800,
           fontSize: 16,
         ),
@@ -43,7 +44,7 @@ class MockPlayerUI extends PositionComponent {
       final stroke = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = Colors.black.withValues(alpha: 0.5);
+        ..color = AppColors.primaryNavyDark.withValues(alpha: 0.5);
       canvas.drawRRect(rrect, fill);
       canvas.drawRRect(rrect, stroke);
     }

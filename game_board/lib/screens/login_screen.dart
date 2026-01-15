@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user.dart';
+import '../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(User) onLoginSuccess;
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.textPrimary,
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -141,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                               ),
                             )
                           : Text(_isLogin ? 'Login' : 'Sign Up'),

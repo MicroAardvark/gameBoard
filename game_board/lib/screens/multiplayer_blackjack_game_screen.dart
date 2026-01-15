@@ -9,6 +9,7 @@ import '../games/multiplayer_blackjack_game.dart';
 import '../models/user.dart';
 import '../services/socket_service.dart';
 import '../widgets/chat_overlay.dart'; // NEW: Chat import
+import '../theme/app_theme.dart';
 
 class MultiplayerBlackjackGameScreen extends StatefulWidget {
   final User user;
@@ -273,7 +274,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.amber,
-              foregroundColor: Colors.black,
+              foregroundColor: AppColors.primaryNavyDark,
             ),
             child: Text('Take Insurance'),
           ),
@@ -289,7 +290,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       SnackBar(
         content: Text(message),
         duration: duration,
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: AppColors.primaryNavyLight,
       ),
     );
   }
@@ -373,7 +374,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.6),
+                        AppColors.primaryNavyDark.withValues(alpha: 0.6),
                         Colors.transparent,
                       ],
                     ),
@@ -384,7 +385,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                       IconButton(
                         icon: Icon(
                           Icons.arrow_back,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           size: buttonSize * 0.7,
                         ),
                         onPressed: () async {
@@ -394,7 +395,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           }
                         },
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.black.withValues(alpha: 0.5),
+                          backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.5),
                           padding: EdgeInsets.all(buttonSize * 0.25),
                         ),
                       ),
@@ -407,11 +408,11 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                         height: 12,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _isConnected ? Colors.green : Colors.red,
+                          color: _isConnected ? AppColors.primaryNavyLight : Colors.red,
                           boxShadow: [
                             if (_isConnected)
                               BoxShadow(
-                                color: Colors.green.withValues(alpha: 0.5),
+                                color: AppColors.primaryNavyLight.withValues(alpha: 0.5),
                                 blurRadius: 8,
                                 spreadRadius: 2,
                               ),
@@ -426,13 +427,13 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                         child: Text(
                           _statusMessage,
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: buttonSize * 0.35,
                             fontWeight: FontWeight.w600,
                             shadows: [
                               Shadow(
                                 blurRadius: 4,
-                                color: Colors.black.withValues(alpha: 0.7),
+                                color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
                               ),
                             ],
                           ),
@@ -447,7 +448,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
+                          color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: Colors.amber.withValues(alpha: 0.5),
@@ -466,7 +467,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             Text(
                               '${_players.length}/${_game.maxPlayers}',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                                 fontSize: buttonSize * 0.35,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -484,7 +485,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                           IconButton(
                             icon: Icon(
                               Icons.chat_bubble,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               size: buttonSize * 0.6,
                             ),
                             onPressed: () {
@@ -494,7 +495,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                               });
                             },
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.black.withValues(alpha: 0.5),
+                              backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.5),
                               padding: EdgeInsets.all(buttonSize * 0.25),
                             ),
                             tooltip: 'Open Chat',
@@ -510,7 +511,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                                   color: Colors.red,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Colors.white,
+                                    color: AppColors.textPrimary,
                                     width: 1.5,
                                   ),
                                 ),
@@ -521,7 +522,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                                 child: Text(
                                   _unreadMessages > 9 ? '9+' : '$_unreadMessages',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppColors.textPrimary,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -541,7 +542,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             if (!_isConnected && !_initialConnectionCheck)
               Positioned.fill(
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.7),
+                  color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
                   child: Center(
                     child: Card(
                       margin: EdgeInsets.all(32),
