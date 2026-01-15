@@ -35,7 +35,7 @@ class CrazyEightsGame extends FlameGame {
   final List<CrazyEightsCardComponent> playerCardComponents = [];
   CrazyEightsCardComponent? discardTopComponent;
   DrawPileComponent? drawPileComponent;
-  CrazyEightsButton? CrazyEightsButton;
+  CrazyEightsButton? crazyEightsButton;
   CrazyEightsButton? challengeButton;
   final List<int> aiCardCounts = [0, 0, 0];
   
@@ -118,14 +118,14 @@ class CrazyEightsGame extends FlameGame {
 
   // NEW: Create CrazyEights button
   void _createCrazyEightsButton() {
-    CrazyEightsButton?.removeFromParent();
-    CrazyEightsButton = CrazyEightsButton(
+    crazyEightsButton?.removeFromParent();
+    crazyEightsButton = CrazyEightsButton(
       position: Vector2(screenWidth * 0.85, screenHeight * 0.85),
       size: Vector2(screenWidth * 0.12, screenHeight * 0.08),
       text: 'CrazyEights!',
       onTap: () => _handleCrazyEightsCall(),
     )..priority = layerHud;
-    add(CrazyEightsButton!);
+    add(crazyEightsButton!);
   }
 
   // NEW: CrazyEights calling logic
