@@ -79,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     _isLogin ? 'Login' : 'Sign Up',
                     style: const TextStyle(
+                      fontFamily: 'Montserrat',
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
@@ -121,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.only(bottom: 8.0),
                       child: Text(
                         _errorMessage,
-                        style: const TextStyle(color: Colors.red),
+                        style: const TextStyle(fontFamily: 'Inter', color: Colors.red),
                       ),
                     ),
                   

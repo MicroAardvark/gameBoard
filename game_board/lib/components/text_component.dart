@@ -12,7 +12,7 @@ class InfoTextComponent extends TextComponent {
           position: position,
           anchor: Anchor.topLeft,
           textRenderer: TextPaint(
-            style: TextStyle(color: AppColors.textPrimary, fontSize: fontSize),
+            style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: fontSize),
           ),
         );
 

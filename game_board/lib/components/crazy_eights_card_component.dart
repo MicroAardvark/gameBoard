@@ -145,7 +145,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   }
 
   void _drawCorners(Canvas canvas) {
-    final textStyle = TextStyle(
+    final textStyle = TextStyle(fontFamily: 'Inter', 
       color: card.displayColor,
       fontSize: size.y * 0.10,  // REDUCED from 0.12 and made proportional
       fontWeight: FontWeight.bold,
@@ -192,7 +192,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
 
   void _drawCenterSymbol(Canvas canvas) {
     // Draw large suit symbol(s) in center
-    final symbolStyle = TextStyle(
+    final symbolStyle = TextStyle(fontFamily: 'Inter', 
       color: card.displayColor,
       fontSize: size.y * 0.25,  // REDUCED from 0.35
       fontWeight: FontWeight.bold,
@@ -241,7 +241,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   }
 
   void _drawActionHint(Canvas canvas, String hint) {
-    final hintStyle = TextStyle(
+    final hintStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.primaryNavyDark.withValues(alpha: 0.4),
       fontSize: size.y * 0.055,  // ADJUSTED from 0.06
       fontStyle: FontStyle.italic,

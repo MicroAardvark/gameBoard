@@ -63,6 +63,7 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Game Collection',
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: titleSize.clamp(24.0, 56.0),
                             fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
@@ -81,6 +82,7 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Welcome, ${user.username}!',
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             fontSize: (titleSize * 0.4).clamp(16.0, 24.0),
                             color: AppColors.textPrimary,
                           ),
@@ -88,6 +90,7 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Bankroll: £${user.bankroll.toStringAsFixed(0)}',
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: (titleSize * 0.35).clamp(14.0, 20.0),
                             color: AppColors.textPrimary,
                           ),
@@ -98,6 +101,7 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Single Player',
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
                             fontWeight: FontWeight.bold,
                             color: Colors.amber,
@@ -172,6 +176,7 @@ class HomeScreen extends StatelessWidget {
                               Text(
                                 'Multiplayer',
                                 style: TextStyle(
+                                  fontFamily: 'Inter',
                                   fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.amber,
@@ -190,6 +195,7 @@ class HomeScreen extends StatelessWidget {
                                 child: Text(
                                   'ONLINE',
                                   style: TextStyle(
+                                    fontFamily: 'Inter',
                                     fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.textPrimary,
@@ -244,6 +250,7 @@ class HomeScreen extends StatelessWidget {
                               Text(
                                 'DEBUG / TESTING',
                                 style: TextStyle(
+                                  fontFamily: 'Inter',
                                   fontSize: (titleSize * 0.4).clamp(14.0, 20.0),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.red,
@@ -286,7 +293,7 @@ class HomeScreen extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onLogout,
                   icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Logout'),
+                  label: Text('Logout', style: Theme.of(context).textTheme.bodyMedium),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade700,
                     foregroundColor: AppColors.textPrimary,
@@ -362,6 +369,7 @@ class _GameButton extends StatelessWidget {
               child: Text(
                 title,
                 style: TextStyle(
+                  fontFamily: 'Montserrat',
                   fontSize: fontSize,
                   fontWeight: FontWeight.bold,
                   color: enabled ? AppColors.textPrimary : Colors.grey.shade500,
@@ -383,6 +391,7 @@ class _GameButton extends StatelessWidget {
                 child: Text(
                   'Soon',
                   style: TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: (fontSize * 0.5).clamp(10.0, 14.0),
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,

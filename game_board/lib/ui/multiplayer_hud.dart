@@ -383,6 +383,7 @@ class MultiplayerHudManager {
         turnIndicatorText?.text = '🎯 YOUR TURN TO BET';
         turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: AppColors.primaryNavyLight,
             fontSize: game.largeFontSize,
             fontWeight: FontWeight.bold,
@@ -392,6 +393,7 @@ class MultiplayerHudManager {
         turnIndicatorText?.text = '✅ Bet placed - waiting for others';
         turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: Colors.yellow,
             fontSize: game.fontSize,
             fontWeight: FontWeight.normal,
@@ -403,6 +405,7 @@ class MultiplayerHudManager {
           turnIndicatorText?.text = '⏳ ${currentPlayer.username} is betting';
           turnIndicatorText?.textRenderer = TextPaint(
             style: TextStyle(
+              fontFamily: 'Montserrat',
               color: Colors.orangeAccent,
               fontSize: game.fontSize,
               fontWeight: FontWeight.normal,
@@ -420,6 +423,7 @@ class MultiplayerHudManager {
       turnIndicatorText?.text = '🎯 YOUR TURN';
       turnIndicatorText?.textRenderer = TextPaint(
         style: TextStyle(
+          fontFamily: 'Montserrat', 
           color: AppColors.primaryNavyLight,
           fontSize: game.largeFontSize,
           fontWeight: FontWeight.bold,
@@ -431,6 +435,7 @@ class MultiplayerHudManager {
         turnIndicatorText?.text = '⏳ ${currentPlayer.username}\'s turn';
         turnIndicatorText?.textRenderer = TextPaint(
           style: TextStyle(
+            fontFamily: 'Montserrat',
             color: Colors.orangeAccent,
             fontSize: game.largeFontSize,
             fontWeight: FontWeight.bold,
@@ -443,6 +448,7 @@ class MultiplayerHudManager {
       turnIndicatorText?.text = '🎰 Dealer\'s Turn';
       turnIndicatorText?.textRenderer = TextPaint(
         style: TextStyle(
+          fontFamily: 'Montserrat',
           color: Colors.redAccent,
           fontSize: game.largeFontSize,
           fontWeight: FontWeight.bold,
@@ -470,6 +476,7 @@ class MultiplayerHudManager {
 
     gameResultText?.textRenderer = TextPaint(
       style: TextStyle(
+        fontFamily: 'Montserrat',
         color: resultColor,
         fontSize: game.fontSize,
         fontWeight: FontWeight.normal,

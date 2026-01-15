@@ -225,7 +225,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         ),
         title: Text(
           'Create Room',
-          style: TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(fontFamily: 'Inter',color: AppColors.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -234,6 +234,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             Text(
               'Max Players',
               style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary,
@@ -242,8 +243,8 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             SizedBox(height: 12),
             SegmentedButton<int>(
               segments: [
-                ButtonSegment(value: 2, label: Text('2')),
-                ButtonSegment(value: 3, label: Text('3')),
+                ButtonSegment(value: 2, label: Text('2', style: Theme.of(context).textTheme.bodyMedium)),
+                ButtonSegment(value: 3, label: Text('3', style: Theme.of(context).textTheme.bodyMedium)),
               ],
               selected: {_selectedMaxPlayers},
               onSelectionChanged: (Set<int> selected) {
@@ -256,6 +257,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             Text(
               'Room will be created with ${widget.user.username} as host.',
               style: TextStyle(
+                fontFamily: 'Inter',
                 fontSize: 14,
                 color: Colors.grey[400],
               ),
@@ -265,7 +267,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
+            child: Text('Cancel', style: Theme.of(context).textTheme.bodyMedium),
           ),
           ElevatedButton(
             onPressed: () {
@@ -275,7 +277,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryNavyDark,
             ),
-            child: Text('Create'),
+            child: Text('Create', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -347,6 +349,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                           Text(
                             'Multiplayer Blackjack',
                             style: TextStyle(
+                              fontFamily: 'Montserrat',
                               color: AppColors.textPrimary,
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -374,6 +377,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                                         ? 'Connected'
                                         : 'Disconnected',
                                 style: TextStyle(
+                                  fontFamily: 'Inter',
                                   color: AppColors.textPrimary,
                                   fontSize: 14,
                                 ),
@@ -417,7 +421,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                         : Icon(Icons.add_circle, size: 28),
                     label: Text(
                       _isCreatingRoom ? 'Creating Room...' : 'Create New Room',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontFamily: 'Inter',fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryNavyDark,
@@ -442,6 +446,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                       child: Text(
                         'Available Rooms',
                         style: TextStyle(
+                          fontFamily: 'Montserrat',
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
@@ -481,13 +486,13 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             SizedBox(height: 16),
             Text(
               'Not connected to server',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
+              style: TextStyle(fontFamily: 'Inter',color: AppColors.textPrimary, fontSize: 18),
             ),
             SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _connectToSocket,
               icon: Icon(Icons.refresh),
-              label: Text('Retry'),
+              label: Text('Retry', style: Theme.of(context).textTheme.bodyMedium),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryNavyDark,
               ),
@@ -506,12 +511,12 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
             SizedBox(height: 16),
             Text(
               'No rooms available',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
+              style: TextStyle(fontFamily: 'Inter',color: AppColors.textPrimary, fontSize: 18),
             ),
             SizedBox(height: 8),
             Text(
               'Create a room to start playing!',
-              style: TextStyle(color: AppColors.textPrimary, fontSize: 14),
+              style: TextStyle(fontFamily: 'Inter',color: AppColors.textPrimary, fontSize: 14),
             ),
           ],
         ),
@@ -577,6 +582,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                         Text(
                           'Blackjack Room',
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             color: AppColors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -585,6 +591,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                         Text(
                           timeAgo,
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             color: AppColors.textPrimary,
                             fontSize: 12,
                           ),
@@ -602,6 +609,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                     child: Text(
                       '${players.length}/$maxPlayers',
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: Colors.amber,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -622,6 +630,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                     label: Text(
                       player['username'] ?? 'Unknown',
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: AppColors.textPrimary,
                         fontSize: 14,
                       ),
@@ -640,6 +649,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
                   Text(
                     'Join Room',
                     style: TextStyle(
+                      fontFamily: 'Inter',
                       color: Colors.amber,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,

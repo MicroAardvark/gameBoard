@@ -230,6 +230,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                             child: Text(
                               'Game Chat',
                               style: TextStyle(
+                                fontFamily: 'Montserrat',
                                 color: AppColors.textPrimary,
                                 fontSize: isSmall ? 16 : 18,
                                 fontWeight: FontWeight.bold,
@@ -239,6 +240,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                           Text(
                             '${_messages.length}',
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: Colors.grey[400],
                               fontSize: isSmall ? 12 : 14,
                             ),
@@ -270,6 +272,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                   Text(
                                     'No messages yet',
                                     style: TextStyle(
+                                      fontFamily: 'Inter',
                                       color: Colors.grey[600],
                                       fontSize: isSmall ? 14 : 16,
                                     ),
@@ -278,6 +281,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                   Text(
                                     'Start the conversation!',
                                     style: TextStyle(
+                                      fontFamily: 'Montserrat',
                                       color: Colors.grey[700],
                                       fontSize: isSmall ? 10 : 12,
                                     ),
@@ -306,6 +310,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                         child: Text(
                           _buildTypingText(),
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             color: Colors.grey[400],
                             fontSize: isSmall ? 10 : 12,
                             fontStyle: FontStyle.italic,
@@ -329,12 +334,14 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                             child: TextField(
                               controller: _messageController,
                               style: TextStyle(
+                                fontFamily: 'Inter',
                                 color: AppColors.textPrimary,
                                 fontSize: isSmall ? 12 : 14,
                               ),
                               decoration: InputDecoration(
                                 hintText: 'Type a message...',
                                 hintStyle: TextStyle(
+                                  fontFamily: 'Inter',
                                   color: Colors.grey[600],
                                   fontSize: isSmall ? 12 : 14,
                                 ),
@@ -410,6 +417,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
             child: Text(
               message.message,
               style: TextStyle(
+                fontFamily: 'Inter',
                 color: Colors.grey[400],
                 fontSize: isSmall ? 10 : 12,
                 fontStyle: FontStyle.italic,
@@ -436,6 +444,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
               child: Text(
                 message.username[0].toUpperCase(),
                 style: TextStyle(
+                  fontFamily: 'Montserrat',
                   color: AppColors.textPrimary,
                   fontSize: isSmall ? 10 : 12,
                 ),
@@ -458,6 +467,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                     child: Text(
                       message.username,
                       style: TextStyle(
+                        fontFamily: 'Montserrat',
                         color: Colors.grey[400],
                         fontSize: isSmall ? 10 : 12,
                         fontWeight: FontWeight.w500,
@@ -481,6 +491,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                       Text(
                         message.message,
                         style: TextStyle(
+                          fontFamily: 'Inter',
                           color: AppColors.textPrimary,
                           fontSize: isSmall ? 12 : 14,
                         ),
@@ -489,6 +500,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                       Text(
                         _formatTime(message.timestamp),
                         style: TextStyle(
+                          fontFamily: 'Inter',
                           color: isOwnMessage 
                               ? Colors.blue[200] 
                               : Colors.grey[500],
@@ -509,6 +521,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
               child: Text(
                 widget.username[0].toUpperCase(),
                 style: TextStyle(
+                  fontFamily: 'Montserrat',
                   color: AppColors.textPrimary,
                   fontSize: isSmall ? 10 : 12,
                 ),

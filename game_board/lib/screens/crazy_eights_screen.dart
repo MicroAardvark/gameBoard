@@ -70,35 +70,35 @@ class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('CrazyEights Rules'),
+        title: Text('CrazyEights Rules', style: Theme.of(context).textTheme.bodyMedium),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: const [
+            children: [
               Text(
                 'How to Play:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(fontFamily: 'Montserrat', fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('• Match the card by color or number'),
-              Text('• Wild cards can be played anytime'),
+              Text('• Match the card by color or number', style: Theme.of(context).textTheme.bodyMedium),
+              Text('• Wild cards can be played anytime', style: Theme.of(context).textTheme.bodyMedium),
               Text('• Draw a card if you can\'t play'),
               SizedBox(height: 12),
               Text(
                 'Action Cards:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('⊘ Skip - Next player loses turn'),
-              Text('⇄ Reverse - Change direction'),
-              Text('+2 - Next player draws 2 cards'),
-              Text('W Wild - Choose any color'),
-              Text('+4 Wild - Choose color & next player draws 4'),
+              Text('⊘ Skip - Next player loses turn', style: Theme.of(context).textTheme.bodyMedium),
+              Text('⇄ Reverse - Change direction', style: Theme.of(context).textTheme.bodyMedium),
+              Text('+2 - Next player draws 2 cards', style: Theme.of(context).textTheme.bodyMedium),
+              Text('W Wild - Choose any color', style: Theme.of(context).textTheme.bodyMedium),
+              Text('+4 Wild - Choose color & next player draws 4', style: Theme.of(context).textTheme.bodyMedium),
               SizedBox(height: 12),
               Text(
                 'Win by getting rid of all your cards!',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -106,7 +106,7 @@ class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Got it!'),
+            child: Text('Got it!', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),

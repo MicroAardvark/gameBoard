@@ -26,7 +26,7 @@ class MockPlayerUI extends PositionComponent {
     final nameTp = TextPainter(
       text: TextSpan(
         text: '$name  •  £${bank.toStringAsFixed(0)}',
-        style: const TextStyle(
+        style: const TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w800,
           fontSize: 16,

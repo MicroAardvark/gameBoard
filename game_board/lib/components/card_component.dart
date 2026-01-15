@@ -61,7 +61,7 @@ class CardComponent extends PositionComponent {
       canvas.drawRRect(rrect, borderPaint);
 
       // Draw rank and suit
-      final textStyle = TextStyle(
+      final textStyle = TextStyle(fontFamily: 'Inter', 
         color: card.suitColor,
         fontSize: size.y * 0.25,
         fontWeight: FontWeight.bold,

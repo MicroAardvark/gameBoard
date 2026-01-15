@@ -103,7 +103,7 @@ class MultiplayerPlayerUI extends PositionComponent {
     // Format: "Player 2 • £1000"
     final displayText = '$username • £${bankroll.toStringAsFixed(0)}';
     
-    final textStyle = TextStyle(
+    final textStyle = TextStyle(fontFamily: 'Inter', 
       color: isCurrentTurn ? Colors.amber : AppColors.textPrimary,
       fontWeight: isCurrentTurn ? FontWeight.bold : FontWeight.w600,
       fontSize: 16,
@@ -130,7 +130,7 @@ class MultiplayerPlayerUI extends PositionComponent {
 
     // Show status below name if present
     if (status.isNotEmpty) {
-      final statusStyle = TextStyle(
+      final statusStyle = TextStyle(fontFamily: 'Inter', 
         color: _getStatusColor(),
         fontSize: 14,
         fontWeight: FontWeight.w500,

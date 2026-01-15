@@ -145,7 +145,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
         backgroundColor: Colors.grey[900],
         title: const Text(
           'Join Room',
-          style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
+          style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 18),
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -153,15 +153,15 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
             children: [
               Text(
                 'Enter Room ID:',
-                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                style: TextStyle(fontFamily: 'Inter', color: Colors.grey[400], fontSize: 14),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _roomIdController,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 12),
                 decoration: InputDecoration(
                   hintText: 'blackjack_xxxxx',
-                  hintStyle: TextStyle(color: Colors.grey[600], fontSize: 10),
+                  hintStyle: TextStyle(fontFamily: 'Inter', color: Colors.grey[600], fontSize: 10),
                   filled: true,
                   fillColor: AppColors.primaryNavyDark,
                   border: OutlineInputBorder(
@@ -176,14 +176,14 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(fontSize: 14)),
+            child: const Text('Cancel', style: TextStyle(fontFamily: 'Inter', fontSize: 14)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _joinRoom();
             },
-            child: const Text('Join', style: TextStyle(fontSize: 14)),
+            child: const Text('Join', style: TextStyle(fontFamily: 'Inter', fontSize: 14)),
           ),
         ],
       ),
@@ -241,8 +241,8 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
       _addLog('📋 Room ID copied!');
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Room ID copied!'),
+        SnackBar(
+          content: Text('Room ID copied!', style: Theme.of(context).textTheme.bodyMedium),
           duration: Duration(seconds: 1),
           backgroundColor: AppColors.primaryNavyLight,
         ),
@@ -275,7 +275,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
       appBar: AppBar(
         title: Text(
           'Chat Test',
-          style: TextStyle(fontSize: isSmall ? 16 : 18),
+          style: TextStyle(fontFamily: 'Inter', fontSize: isSmall ? 16 : 18),
         ),
         backgroundColor: Colors.grey[900],
         actions: [
@@ -306,7 +306,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                     const SizedBox(width: 6),
                     Text(
                       _socketService.isConnected ? 'Connected' : 'Disconnected',
-                      style: TextStyle(
+                      style: TextStyle(fontFamily: 'Inter',
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: isSmall ? 12 : 14,
@@ -317,7 +317,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                 SizedBox(height: isSmall ? 4 : 6),
                 Text(
                   'User: $_username',
-                  style: TextStyle(
+                  style: TextStyle(fontFamily: 'Inter',
                     color: Colors.grey[400],
                     fontSize: isSmall ? 10 : 11,
                   ),
@@ -337,10 +337,9 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                         Expanded(
                           child: Text(
                             _roomId!,
-                            style: TextStyle(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: AppColors.textPrimary,
                               fontSize: isSmall ? 9 : 10,
-                              fontFamily: 'monospace',
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -387,7 +386,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           ),
                           child: Text(
                             'Connect',
-                            style: TextStyle(fontSize: buttonFontSize),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -407,7 +406,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           ),
                           child: Text(
                             'Create',
-                            style: TextStyle(fontSize: buttonFontSize),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -427,7 +426,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           ),
                           child: Text(
                             'Join',
-                            style: TextStyle(fontSize: buttonFontSize),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -453,7 +452,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           ),
                           child: Text(
                             'History',
-                            style: TextStyle(fontSize: buttonFontSize),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -475,7 +474,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           ),
                           child: Text(
                             'Clear',
-                            style: TextStyle(fontSize: buttonFontSize),
+                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -504,7 +503,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           SizedBox(height: isSmall ? 8 : 12),
                           Text(
                             'No activity yet',
-                            style: TextStyle(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: Colors.grey[600],
                               fontSize: isSmall ? 14 : 16,
                             ),
@@ -512,7 +511,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           SizedBox(height: isSmall ? 4 : 6),
                           Text(
                             'Click Connect to start!',
-                            style: TextStyle(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: Colors.grey[700],
                               fontSize: isSmall ? 10 : 12,
                             ),
@@ -542,10 +541,9 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                           padding: EdgeInsets.symmetric(vertical: isSmall ? 1 : 2),
                           child: Text(
                             log,
-                            style: TextStyle(
+                            style: TextStyle(fontFamily: 'Inter',
                               color: logColor,
                               fontSize: isSmall ? 10 : 11,
-                              fontFamily: 'monospace',
                             ),
                           ),
                         );
@@ -563,7 +561,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    style: TextStyle(
+                    style: TextStyle(fontFamily: 'Inter',
                       color: AppColors.textPrimary,
                       fontSize: isSmall ? 12 : 14,
                     ),
@@ -571,7 +569,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
                       hintText: _roomId == null
                           ? 'Join a room first...'
                           : 'Type message...',
-                      hintStyle: TextStyle(
+                      hintStyle: TextStyle(fontFamily: 'Inter',
                         color: Colors.grey[600],
                         fontSize: isSmall ? 11 : 13,
                       ),

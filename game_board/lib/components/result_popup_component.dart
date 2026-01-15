@@ -146,7 +146,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     canvas.drawRRect(rect, paint);
     
     // Draw icon (emoji)
-    final iconStyle = TextStyle(
+    final iconStyle = TextStyle(fontFamily: 'Inter', 
       fontSize: boxHeight * 0.25,
       color: AppColors.textPrimary.withValues(alpha: _opacity),
     );
@@ -165,7 +165,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     );
     
     // Draw main text
-    final mainStyle = TextStyle(
+    final mainStyle = TextStyle(fontFamily: 'Inter', 
       fontSize: boxHeight * 0.15,
       fontWeight: FontWeight.bold,
       color: AppColors.textPrimary.withValues(alpha: _opacity),
@@ -190,7 +190,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     );
     
     // Draw amount text
-    final amountStyle = TextStyle(
+    final amountStyle = TextStyle(fontFamily: 'Inter', 
       fontSize: boxHeight * 0.18,
       fontWeight: FontWeight.bold,
       color: (isWin ? Colors.yellowAccent : AppColors.textPrimary)
@@ -216,7 +216,7 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
     );
     
     // Draw "Tap to continue" hint
-    final hintStyle = TextStyle(
+    final hintStyle = TextStyle(fontFamily: 'Inter', 
       fontSize: boxHeight * 0.08,
       color: AppColors.textPrimary.withValues(alpha: _opacity * 0.8),
       fontStyle: FontStyle.italic,

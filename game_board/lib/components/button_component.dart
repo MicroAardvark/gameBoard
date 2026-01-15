@@ -56,7 +56,7 @@ class GameButton extends PositionComponent with TapCallbacks {
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(
+        style: const TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontWeight: FontWeight.bold,
           fontSize: 18,

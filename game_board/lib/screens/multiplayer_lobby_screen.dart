@@ -57,6 +57,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             'Multiplayer Games',
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: AppColors.textPrimary,
                               fontSize: titleSize.clamp(20.0, 32.0),
                               fontWeight: FontWeight.bold,
@@ -66,6 +67,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             'Select a game to play online',
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: AppColors.textPrimary,
                               fontSize: titleSize.clamp(12.0, 16.0) * 0.5,
                             ),
@@ -97,6 +99,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       child: Text(
                         user.username[0].toUpperCase(),
                         style: TextStyle(
+                          fontFamily: 'Montserrat',
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryNavyDark,
@@ -111,6 +114,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             user.username,
                             style: TextStyle(
+                              fontFamily: 'Montserrat',
                               color: AppColors.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -120,6 +124,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             'Bankroll: £${user.bankroll.toStringAsFixed(0)}',
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: Colors.amber[300],
                               fontSize: 16,
                             ),
@@ -331,6 +336,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                     Text(
                       title,
                       style: TextStyle(
+                        fontFamily: 'Montserrat',
                         color: isAvailable ? AppColors.textPrimary : Colors.grey,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -344,6 +350,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                       description,
                       textAlign: TextAlign.center,
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color: isAvailable ? AppColors.textPrimary : Colors.grey.shade600,
                         fontSize: 14,
                       ),
@@ -376,6 +383,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                           Text(
                             isAvailable ? 'Play Now' : 'Coming Soon',
                             style: TextStyle(
+                              fontFamily: 'Inter',
                               color: isAvailable ? AppColors.textPrimary : Colors.grey,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -414,6 +422,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                         Text(
                           'Online',
                           style: TextStyle(
+                            fontFamily: 'Montserrat',
                             color: AppColors.textPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,

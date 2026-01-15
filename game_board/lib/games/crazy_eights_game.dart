@@ -310,7 +310,7 @@ class CrazyEightsGame extends FlameGame {
   }
 
   void _drawGameInfo(Canvas canvas) {
-    final textStyle = TextStyle(
+    final textStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.textPrimary,
       fontSize: 20 * uiScale,
       fontWeight: FontWeight.bold,
@@ -338,7 +338,7 @@ class CrazyEightsGame extends FlameGame {
     );
 
     if (drawCount > 0) {
-      final stackStyle = TextStyle(
+      final stackStyle = TextStyle(fontFamily: 'Inter', 
         color: Colors.redAccent,
         fontSize: 24 * uiScale,
         fontWeight: FontWeight.bold,
@@ -363,7 +363,7 @@ class CrazyEightsGame extends FlameGame {
     }
 
     final directionText = clockwise ? '→ Clockwise' : '← Counter-Clockwise';
-    final dirStyle = TextStyle(
+    final dirStyle = TextStyle(fontFamily: 'Inter', 
       color: Colors.amber,
       fontSize: 18 * uiScale,
       fontWeight: FontWeight.bold,
@@ -393,7 +393,7 @@ class CrazyEightsGame extends FlameGame {
         CardSuit.spades: '♠ Spades',
       };
       
-      final suitStyle = TextStyle(
+      final suitStyle = TextStyle(fontFamily: 'Inter', 
         color: _getSuitColor(currentChosenSuit!),
         fontSize: 16 * uiScale,
         fontWeight: FontWeight.bold,
@@ -442,7 +442,7 @@ class CrazyEightsGame extends FlameGame {
     
     final crazyEightsStatus = hasCalledCrazyEights[aiIndex + 1] && aiCardCounts[aiIndex] == 1 ? ' 🎯CE' : '';
     
-    final nameStyle = TextStyle(
+    final nameStyle = TextStyle(fontFamily: 'Inter', 
       color: isActive ? Colors.amber : AppColors.textPrimary,
       fontSize: 16 * uiScale,
       fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
@@ -489,7 +489,7 @@ class CrazyEightsGame extends FlameGame {
     }
 
     if (aiCardCounts[aiIndex] > 5) {
-      final moreStyle = TextStyle(
+      final moreStyle = TextStyle(fontFamily: 'Inter', 
         color: AppColors.textPrimary,
         fontSize: 12 * uiScale,
       );
@@ -528,7 +528,7 @@ class CrazyEightsGame extends FlameGame {
     final dialogPaint = Paint()..color = AppColors.textPrimary;
     canvas.drawRRect(dialogRect, dialogPaint);
     
-    final titleStyle = TextStyle(
+    final titleStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.primaryNavyDark,
       fontSize: 20 * uiScale,  // REDUCED from 24
       fontWeight: FontWeight.bold,
@@ -571,7 +571,7 @@ class CrazyEightsGame extends FlameGame {
       final bgPaint = Paint()..color = Colors.grey.shade200;
       canvas.drawRRect(buttonRect, bgPaint);
       
-      final symbolStyle = TextStyle(
+      final symbolStyle = TextStyle(fontFamily: 'Inter', 
         color: suits[i]['color'] as Color,
         fontSize: buttonSize * 0.5,  // ADJUSTED for better fit
         fontWeight: FontWeight.bold,
@@ -617,7 +617,7 @@ class CrazyEightsGame extends FlameGame {
     final dialogPaint = Paint()..color = AppColors.textPrimary;
     canvas.drawRRect(dialogRect, dialogPaint);
     
-    final titleStyle = TextStyle(
+    final titleStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.primaryNavyDark,
       fontSize: 20 * uiScale,  // REDUCED from 24
       fontWeight: FontWeight.bold,
@@ -658,7 +658,7 @@ class CrazyEightsGame extends FlameGame {
     final skipTextPainter = TextPainter(
       text: const TextSpan(
         text: 'Skip Next',
-        style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+        style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -687,7 +687,7 @@ class CrazyEightsGame extends FlameGame {
     final reverseTextPainter = TextPainter(
       text: const TextSpan(
         text: 'Reverse',
-        style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
+        style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),  // REDUCED from 18
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -710,7 +710,7 @@ class CrazyEightsGame extends FlameGame {
         ? '🎉 Congratulations! 🎉' 
         : 'Better luck next time!';
     
-    final textStyle = TextStyle(
+    final textStyle = TextStyle(fontFamily: 'Inter', 
       color: winner == 'player' ? AppColors.primaryNavyLight : Colors.redAccent,
       fontSize: 48 * uiScale,
       fontWeight: FontWeight.bold,
@@ -736,7 +736,7 @@ class CrazyEightsGame extends FlameGame {
       ),
     );
 
-    final subtitleStyle = TextStyle(
+    final subtitleStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.textPrimary,
       fontSize: 20 * uiScale,
       fontWeight: FontWeight.normal,
@@ -1396,7 +1396,7 @@ class DrawPileComponent extends PositionComponent with TapCallbacks {
     final textPainter = TextPainter(
       text: TextSpan(
         text: 'DRAW\n$remainingCards',
-        style: TextStyle(
+        style: TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontSize: size.y * 0.1,
           fontWeight: FontWeight.bold,
@@ -1454,7 +1454,7 @@ class CrazyEightsButton extends PositionComponent with TapCallbacks {
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
-        style: const TextStyle(
+        style: const TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.bold,

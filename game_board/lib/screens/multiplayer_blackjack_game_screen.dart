@@ -212,7 +212,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           children: [
             Icon(Icons.shield, color: Colors.amber),
             SizedBox(width: 8),
-            Text('Insurance Offered'),
+            Text('Insurance Offered', style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
         content: Column(
@@ -221,10 +221,10 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           children: [
             Text(
               'Dealer is showing an Ace.',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.bold, fontSize: 16),
             ),
             SizedBox(height: 12),
-            Text('Would you like to take insurance?'),
+            Text('Would you like to take insurance?', style: Theme.of(context).textTheme.bodyMedium),
             SizedBox(height: 8),
             Container(
               padding: EdgeInsets.all(12),
@@ -260,7 +260,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
               );
               Navigator.of(context).pop();
             },
-            child: Text('No Thanks'),
+            child: Text('No Thanks', style: Theme.of(context).textTheme.bodyMedium),
           ),
           ElevatedButton(
             onPressed: () {
@@ -276,7 +276,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
               backgroundColor: Colors.amber,
               foregroundColor: AppColors.primaryNavyDark,
             ),
-            child: Text('Take Insurance'),
+            child: Text('Take Insurance', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -427,6 +427,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                         child: Text(
                           _statusMessage,
                           style: TextStyle(
+                            fontFamily: 'Inter',
                             color: AppColors.textPrimary,
                             fontSize: buttonSize * 0.35,
                             fontWeight: FontWeight.w600,
@@ -467,6 +468,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             Text(
                               '${_players.length}/${_game.maxPlayers}',
                               style: TextStyle(
+                                fontFamily: 'Inter',
                                 color: AppColors.textPrimary,
                                 fontSize: buttonSize * 0.35,
                                 fontWeight: FontWeight.bold,
@@ -522,6 +524,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                                 child: Text(
                                   _unreadMessages > 9 ? '9+' : '$_unreadMessages',
                                   style: TextStyle(
+                                    fontFamily: 'Inter',
                                     color: AppColors.textPrimary,
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -560,6 +563,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             Text(
                               'Connection Lost',
                               style: TextStyle(
+                                fontFamily: 'Inter',
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -568,6 +572,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                             Text(
                               'Trying to reconnect...',
                               style: TextStyle(
+                                fontFamily: 'Inter',
                                 fontSize: 16,
                                 color: Colors.grey[600],
                               ),
@@ -582,7 +587,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                               ),
-                              child: Text('Leave Room'),
+                              child: Text('Leave Room', style: Theme.of(context).textTheme.bodyMedium),
                             ),
                           ],
                         ),
@@ -615,21 +620,21 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Leave Game?'),
+        title: Text('Leave Game?', style: Theme.of(context).textTheme.bodyMedium),
         content: Text(
           'Are you sure you want to leave this multiplayer game? You will lose your bet if a round is in progress.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            child: Text('Cancel', style: Theme.of(context).textTheme.bodyMedium),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
               foregroundColor: Colors.red,
             ),
-            child: Text('Leave'),
+            child: Text('Leave', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),

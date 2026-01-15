@@ -42,7 +42,7 @@ class ChipButton extends PositionComponent with TapCallbacks {
     final textPainter = TextPainter(
       text: TextSpan(
         text: symbol,
-        style: const TextStyle(
+        style: const TextStyle(fontFamily: 'Inter', 
           fontSize: 14,
           fontWeight: FontWeight.w700,
           color: AppColors.primaryNavyDark,
@@ -130,7 +130,7 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
       anchor: Anchor.center,
       position: size / 2,
       textRenderer: TextPaint(
-        style: TextStyle(
+        style: TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontSize: radius * 0.62,
           fontWeight: FontWeight.bold,
@@ -305,7 +305,7 @@ class BetChip extends PositionComponent with HasGameReference<FlameGame> {
     final textPainter = TextPainter(
       text: TextSpan(
         text: '£${value.toInt()}',
-        style: TextStyle(
+        style: TextStyle(fontFamily: 'Inter', 
           color: AppColors.textPrimary,
           fontSize: radius * 0.62,
           fontWeight: FontWeight.bold,
