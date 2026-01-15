@@ -11,9 +11,9 @@ class ChatTestScreen extends StatefulWidget {
   final User user;
   
   const ChatTestScreen({
-    Key? key,
+    super.key,
     required this.user,
-  }) : super(key: key);
+  });
 
   @override
   State<ChatTestScreen> createState() => _ChatTestScreenState();

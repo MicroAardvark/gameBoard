@@ -10,9 +10,9 @@ class CrazyEightsScreen extends StatefulWidget {
   final User user;
 
   const CrazyEightsScreen({
-    Key? key,
+    super.key,
     required this.user,
-  }) : super(key: key);
+  });
 
   @override
   State<CrazyEightsScreen> createState() => _CrazyEightsScreenState();
@@ -30,7 +30,7 @@ class _CrazyEightsScreenState extends State<CrazyEightsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1B5E20),
+      backgroundColor: AppColors.primaryNavy,
       body: SafeArea(
         child: Stack(
           children: [

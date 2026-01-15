@@ -79,24 +79,24 @@ flutter:
   fonts:
     - family: Inter
       fonts:
-        - asset: fonts/Inter/Inter-Regular.ttf
+        - asset: assets/fonts/Inter/Inter_18pt-Regular.ttf
           weight: 400
-        - asset: fonts/Inter/Inter-Medium.ttf
+        - asset: assets/fonts/Inter/Inter_18pt-Medium.ttf
           weight: 500
-        - asset: fonts/Inter/Inter-SemiBold.ttf
+        - asset: assets/fonts/Inter/Inter_18pt-SemiBold.ttf
           weight: 600
-        - asset: fonts/Inter/Inter-Bold.ttf
+        - asset: assets/fonts/Inter/Inter_18pt-Bold.ttf
           weight: 700
     
     - family: Montserrat
       fonts:
-        - asset: fonts/Montserrat/Montserrat-Regular.ttf
+        - asset: assets/fonts/Montserrat/Montserrat-Regular.ttf
           weight: 400
-        - asset: fonts/Montserrat/Montserrat-Medium.ttf
+        - asset: assets/fonts/Montserrat/Montserrat-Medium.ttf
           weight: 500
-        - asset: fonts/Montserrat/Montserrat-SemiBold.ttf
+        - asset: assets/fonts/Montserrat/Montserrat-SemiBold.ttf
           weight: 600
-        - asset: fonts/Montserrat/Montserrat-Bold.ttf
+        - asset: assets/fonts/Montserrat/Montserrat-Bold.ttf
           weight: 700
   #
   # For details regarding fonts from package dependencies,

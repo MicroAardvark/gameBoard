@@ -34,17 +34,9 @@ class HomeScreen extends StatelessWidget {
     final spacing = size.height * 0.03;
     
     return Scaffold(
+      backgroundColor: AppColors.primaryNavyDark,
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A6B3A),
-              Color(0xFF124B2A),
-            ],
-          ),
-        ),
+        
         child: SafeArea(
           child: Stack(
             children: [
@@ -160,14 +152,6 @@ class HomeScreen extends StatelessWidget {
                             horizontal: 16,
                             vertical: 8,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: (0.2)),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.amber,
-                              width: 2,
-                            ),
-                          ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -176,7 +160,7 @@ class HomeScreen extends StatelessWidget {
                               Text(
                                 'Multiplayer',
                                 style: TextStyle(
-                                  fontFamily: 'Inter',
+                                  fontFamily: 'Montserrat',
                                   fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
                                   fontWeight: FontWeight.bold,
                                   color: Colors.amber,
@@ -189,7 +173,7 @@ class HomeScreen extends StatelessWidget {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryNavyLight,
+                                  color: AppColors.success,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -198,7 +182,7 @@ class HomeScreen extends StatelessWidget {
                                     fontFamily: 'Inter',
                                     fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
+                                    color: Colors.black,
                                   ),
                                 ),
                               ),
@@ -345,11 +329,11 @@ class _GameButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled 
-              ? (isDebug) 
+              ? ((isDebug) 
                   ? AppColors.secondaryAmber  // ADD THIS
-                  : (isMultiplayer ? AppColors.accentElectricBlue : AppColors.primaryNavyDark)
-              : AppColors.surfaceDark,
-          disabledBackgroundColor: AppColors.surfaceDark,
+                  : ( AppColors.accentElectricBlue))
+              : const Color.fromARGB(255, 0, 126, 146),
+          disabledBackgroundColor: Color.fromARGB(183, 1, 86, 99),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -394,7 +378,7 @@ class _GameButton extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: (fontSize * 0.5).clamp(10.0, 14.0),
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: Colors.black,
                   ),
                 ),
               ),

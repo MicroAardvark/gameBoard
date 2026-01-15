@@ -321,14 +321,7 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0D3B1F),
-              Color(0xFF1E4A2D),
-            ],
-          ),
+          color: AppColors.primaryNavyDark,
         ),
         child: SafeArea(
           child: Column(

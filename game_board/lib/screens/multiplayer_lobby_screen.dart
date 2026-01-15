@@ -25,14 +25,7 @@ class MultiplayerLobbyScreen extends StatelessWidget {
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF1A6B3A),
-              Color(0xFF124B2A),
-            ],
-          ),
+          color: AppColors.primaryNavyDark,
         ),
         child: SafeArea(
           child: Column(

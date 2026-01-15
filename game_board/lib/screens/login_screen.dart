@@ -15,6 +15,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordConfirmController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
@@ -42,11 +43,18 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
     } else {
-      result = await AuthService.signUp(
-        username: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      if (_passwordController.text != _passwordConfirmController.text) {
+        result = {
+          'success': false,
+          'error': 'Passwords do not match.',
+        };
+      } else {
+        result = await AuthService.signUp(
+          username: _usernameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
     }
 
     setState(() => _isLoading = false);
@@ -62,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A6B3A),
+      backgroundColor: AppColors.primaryNavy,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -82,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontFamily: 'Montserrat',
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -115,7 +124,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     obscureText: true,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
+
+                  if(!_isLogin)
+                    TextField(
+                      controller: _passwordConfirmController,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm Password',
+                        border: OutlineInputBorder(),
+                      ),
+                      obscureText: true,
+                    ),
+                  const SizedBox(height: 16),
                   
                   if (_errorMessage.isNotEmpty)
                     Padding(

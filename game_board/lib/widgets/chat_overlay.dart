@@ -13,13 +13,13 @@ class ChatOverlay extends StatefulWidget {
   final VoidCallback onClose;
 
   const ChatOverlay({
-    Key? key,
+    super.key,
     required this.roomId,
     required this.userId,
     required this.username,
     required this.socketService,
     required this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<ChatOverlay> createState() => _ChatOverlayState();

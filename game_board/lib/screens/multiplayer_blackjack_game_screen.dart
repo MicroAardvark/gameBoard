@@ -370,14 +370,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                     vertical: topPadding,
                   ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        AppColors.primaryNavyDark.withValues(alpha: 0.6),
-                        Colors.transparent,
-                      ],
-                    ),
+                    color: AppColors.primaryNavyDark,
                   ),
                   child: Row(
                     children: [

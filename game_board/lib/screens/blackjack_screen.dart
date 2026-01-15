@@ -30,6 +30,7 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
     final leftPadding = size.width * 0.02;
     
     return Scaffold(
+      backgroundColor: AppColors.primaryNavyDark,
       body: Stack(
         children: [
           GameWidget(game: _game),
