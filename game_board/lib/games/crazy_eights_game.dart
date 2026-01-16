@@ -11,7 +11,7 @@ import '../models/user.dart';
 import '../components/crazy_eights_card_component.dart';
 import '../theme/app_theme.dart';
 
-class CrazyEightsGame extends FlameGame {
+class CrazyEightsGame extends FlameGame with TapCallbacks{
   final User user;
   
   CrazyEightsGame({required this.user});
@@ -259,10 +259,12 @@ class CrazyEightsGame extends FlameGame {
       final discardX = screenWidth / 2 + cardWidth * 0.7;
       final discardY = screenHeight / 2;
       
+      // NEW: Pass the current chosen suit if the top card can change suits
       discardTopComponent = CrazyEightsCardComponent(
         position: Vector2(discardX, discardY),
         size: Vector2(cardWidth, cardHeight),
         card: topCard,
+        displaySuit: topCard.canChangeSuit ? currentChosenSuit : null, // NEW LINE
         onTap: (_) => _handleDiscardPileTap(),
       )..priority = layerCards;
       
@@ -1100,7 +1102,43 @@ class CrazyEightsGame extends FlameGame {
     _advanceTurn();
     
     if (currentPlayerIndex == 0) {
-      statusMessage = 'Your turn! Play a card or draw.';
+      // NEW: Check if player needs to draw penalty cards
+      if (drawCount > 0) {
+        // Check if player can stack
+        final stackableCards = <int>[];
+        for (var i = 0; i < playerHand.length; i++) {
+          if (_canStackDrawCard(playerHand[i])) {
+            stackableCards.add(i);
+          }
+        }
+        
+        // If player has stackable cards, allow them to play
+        if (stackableCards.isNotEmpty) {
+          statusMessage = 'Draw $drawCount cards or stack! Select a card.';
+        } else {
+          // Automatically draw the penalty cards for the player
+          for (var i = 0; i < drawCount; i++) {
+            playerHand.add(deck.drawCard());
+          }
+          _sortPlayerHand();
+          statusMessage = 'Drew $drawCount penalty card(s).';
+          
+          drawCount = 0;
+          isDrawStacking = false;
+          
+          _renderCards();
+          
+          // Advance to next player after a short delay
+          async_timer.Future.delayed(const Duration(milliseconds: 800), () {
+            if (!gameOver) {
+              _nextTurn();
+            }
+          });
+          return;
+        }
+      } else {
+        statusMessage = 'Your turn! Play a card or draw.';
+      }
     } else {
       statusMessage = 'Player ${currentPlayerIndex + 1}\'s turn...';
       _aiTakeTurn();
@@ -1356,8 +1394,8 @@ class CrazyEightsGame extends FlameGame {
   }
 
   @override
-  void onTapDown(TapDownInfo info) {
-    final position = info.eventPosition.global.toOffset();
+  void onTapDown(TapDownEvent info) {
+    final position = info.localPosition.toOffset();
     
     if (showSuitPicker) {
       _handleSuitPickerTap(position);

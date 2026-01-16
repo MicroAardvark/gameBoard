@@ -61,11 +61,11 @@ class CrazyEightsCard {
       case CardSuit.hearts:
         return const Color(0xFFE53935); // Red
       case CardSuit.diamonds:
-        return const Color(0xFFE53935); // Red
+        return AppColors.accentElectricBlue; // Red
       case CardSuit.clubs:
         return AppColors.primaryNavyDark;
       case CardSuit.spades:
-        return AppColors.primaryNavyDark;
+        return AppColors.secondaryAmber;
     }
   }
 

@@ -11,6 +11,9 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   bool isSelected;
   final Function(CrazyEightsCardComponent)? onTap;
   
+  // NEW: Optional display suit override for Kings/Aces
+  final CardSuit? displaySuit;
+  
   // Store original position and size for animation
   Vector2? _originalPosition;
   Vector2? _originalSize;
@@ -23,6 +26,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     this.isHidden = false,
     this.isSelected = false,
     this.onTap,
+    this.displaySuit, // NEW parameter
   }) : super(position: position, size: size, anchor: Anchor.center);
 
   @override
@@ -147,7 +151,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   void _drawCorners(Canvas canvas) {
     final textStyle = TextStyle(fontFamily: 'Inter', 
       color: card.displayColor,
-      fontSize: size.y * 0.10,  // REDUCED from 0.12 and made proportional
+      fontSize: size.y * 0.10,
       fontWeight: FontWeight.bold,
     );
 
@@ -163,7 +167,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     topLeftPainter.paint(
       canvas,
       Offset(
-        -(size.x / 2) + (size.x * 0.1),  // ADJUSTED padding
+        -(size.x / 2) + (size.x * 0.1),
         -(size.y / 2) + (size.y * 0.06),
       ),
     );
@@ -191,10 +195,16 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
   }
 
   void _drawCenterSymbol(Canvas canvas) {
+    // NEW: If this is a King/Ace with a chosen suit, show the transformed version
+    if (card.canChangeSuit && displaySuit != null) {
+      _drawTransformedSuitCard(canvas);
+      return;
+    }
+
     // Draw large suit symbol(s) in center
     final symbolStyle = TextStyle(fontFamily: 'Inter', 
       color: card.displayColor,
-      fontSize: size.y * 0.25,  // REDUCED from 0.35
+      fontSize: size.y * 0.25,
       fontWeight: FontWeight.bold,
     );
 
@@ -205,11 +215,13 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
       if (card.isJack) {
         centerText = 'J\n${card.suitSymbol}';
       } else if (card.isQueen) {
-        centerText = 'Q\n+2';  // SIMPLIFIED - removed suit to prevent overflow
+        centerText = 'Q\n+2';
       } else if (card.isKing) {
-        centerText = 'K\n${card.suitSymbol}';
+        // Special handling for King - show all four suits
+        _drawKingWithAllSuits(canvas);
+        return;
       } else if (card.isAce) {
-        centerText = 'A\n+4';  // SIMPLIFIED - removed suit to prevent overflow
+        centerText = 'A\n+4';
       } else {
         centerText = '${card.rankText}\n${card.suitSymbol}';
       }
@@ -232,7 +244,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
       ),
     );
 
-    // Add special indicator for action cards - SMALLER
+    // Add special indicator for action cards
     if (card.isJack) {
       _drawActionHint(canvas, 'Skip/Rev');
     } else if (card.isKing || card.isAce) {
@@ -240,10 +252,181 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     }
   }
 
+  // NEW METHOD: Draw transformed King/Ace with chosen suit
+  void _drawTransformedSuitCard(Canvas canvas) {
+    final chosenSuit = displaySuit!;
+    
+    // Get the color for the chosen suit
+    final Color suitColor;
+    switch (chosenSuit) {
+      case CardSuit.hearts:
+      case CardSuit.diamonds:
+        suitColor = const Color(0xFFE53935);
+        break;
+      case CardSuit.clubs:
+      case CardSuit.spades:
+        suitColor = AppColors.primaryNavyDark;
+        break;
+    }
+    
+    // Get the symbol for the chosen suit
+    final String suitSymbol;
+    switch (chosenSuit) {
+      case CardSuit.hearts:
+        suitSymbol = '♥';
+        break;
+      case CardSuit.diamonds:
+        suitSymbol = '♦';
+        break;
+      case CardSuit.clubs:
+        suitSymbol = '♣';
+        break;
+      case CardSuit.spades:
+        suitSymbol = '♠';
+        break;
+    }
+    
+    // Draw the rank letter at the top
+    final rankStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: suitColor,
+      fontSize: size.y * 0.22,
+      fontWeight: FontWeight.bold,
+    );
+    
+    final rankPainter = TextPainter(
+      text: TextSpan(text: card.rankText, style: rankStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    
+    rankPainter.paint(
+      canvas,
+      Offset(
+        -rankPainter.width / 2,
+        -(size.y * 0.35),
+      ),
+    );
+    
+    // Draw the large chosen suit symbol in the center
+    final suitStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: suitColor,
+      fontSize: size.y * 0.35,
+      fontWeight: FontWeight.bold,
+    );
+    
+    final suitPainter = TextPainter(
+      text: TextSpan(text: suitSymbol, style: suitStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    
+    suitPainter.paint(
+      canvas,
+      Offset(
+        -suitPainter.width / 2,
+        -suitPainter.height / 2 + size.y * 0.05,
+      ),
+    );
+    
+    // Add "Changed" hint at bottom
+    final hintStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: AppColors.primaryNavyDark.withValues(alpha: 0.4),
+      fontSize: size.y * 0.055,
+      fontStyle: FontStyle.italic,
+    );
+
+    final hintPainter = TextPainter(
+      text: TextSpan(text: 'Changed', style: hintStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    hintPainter.paint(
+      canvas,
+      Offset(
+        -hintPainter.width / 2,
+        (size.y / 2) - (size.y * 0.18),
+      ),
+    );
+  }
+
+  // Draw King with all four suit symbols in 2x2 grid
+  void _drawKingWithAllSuits(Canvas canvas) {
+    // Draw "K" at the top
+    final kingStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: card.displayColor,
+      fontSize: size.y * 0.2,
+      fontWeight: FontWeight.bold,
+    );
+    
+    final kingPainter = TextPainter(
+      text: TextSpan(text: 'K', style: kingStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    
+    kingPainter.paint(
+      canvas,
+      Offset(
+        -kingPainter.width / 2,
+        -(size.y * 0.32),
+      ),
+    );
+    
+    // Draw all four suit symbols in a 2x2 grid
+    final suitSize = size.y * 0.15;
+    final spacing = size.x * 0.15;
+    
+    final suits = [
+      {'symbol': '♥', 'color': const Color(0xFFE53935)},
+      {'symbol': '♦', 'color': const Color(0xFFE53935)},
+      {'symbol': '♣', 'color': AppColors.primaryNavyDark},
+      {'symbol': '♠', 'color': AppColors.primaryNavyDark},
+    ];
+    
+    // Positions for 2x2 grid (centered)
+    final positions = [
+      Offset(-spacing / 2, -spacing / 2 + size.y * 0.05), // Top-left (Hearts)
+      Offset(spacing / 2, -spacing / 2 + size.y * 0.05),  // Top-right (Diamonds)
+      Offset(-spacing / 2, spacing / 2 + size.y * 0.05),  // Bottom-left (Clubs)
+      Offset(spacing / 2, spacing / 2 + size.y * 0.05),   // Bottom-right (Spades)
+    ];
+    
+    for (var i = 0; i < 4; i++) {
+      final suitStyle = TextStyle(
+        fontFamily: 'Inter',
+        color: suits[i]['color'] as Color,
+        fontSize: suitSize,
+        fontWeight: FontWeight.bold,
+      );
+      
+      final suitPainter = TextPainter(
+        text: TextSpan(text: suits[i]['symbol'] as String, style: suitStyle),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+      
+      suitPainter.paint(
+        canvas,
+        Offset(
+          positions[i].dx - suitPainter.width / 2,
+          positions[i].dy - suitPainter.height / 2,
+        ),
+      );
+    }
+    
+    // Add "Change" hint at bottom
+    _drawActionHint(canvas, 'Change');
+  }
+
   void _drawActionHint(Canvas canvas, String hint) {
     final hintStyle = TextStyle(fontFamily: 'Inter', 
       color: AppColors.primaryNavyDark.withValues(alpha: 0.4),
-      fontSize: size.y * 0.055,  // ADJUSTED from 0.06
+      fontSize: size.y * 0.055,
       fontStyle: FontStyle.italic,
     );
 
@@ -257,7 +440,7 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
       canvas,
       Offset(
         -hintPainter.width / 2,
-        (size.y / 2) - (size.y * 0.18),  // ADJUSTED position
+        (size.y / 2) - (size.y * 0.18),
       ),
     );
   }
