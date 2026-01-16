@@ -4,7 +4,7 @@
 // ====================================
 import 'package:flutter/material.dart';
 import '../models/user.dart';
-import 'multiplayer_blackjack_screen.dart';
+import 'multiplayer_blackjack_lobby_screen.dart';
 import '../theme/app_theme.dart';
 
 class MultiplayerLobbyScreen extends StatelessWidget {

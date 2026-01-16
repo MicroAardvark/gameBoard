@@ -221,7 +221,9 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
         _drawKingWithAllSuits(canvas);
         return;
       } else if (card.isAce) {
-        centerText = 'A\n+4';
+        // NEW: Special handling for Ace - show all four suits
+        _drawAceWithAllSuits(canvas);
+        return;
       } else {
         centerText = '${card.rankText}\n${card.suitSymbol}';
       }
@@ -421,6 +423,76 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     
     // Add "Change" hint at bottom
     _drawActionHint(canvas, 'Change');
+  }
+
+  // NEW: Draw Ace with all four suit symbols in 2x2 grid
+  void _drawAceWithAllSuits(Canvas canvas) {
+    // Draw "A" at the top
+    final aceStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: card.displayColor,
+      fontSize: size.y * 0.2,
+      fontWeight: FontWeight.bold,
+    );
+    
+    final acePainter = TextPainter(
+      text: TextSpan(text: 'A', style: aceStyle),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+    
+    acePainter.paint(
+      canvas,
+      Offset(
+        -acePainter.width / 2,
+        -(size.y * 0.32),
+      ),
+    );
+    
+    // Draw all four suit symbols in a 2x2 grid
+    final suitSize = size.y * 0.15;
+    final spacing = size.x * 0.15;
+    
+    final suits = [
+      {'symbol': '♥', 'color': const Color(0xFFE53935)},
+      {'symbol': '♦', 'color': AppColors.accentElectricBlue},
+      {'symbol': '♣', 'color': AppColors.primaryNavyDark},
+      {'symbol': '♠', 'color': AppColors.secondaryAmber},
+    ];
+    
+    // Positions for 2x2 grid (centered)
+    final positions = [
+      Offset(-spacing / 2, -spacing / 2 + size.y * 0.05), // Top-left (Hearts)
+      Offset(spacing / 2, -spacing / 2 + size.y * 0.05),  // Top-right (Diamonds)
+      Offset(-spacing / 2, spacing / 2 + size.y * 0.05),  // Bottom-left (Clubs)
+      Offset(spacing / 2, spacing / 2 + size.y * 0.05),   // Bottom-right (Spades)
+    ];
+    
+    for (var i = 0; i < 4; i++) {
+      final suitStyle = TextStyle(
+        fontFamily: 'Inter',
+        color: suits[i]['color'] as Color,
+        fontSize: suitSize,
+        fontWeight: FontWeight.bold,
+      );
+      
+      final suitPainter = TextPainter(
+        text: TextSpan(text: suits[i]['symbol'] as String, style: suitStyle),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+      )..layout();
+      
+      suitPainter.paint(
+        canvas,
+        Offset(
+          positions[i].dx - suitPainter.width / 2,
+          positions[i].dy - suitPainter.height / 2,
+        ),
+      );
+    }
+    
+    // Add "Change+4" hint at bottom to indicate it also draws cards
+    _drawActionHint(canvas, 'Change+4');
   }
 
   void _drawActionHint(Canvas canvas, String hint) {

@@ -61,7 +61,7 @@ class CrazyEightsCard {
       case CardSuit.hearts:
         return const Color(0xFFE53935); // Red
       case CardSuit.diamonds:
-        return AppColors.accentElectricBlue; // Red
+        return AppColors.accentElectricBlue;
       case CardSuit.clubs:
         return AppColors.primaryNavyDark;
       case CardSuit.spades:
@@ -143,6 +143,104 @@ class CrazyEightsCard {
       suit: suit ?? this.suit,
       rank: rank ?? this.rank,
     );
+  }
+
+  // ============================================
+  // SERIALIZATION FOR MULTIPLAYER
+  // ============================================
+  
+  // Convert server data to CrazyEightsCard
+  factory CrazyEightsCard.fromMap(Map<String, dynamic> map) {
+    return CrazyEightsCard(
+      suit: _parseSuit(map['suit']),
+      rank: _parseRank(map['rank']),
+    );
+  }
+
+  // Convert CrazyEightsCard to server data
+  Map<String, dynamic> toMap() {
+    return {
+      'suit': suit.name,
+      'rank': _rankToString(rank),
+    };
+  }
+
+  // Parse suit string from server
+  static CardSuit _parseSuit(String suit) {
+    switch (suit) {
+      case 'hearts':
+        return CardSuit.hearts;
+      case 'diamonds':
+        return CardSuit.diamonds;
+      case 'clubs':
+        return CardSuit.clubs;
+      case 'spades':
+        return CardSuit.spades;
+      default:
+        throw Exception('Invalid suit: $suit');
+    }
+  }
+
+  // Parse rank string from server
+  static CardRank _parseRank(String rank) {
+    switch (rank) {
+      case '2':
+        return CardRank.two;
+      case '3':
+        return CardRank.three;
+      case '4':
+        return CardRank.four;
+      case '5':
+        return CardRank.five;
+      case '6':
+        return CardRank.six;
+      case '7':
+        return CardRank.seven;
+      case '8':
+        return CardRank.eight;
+      case '9':
+        return CardRank.nine;
+      case 'jack':
+        return CardRank.jack;
+      case 'queen':
+        return CardRank.queen;
+      case 'king':
+        return CardRank.king;
+      case 'ace':
+        return CardRank.ace;
+      default:
+        throw Exception('Invalid rank: $rank');
+    }
+  }
+
+  // Convert rank to string for server
+  String _rankToString(CardRank rank) {
+    switch (rank) {
+      case CardRank.two:
+        return '2';
+      case CardRank.three:
+        return '3';
+      case CardRank.four:
+        return '4';
+      case CardRank.five:
+        return '5';
+      case CardRank.six:
+        return '6';
+      case CardRank.seven:
+        return '7';
+      case CardRank.eight:
+        return '8';
+      case CardRank.nine:
+        return '9';
+      case CardRank.jack:
+        return 'jack';
+      case CardRank.queen:
+        return 'queen';
+      case CardRank.king:
+        return 'king';
+      case CardRank.ace:
+        return 'ace';
+    }
   }
 }
 
