@@ -194,7 +194,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     // Update card count for other players
     if (playerId != user.id) {
       if (otherPlayers.containsKey(playerId)) {
-        otherPlayers[playerId]!.cardCount += count;
+        otherPlayers[playerId]!.cardCount += (count as num).toInt();
       }
     }
     

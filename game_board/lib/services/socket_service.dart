@@ -36,6 +36,18 @@ class SocketService {
   final _chatHistoryController = StreamController<Map<String, dynamic>>.broadcast();
   final _userTypingController = StreamController<Map<String, dynamic>>.broadcast();
   
+  // NEW: Crazy Eights stream controllers
+  final _gameStartedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _cardPlayedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _cardDrawnController = StreamController<Map<String, dynamic>>.broadcast();
+  final _playerTurnController = StreamController<Map<String, dynamic>>.broadcast();
+  final _crazyEightsCalledController = StreamController<Map<String, dynamic>>.broadcast();
+  final _crazyEightsViolationController = StreamController<Map<String, dynamic>>.broadcast();
+  final _challengeSuccessfulController = StreamController<Map<String, dynamic>>.broadcast();
+  final _jackChoiceNeededController = StreamController<Map<String, dynamic>>.broadcast();
+  final _jackActionChosenController = StreamController<Map<String, dynamic>>.broadcast();
+  final _cardsReceivedController = StreamController<Map<String, dynamic>>.broadcast();
+  
   // Getters for streams
   Stream<Map<String, dynamic>> get onRoomCreated => _roomCreatedController.stream;
   Stream<Map<String, dynamic>> get onPlayerJoined => _playerJoinedController.stream;
@@ -52,6 +64,18 @@ class SocketService {
   // NEW: Chat stream getters
   Stream<Map<String, dynamic>> get onChatHistory => _chatHistoryController.stream;
   Stream<Map<String, dynamic>> get onUserTyping => _userTypingController.stream;
+  
+  // NEW: Crazy Eights stream getters
+  Stream<Map<String, dynamic>> get onGameStarted => _gameStartedController.stream;
+  Stream<Map<String, dynamic>> get onCardPlayed => _cardPlayedController.stream;
+  Stream<Map<String, dynamic>> get onCardDrawn => _cardDrawnController.stream;
+  Stream<Map<String, dynamic>> get onPlayerTurn => _playerTurnController.stream;
+  Stream<Map<String, dynamic>> get onCrazyEightsCalled => _crazyEightsCalledController.stream;
+  Stream<Map<String, dynamic>> get onCrazyEightsViolation => _crazyEightsViolationController.stream;
+  Stream<Map<String, dynamic>> get onChallengeSuccessful => _challengeSuccessfulController.stream;
+  Stream<Map<String, dynamic>> get onJackChoiceNeeded => _jackChoiceNeededController.stream;
+  Stream<Map<String, dynamic>> get onJackActionChosen => _jackActionChosenController.stream;
+  Stream<Map<String, dynamic>> get onCardsReceived => _cardsReceivedController.stream;
 
   // Connection state
   bool get isConnected => _socket?.connected ?? false;
@@ -277,6 +301,67 @@ class SocketService {
       _userTypingController.add(data);
     });
 
+    // NEW: Crazy Eights events
+    _socket!.on('game_started', (data) {
+      print('🎮 Crazy Eights game started!');
+      _gameStartedController.add(data);
+    });
+
+    _socket!.on('card_played', (data) {
+      print('🃏 Card played: ${data['username']}');
+      _cardPlayedController.add(data);
+    });
+
+    _socket!.on('card_drawn', (data) {
+      print('📥 Card drawn: ${data['username']} drew ${data['count']} card(s)');
+      _cardDrawnController.add(data);
+    });
+
+    _socket!.on('player_turn', (data) {
+      print('👤 Player turn: ${data['username']}');
+      _playerTurnController.add(data);
+    });
+
+    _socket!.on('crazy_eights_called', (data) {
+      print('🎯 Crazy Eights called by: ${data['username']}');
+      _crazyEightsCalledController.add(data);
+    });
+
+    _socket!.on('crazy_eights_violation', (data) {
+      print('⚠️ Crazy Eights violation: ${data['username']}');
+      _crazyEightsViolationController.add(data);
+    });
+
+    _socket!.on('challenge_successful', (data) {
+      print('✅ Challenge successful: ${data['challengerName']} challenged ${data['targetName']}');
+      _challengeSuccessfulController.add(data);
+    });
+
+    _socket!.on('challenge_failed', (data) {
+      print('❌ Challenge failed');
+      _challengeSuccessfulController.add(data);
+    });
+
+    _socket!.on('jack_choice_needed', (data) {
+      print('🃏 Jack choice needed for: ${data['username']}');
+      _jackChoiceNeededController.add(data);
+    });
+
+    _socket!.on('jack_action_chosen', (data) {
+      print('🃏 Jack action chosen: ${data['action']}');
+      _jackActionChosenController.add(data);
+    });
+
+    _socket!.on('cards_received', (data) {
+      print('📨 Cards received: ${data['cards'].length} card(s)');
+      _cardsReceivedController.add(data);
+    });
+
+    _socket!.on('game_ended', (data) {
+      print('🏆 Game ended! Winner: ${data['winnerName']}');
+      _gameActionController.add({'type': 'game_ended', 'data': data});
+    });
+
     // Error handling
     _socket!.on('error', (data) {
       print('❌ Server error: ${data['message']}');
@@ -498,6 +583,118 @@ class SocketService {
   }
 
   // ===========================================
+  // CRAZY EIGHTS GAME ACTIONS
+  // ===========================================
+  
+  void startCrazyEights({
+    required String roomId,
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('🎮 Starting Crazy Eights game');
+    
+    _socket!.emit('start_crazy_eights', {
+      'roomId': roomId,
+    });
+  }
+
+  void playCard({
+    required String roomId,
+    required String userId,
+    required int cardIndex,
+    String? suit, // For King/Ace suit choice
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('🃏 Playing card at index $cardIndex');
+    
+    _socket!.emit('play_card', {
+      'roomId': roomId,
+      'userId': userId,
+      'cardIndex': cardIndex,
+      'suit': suit,
+    });
+  }
+
+  void drawCard({
+    required String roomId,
+    required String userId,
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('📥 Drawing card');
+    
+    _socket!.emit('draw_card', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+
+  void callCrazyEights({
+    required String roomId,
+    required String userId,
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('🎯 Calling Crazy Eights');
+    
+    _socket!.emit('call_crazy_eights', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+
+  void challengePlayer({
+    required String roomId,
+    required String challengerId,
+    required String targetId,
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('⚡ Challenging player');
+    
+    _socket!.emit('challenge_player', {
+      'roomId': roomId,
+      'challengerId': challengerId,
+      'targetId': targetId,
+    });
+  }
+
+  void chooseJackAction({
+    required String roomId,
+    required String userId,
+    required String action, // 'skip' or 'reverse'
+  }) {
+    if (!isConnected) {
+      print('❌ Not connected');
+      return;
+    }
+
+    print('🃏 Choosing Jack action: $action');
+    
+    _socket!.emit('choose_jack_action', {
+      'roomId': roomId,
+      'userId': userId,
+      'action': action,
+    });
+  }
+
+  // ===========================================
   // CHAT METHODS (ENHANCED)
   // ===========================================
   
@@ -615,5 +812,16 @@ class SocketService {
     // NEW: Close chat-specific controllers
     _chatHistoryController.close();
     _userTypingController.close();
+    // NEW: Close Crazy Eights controllers
+    _gameStartedController.close();
+    _cardPlayedController.close();
+    _cardDrawnController.close();
+    _playerTurnController.close();
+    _crazyEightsCalledController.close();
+    _crazyEightsViolationController.close();
+    _challengeSuccessfulController.close();
+    _jackChoiceNeededController.close();
+    _jackActionChosenController.close();
+    _cardsReceivedController.close();
   }
 }
