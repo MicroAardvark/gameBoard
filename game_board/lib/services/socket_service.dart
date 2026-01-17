@@ -97,9 +97,14 @@ class SocketService {
     currentUsername = username;
 
     print('🔌 Connecting to: $baseUrl');
+    print('   User ID: $userId');
 
     _socket = IO.io(baseUrl, <String, dynamic>{
       'transports': ['websocket'],
+      'auth': {
+        'userId': userId,
+        'username': username,
+      },
       'autoConnect': true,
       'reconnection': true,
       'reconnectionAttempts': 5,
