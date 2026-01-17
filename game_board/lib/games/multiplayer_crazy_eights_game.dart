@@ -186,6 +186,9 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final gameStateData = room['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
     direction = gameStateData['direction'] ?? 'clockwise';
+
+    final chosenSuitString = gameStateData['chosenSuit'];
+    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
     
     _renderCards();
     
@@ -374,7 +377,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
           statusMessage = 'Choose a suit!';
           return;
         }
-        
+          
         // Play the card
         _playCard(cardIndex, null);
       }
@@ -382,20 +385,20 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   }
 
   void _playCard(int cardIndex, CardSuit? chosenSuit) {
-  final card = playerHand[cardIndex];  // ✅ Just read it
-  
-  socketService.playCard(
-    roomId: roomId,
-    userId: user.id,
-    cardIndex: cardIndex,
-    suit: chosenSuit?.name,
-  );
-  
-  selectedCard = null;
-  showSuitPicker = false;
-  
-  statusMessage = 'Playing ${card.displayText}...';
-}
+    final card = playerHand[cardIndex];  // ✅ Just read it
+    
+    socketService.playCard(
+      roomId: roomId,
+      userId: user.id,
+      cardIndex: cardIndex,
+      suit: chosenSuit?.name,
+    );
+    
+    selectedCard = null;
+    showSuitPicker = false;
+    
+    statusMessage = 'Playing ${card.displayText}...';
+  }
 
   void _handleDrawCard() {
     if (gameState != GameState.playing || !isMyTurn) return;
