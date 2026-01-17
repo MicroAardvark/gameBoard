@@ -158,11 +158,20 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     discardPile.add(card);
     
     // Update chosen suit if King/Ace
-    if (data['chosenSuit'] != null) {
-      currentChosenSuit = _parseSuit(data['chosenSuit']);
-    } else if (!card.canChangeSuit) {
-      currentChosenSuit = null;
+    if (playerId != user.id) {
+  if (otherPlayers.containsKey(playerId)) {
+    otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
+  }
+  } else {
+    // This is my card - remove it from my hand
+    // Find and remove the matching card
+    for (int i = 0; i < playerHand.length; i++) {
+      if (playerHand[i].suit == card.suit && playerHand[i].rank == card.rank) {
+        playerHand.removeAt(i);
+        break;
+      }
     }
+  }
     
     // Update card count for other players
     if (playerId != user.id) {
@@ -374,6 +383,9 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   void _playCard(int cardIndex, CardSuit? chosenSuit) {
     debugPrint('🎮 Playing card at index $cardIndex');
     
+    // Get card for status message
+    final card = playerHand[cardIndex];  // Don't remove yet!
+    
     // Emit to server
     socketService.playCard(
       roomId: roomId,
@@ -382,12 +394,9 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       suit: chosenSuit?.name,
     );
     
-    // Optimistically remove from hand for better UX
-    final card = playerHand.removeAt(cardIndex);
+    // Clear UI state (but don't remove card until server confirms)
     selectedCard = null;
     showSuitPicker = false;
-    
-    _renderCards();
     
     statusMessage = 'Playing ${card.displayText}...';
   }
@@ -1177,7 +1186,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final totalWidth = (buttonSize * 4) + (screenWidth * 0.02 * 3);
     final startX = screenWidth / 2 - totalWidth / 2;
     final dialogHeight = screenHeight * 0.25;
-    final buttonY = screenWidth / 2 + dialogHeight / 4;
+    final buttonY = screenHeight / 2 + dialogHeight / 4;
     
     final suits = [CardSuit.hearts, CardSuit.diamonds, CardSuit.clubs, CardSuit.spades];
     
