@@ -153,30 +153,31 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final playerId = data['userId'];
     final cardData = data['card'];
     final card = CrazyEightsCard.fromMap(cardData);
+    final chosenSuit = data['chosenSuit'];
     
     // Add to discard pile
     discardPile.add(card);
     
-    // Update chosen suit if King/Ace
-    if (playerId != user.id) {
-  if (otherPlayers.containsKey(playerId)) {
-    otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
-  }
-  } else {
-    // This is my card - remove it from my hand
-    // Find and remove the matching card
-    for (int i = 0; i < playerHand.length; i++) {
-      if (playerHand[i].suit == card.suit && playerHand[i].rank == card.rank) {
-        playerHand.removeAt(i);
-        break;
-      }
+    // Update chosen suit for King/Ace
+    if (card.canChangeSuit && chosenSuit != null) {
+      currentChosenSuit = _parseSuit(chosenSuit);
+    } else if (!card.canChangeSuit) {
+      currentChosenSuit = null;
     }
-  }
     
-    // Update card count for other players
+    // Update card counts
     if (playerId != user.id) {
+      // Other player's card
       if (otherPlayers.containsKey(playerId)) {
         otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
+      }
+    } else {
+      // My card - remove it from my hand
+      for (int i = 0; i < playerHand.length; i++) {
+        if (playerHand[i].suit == card.suit && playerHand[i].rank == card.rank) {
+          playerHand.removeAt(i);
+          break;
+        }
       }
     }
     
@@ -381,25 +382,20 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   }
 
   void _playCard(int cardIndex, CardSuit? chosenSuit) {
-    debugPrint('🎮 Playing card at index $cardIndex');
-    
-    // Get card for status message
-    final card = playerHand[cardIndex];  // Don't remove yet!
-    
-    // Emit to server
-    socketService.playCard(
-      roomId: roomId,
-      userId: user.id,
-      cardIndex: cardIndex,
-      suit: chosenSuit?.name,
-    );
-    
-    // Clear UI state (but don't remove card until server confirms)
-    selectedCard = null;
-    showSuitPicker = false;
-    
-    statusMessage = 'Playing ${card.displayText}...';
-  }
+  final card = playerHand[cardIndex];  // ✅ Just read it
+  
+  socketService.playCard(
+    roomId: roomId,
+    userId: user.id,
+    cardIndex: cardIndex,
+    suit: chosenSuit?.name,
+  );
+  
+  selectedCard = null;
+  showSuitPicker = false;
+  
+  statusMessage = 'Playing ${card.displayText}...';
+}
 
   void _handleDrawCard() {
     if (gameState != GameState.playing || !isMyTurn) return;
