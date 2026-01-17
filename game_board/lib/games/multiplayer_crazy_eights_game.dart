@@ -3,7 +3,6 @@ import 'dart:async' as async_timer;
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flame/events.dart';
-import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../models/crazy_eights_card.dart';

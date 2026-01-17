@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import 'multiplayer_blackjack_lobby_screen.dart';
 import '../theme/app_theme.dart';
+import 'multiplayer_crazy_eights_lobby_screen.dart';
 
 class MultiplayerLobbyScreen extends StatelessWidget {
   final User user;
@@ -175,12 +176,19 @@ class MultiplayerLobbyScreen extends StatelessWidget {
           SizedBox(height: spacing),
           _buildGameCard(
             context: context,
-            title: 'UNO',
+            title: 'Crazy Eights',
             description: 'Fast-paced matching card game',
             icon: Icons.style,
             color: Colors.orange,
-            isAvailable: false,
-            onTap: null,
+            isAvailable: true,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MultiplayerCrazyEightsLobbyScreen(user: user),
+                ),
+              );
+            },
             width: cardWidth,
             height: cardHeight,
           ),
@@ -229,12 +237,19 @@ class MultiplayerLobbyScreen extends StatelessWidget {
           SizedBox(width: spacing),
           _buildGameCard(
             context: context,
-            title: 'UNO',
+            title: 'Crazy Eights',
             description: 'Fast-paced matching card game',
             icon: Icons.style,
             color: Colors.orange,
-            isAvailable: false,
-            onTap: null,
+            isAvailable: true,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MultiplayerCrazyEightsLobbyScreen(user: user),
+                ),
+              );
+            },  
             width: cardWidth,
             height: cardHeight,
           ),
