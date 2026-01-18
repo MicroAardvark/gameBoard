@@ -1,16 +1,22 @@
 // lib/games/multiplayer_crazy_eights_game.dart
+// FIXED: Suit-picker now plays the King/Ace with chosenSuit (no standalone chooseSuit)
+// FIXED: Rank sent to server in expected format (e.g. "6" not "six")
+// FIXED: Stop mutating/sorting playerHand (prevents index mismatch vs server); sort only for display via index map
+// UPDATED: Added optimistic UI with server validation
+
 import 'dart:async' as async_timer;
 import 'dart:math';
-import 'package:flame/game.dart';
+import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import '../components/crazy_eights_card_component.dart';
 import '../models/crazy_eights_card.dart';
 import '../models/user.dart';
-import '../components/crazy_eights_card_component.dart';
+import '../screens/multiplayer_crazy_eights_game_screen.dart';
 import '../services/socket_service.dart';
 import '../theme/app_theme.dart';
-import '../screens/multiplayer_crazy_eights_game_screen.dart';
 
 class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   final User user;
@@ -46,6 +52,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
   // Card components
   final List<CrazyEightsCardComponent> playerCardComponents = [];
+  final List<int> playerCardIndexMap = []; // component index -> playerHand index
   CrazyEightsCardComponent? discardTopComponent;
 
   // Game flow
@@ -59,10 +66,14 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
   // UI state
   CrazyEightsCardComponent? selectedCard;
-  int? selectedCardIndex; // ✅ FIX: track index explicitly (safer than indexOf(component))
+  int? selectedCardIndex; // index in playerHand (NOT display index)
   bool showSuitPicker = false;
   bool showJackChoice = false;
   String? winner;
+
+  // NEW: Optimistic UI state
+  bool awaitingServerValidation = false;
+  CrazyEightsCard? optimisticCard; // Card played optimistically for rollback
 
   // Adaptive sizing
   double get screenWidth => size.x;
@@ -108,7 +119,11 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     gameState = GameState.playing;
 
-    // Parse my hand
+    // Clear optimistic state
+    awaitingServerValidation = false;
+    optimisticCard = null;
+
+    // Parse my hand (KEEP SERVER ORDER - do NOT sort/mutate)
     final hands = data['hands'] as Map<String, dynamic>;
     final myHandData = hands[user.id] as List;
     playerHand.clear();
@@ -148,14 +163,16 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       }
     }
 
-    _sortPlayerHand();
     _renderCards();
+
+    statusMessage = isMyTurn ? 'Your turn!' : 'Waiting for ${_getPlayerName(currentTurnUserId)}...';
 
     debugPrint('   My hand: ${playerHand.length} cards');
     debugPrint('   Discard pile: ${discardPile.length} cards');
     debugPrint('   My turn: $isMyTurn');
   }
 
+  // UPDATED: Handle card played with optimistic UI support
   void handleCardPlayed(Map<String, dynamic> data) {
     debugPrint('🃏 Handling card played');
 
@@ -164,33 +181,30 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final card = CrazyEightsCard.fromMap(cardData);
     final chosenSuit = data['chosenSuit'];
 
-    // Add to discard pile
-    discardPile.add(card);
+    // Clear optimistic state
+    awaitingServerValidation = false;
+    optimisticCard = null;
+
+    // If this is my play, it was already applied optimistically
+    if (playerId == user.id) {
+      selectedCardIndex = null;
+      selectedCard = null;
+      showSuitPicker = false;
+    } else {
+      // Add to discard pile for other players
+      discardPile.add(card);
+
+      // Update other player's card count
+      if (otherPlayers.containsKey(playerId)) {
+        otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
+      }
+    }
 
     // Update chosen suit for King/Ace
     if (card.canChangeSuit && chosenSuit != null) {
       currentChosenSuit = _parseSuit(chosenSuit);
     } else if (!card.canChangeSuit) {
       currentChosenSuit = null;
-    }
-
-    // Update card counts and hands
-    if (playerId != user.id) {
-      if (otherPlayers.containsKey(playerId)) {
-        otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
-      }
-    } else {
-      // ✅ Remove exact card by identity (not index)
-      for (int i = 0; i < playerHand.length; i++) {
-        if (playerHand[i].suit == card.suit && playerHand[i].rank == card.rank) {
-          playerHand.removeAt(i);
-          break;
-        }
-      }
-      // clear selection safely
-      selectedCardIndex = null;
-      selectedCard = null;
-      showSuitPicker = false;
     }
 
     // Update game state from room
@@ -202,16 +216,141 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final chosenSuitString = gameStateData['chosenSuit'];
     currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
 
-    _sortPlayerHand();
     _renderCards();
+
+    // Update status
+    final playerName = _getPlayerName(playerId);
+    statusMessage = '$playerName played ${card.displayText}';
 
     debugPrint('   Card: ${card.displayText}');
     debugPrint('   Chosen suit: $currentChosenSuit');
     debugPrint('   Draw count: $drawCount');
   }
 
+  // NEW: Handle card play rejected (optimistic update rollback)
+  void handleCardPlayRejected(Map<String, dynamic> data) {
+    debugPrint('❌ Card play rejected: ${data['reason']}');
+
+    // Revert optimistic update
+    if (optimisticCard != null) {
+      // Remove from discard pile
+      if (discardPile.isNotEmpty && discardPile.last == optimisticCard) {
+        discardPile.removeLast();
+      }
+
+      // Re-add to hand (server order doesn’t matter for append; you can optionally insert back, but
+      // keeping server order is less important here than consistency)
+      playerHand.add(optimisticCard!);
+      optimisticCard = null;
+    }
+
+    awaitingServerValidation = false;
+    selectedCardIndex = null;
+    selectedCard = null;
+    showSuitPicker = false;
+
+    _renderCards();
+
+    statusMessage = 'Invalid move: ${data['reason']}';
+  }
+
+  // NEW: Handle turn changed
+  void handleTurnChanged(Map<String, dynamic> data) {
+    debugPrint('🔄 Turn changed');
+
+    currentTurnUserId = data['currentTurn'];
+    isMyTurn = (currentTurnUserId == user.id);
+    direction = data['direction'] ?? 'clockwise';
+
+    final room = data['room'];
+    final gameStateData = room['gameState']['data'];
+    drawCount = gameStateData['drawCount'] ?? 0;
+
+    final chosenSuitString = gameStateData['chosenSuit'];
+    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+
+    statusMessage = isMyTurn ? 'Your turn!' : 'Waiting for ${_getPlayerName(currentTurnUserId)}...';
+
+    // Clear any local selection UI when turn changes
+    if (!isMyTurn) {
+      if (selectedCard != null) {
+        selectedCard!.setSelected(false);
+      }
+      selectedCard = null;
+      selectedCardIndex = null;
+      showSuitPicker = false;
+      showJackChoice = false;
+    }
+
+    _renderCards();
+
+    debugPrint('   Current turn: $currentTurnUserId');
+    debugPrint('   Is my turn: $isMyTurn');
+  }
+
+  // NEW: Handle suit chosen (server broadcast)
+  void handleSuitChosen(Map<String, dynamic> data) {
+    debugPrint('👑 Suit chosen');
+
+    final suit = data['suit'];
+    final playerId = data['userId'];
+
+    currentChosenSuit = _parseSuit(suit);
+
+    final room = data['room'];
+    final gameStateData = room['gameState']['data'];
+    drawCount = gameStateData['drawCount'] ?? 0;
+
+    _renderCards();
+
+    final playerName = _getPlayerName(playerId);
+    final suitDisplay = _getSuitDisplay(currentChosenSuit!);
+    statusMessage = '$playerName chose $suitDisplay';
+
+    debugPrint('   Suit: $suit');
+  }
+
+  // NEW: Handle choose suit required (server asks client)
+  void handleChooseSuitRequired(Map<String, dynamic> data) {
+    debugPrint('👑 Choose suit required');
+    showSuitPicker = true;
+    statusMessage = 'Choose a suit!';
+  }
+
+  // NEW: Handle Jack action chosen
+  void handleJackActionChosen(Map<String, dynamic> data) {
+    debugPrint('🃏 Jack action chosen');
+
+    showJackChoice = false;
+
+    final action = data['action'];
+    final playerId = data['userId'];
+    final newDirection = data['direction'];
+
+    direction = newDirection;
+
+    final room = data['room'];
+    final gameStateData = room['gameState']['data'];
+    drawCount = gameStateData['drawCount'] ?? 0;
+
+    _renderCards();
+
+    final playerName = _getPlayerName(playerId);
+    statusMessage = '$playerName chose ${action.toUpperCase()}';
+
+    debugPrint('   Action: $action');
+    debugPrint('   Direction: $direction');
+  }
+
+  // NEW: Handle choose Jack action required
+  void handleChooseJackActionRequired(Map<String, dynamic> data) {
+    debugPrint('🃏 Choose Jack action required');
+    showJackChoice = true;
+    statusMessage = 'Choose Jack action!';
+  }
+
   void handleCardDrawn(Map<String, dynamic> data) {
-    debugPrint('📥 Handling card drawn');
+    debugPrint('📥 Handling card drawn (other player)');
 
     final playerId = data['userId'];
     final count = data['count'];
@@ -225,19 +364,51 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     final room = data['room'];
     final gameStateData = room['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
+    direction = gameStateData['direction'] ?? 'clockwise';
+
+    final chosenSuitString = gameStateData['chosenSuit'];
+    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+
+    _renderCards();
+
+    final playerName = _getPlayerName(playerId);
+    statusMessage = '$playerName drew $count card(s)';
 
     debugPrint('   Player drew $count card(s)');
   }
 
-  void handleCardsReceived(Map<String, dynamic> data) {
-    debugPrint('📨 Handling cards received (my cards)');
+  // NEW: Handle cards drawn (my cards with card data)
+  void handleCardsDrawn(Map<String, dynamic> data) {
+    debugPrint('📨 Handling my cards drawn');
 
     final cardsData = data['cards'] as List;
     for (var cardData in cardsData) {
       playerHand.add(CrazyEightsCard.fromMap(cardData));
     }
 
-    _sortPlayerHand();
+    final room = data['room'];
+    final gameStateData = room['gameState']['data'];
+    drawCount = gameStateData['drawCount'] ?? 0;
+    direction = gameStateData['direction'] ?? 'clockwise';
+
+    final chosenSuitString = gameStateData['chosenSuit'];
+    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+
+    _renderCards();
+
+    statusMessage = 'You drew ${cardsData.length} card(s)';
+
+    debugPrint('   Drew: ${cardsData.length} cards');
+  }
+
+  void handleCardsReceived(Map<String, dynamic> data) {
+    debugPrint('📨 Handling cards received (legacy event)');
+
+    final cardsData = data['cards'] as List;
+    for (var cardData in cardsData) {
+      playerHand.add(CrazyEightsCard.fromMap(cardData));
+    }
+
     _renderCards();
 
     debugPrint('   Received ${cardsData.length} card(s)');
@@ -245,7 +416,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   }
 
   void handlePlayerTurn(Map<String, dynamic> data) {
-    debugPrint('👤 Handling player turn');
+    debugPrint('👤 Handling player turn (legacy event)');
 
     currentTurnUserId = data['userId'];
     isMyTurn = (currentTurnUserId == user.id);
@@ -300,25 +471,11 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   }
 
   void handleJackChoiceNeeded(Map<String, dynamic> data) {
-    debugPrint('🃏 Handling Jack choice needed');
+    debugPrint('🃏 Handling Jack choice needed (legacy event)');
 
     if (data['userId'] == user.id) {
       showJackChoice = true;
     }
-  }
-
-  void handleJackActionChosen(Map<String, dynamic> data) {
-    debugPrint('🃏 Handling Jack action chosen');
-
-    showJackChoice = false;
-
-    final action = data['action'];
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
-    direction = gameStateData['direction'] ?? 'clockwise';
-
-    debugPrint('   Action: $action');
-    debugPrint('   Direction: $direction');
   }
 
   void handleGameEnded(Map<String, dynamic> data) {
@@ -333,6 +490,8 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       statusMessage = '${data['winnerName']} wins!';
     }
 
+    _renderCards();
+
     debugPrint('   Winner: $winner');
   }
 
@@ -340,7 +499,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   // PLAYER ACTIONS
   // ===========================================
 
-  void _handleCardTap(int cardIndex) {
+  void _handleCardTap(int handIndex) {
     if (gameState != GameState.playing) return;
 
     if (!isMyTurn) {
@@ -348,12 +507,19 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       return;
     }
 
-    if (cardIndex < 0 || cardIndex >= playerHand.length) return;
+    if (awaitingServerValidation) {
+      statusMessage = 'Waiting for server...';
+      return;
+    }
 
-    final card = playerHand[cardIndex];
-    final cardComp = playerCardComponents[cardIndex];
+    if (handIndex < 0 || handIndex >= playerHand.length) return;
+
+    final card = playerHand[handIndex];
+    final cardComp = _componentForHandIndex(handIndex);
 
     debugPrint('🃏 Card tapped: ${card.displayText}');
+
+    if (cardComp == null) return;
 
     // Deselect if already selected
     if (selectedCard == cardComp) {
@@ -378,7 +544,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     // Select new card
     selectedCard = cardComp;
-    selectedCardIndex = cardIndex; // ✅ FIX: track index at selection time
+    selectedCardIndex = handIndex;
     cardComp.setSelected(true);
 
     if (card.canChangeSuit) {
@@ -391,11 +557,15 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   void _handleDiscardPileTap() {
     if (gameState != GameState.playing || !isMyTurn) return;
 
+    if (awaitingServerValidation) {
+      statusMessage = 'Waiting for server...';
+      return;
+    }
+
     if (selectedCardIndex == null) return;
 
     final idx = selectedCardIndex!;
     if (idx < 0 || idx >= playerHand.length) {
-      // stale selection
       selectedCardIndex = null;
       selectedCard = null;
       showSuitPicker = false;
@@ -404,7 +574,7 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     final card = playerHand[idx];
 
-    // If King/Ace, show suit picker
+    // If King/Ace, show suit picker (actual play happens when suit picked)
     if (card.canChangeSuit) {
       showSuitPicker = true;
       statusMessage = 'Choose a suit!';
@@ -415,35 +585,52 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     _playCard(idx, null);
   }
 
-  void _playCard(int cardIndex, CardSuit? chosenSuit) {
-    if (cardIndex < 0 || cardIndex >= playerHand.length) return;
+  // UPDATED: Play card with optimistic UI
+  void _playCard(int handIndex, CardSuit? chosenSuit) {
+    if (handIndex < 0 || handIndex >= playerHand.length) return;
 
-    final card = playerHand[cardIndex];
+    final card = playerHand[handIndex];
 
-    // ✅ FIX: send card identity as well as index (prevents index desync when hand sorting differs)
-    //
-    // IMPORTANT:
-    // You must update SocketService.playCard to accept `cardSuit` and `cardRank` (or similar),
-    // and include them in the payload to the server.
+    debugPrint('🎮 Playing card: ${card.displayText}');
+
+    // ✅ OPTIMISTIC UPDATE - Add card to discard pile immediately
+    awaitingServerValidation = true;
+    optimisticCard = card;
+    playerHand.removeAt(handIndex);
+    discardPile.add(card);
+
+    // Clear selection
+    selectedCard?.setSelected(false);
+    selectedCard = null;
+    selectedCardIndex = null;
+    showSuitPicker = false;
+
+    // Update UI immediately
+    _renderCards();
+
+    statusMessage = 'Playing ${card.displayText}...';
+
+    // Send to server for validation
+    // IMPORTANT: rank formatting + keeping server index alignment
     socketService.playCard(
       roomId: roomId,
       userId: user.id,
-      cardIndex: cardIndex,
-      suit: chosenSuit?.name,      // chosen suit for King/Ace
-      cardSuit: card.suit.name,    // identity suit of the card being played
-      cardRank: card.rank.name,    // identity rank of the card being played
+      cardIndex: handIndex,
+      cardSuit: card.suit.name,
+      cardRank: _rankToServerString(card.rank),
+      chosenSuit: chosenSuit?.name,
     );
 
-    // Clear local UI selection immediately
-    selectedCardIndex = null;
-    selectedCard = null;
-    showSuitPicker = false;
-
-    statusMessage = 'Playing ${card.displayText}...';
+    debugPrint('   Sent to server for validation');
   }
 
   void _handleDrawCard() {
     if (gameState != GameState.playing || !isMyTurn) return;
+
+    if (awaitingServerValidation) {
+      statusMessage = 'Waiting for server...';
+      return;
+    }
 
     debugPrint('📥 Drawing card');
 
@@ -539,15 +726,6 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     return false;
   }
 
-  void _sortPlayerHand() {
-    playerHand.sort((a, b) {
-      if (a.suit.index != b.suit.index) {
-        return a.suit.index.compareTo(b.suit.index);
-      }
-      return a.rank.index.compareTo(b.rank.index);
-    });
-  }
-
   CardSuit _parseSuit(String suit) {
     switch (suit) {
       case 'hearts':
@@ -563,6 +741,78 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     }
   }
 
+  String _getSuitDisplay(CardSuit suit) {
+    switch (suit) {
+      case CardSuit.hearts:
+        return '♥ Hearts';
+      case CardSuit.diamonds:
+        return '♦ Diamonds';
+      case CardSuit.clubs:
+        return '♣ Clubs';
+      case CardSuit.spades:
+        return '♠ Spades';
+    }
+  }
+
+  String _getPlayerName(String? userId) {
+    if (userId == null) return 'Unknown';
+    if (userId == user.id) return 'You';
+
+    final player = otherPlayers[userId];
+    return player?.username ?? 'Player';
+  }
+
+  // Convert Dart enum rank naming to the server’s expected strings.
+  // Numbers must be "2".."10" (not "two", "ten"). Faces use lower-case names.
+  String _rankToServerString(CardRank rank) {
+    switch (rank) {
+      case CardRank.ace:
+        return 'ace';
+      case CardRank.king:
+        return 'king';
+      case CardRank.queen:
+        return 'queen';
+      case CardRank.jack:
+        return 'jack';
+      case CardRank.nine:
+        return '9';
+      case CardRank.eight:
+        return '8';
+      case CardRank.seven:
+        return '7';
+      case CardRank.six:
+        return '6';
+      case CardRank.five:
+        return '5';
+      case CardRank.four:
+        return '4';
+      case CardRank.three:
+        return '3';
+      case CardRank.two:
+        return '2';
+    }
+  }
+
+  // Build a sorted view for display WITHOUT changing playerHand order (prevents server index mismatch).
+  List<int> _getSortedHandIndices() {
+    final indices = List<int>.generate(playerHand.length, (i) => i);
+    indices.sort((ai, bi) {
+      final a = playerHand[ai];
+      final b = playerHand[bi];
+      if (a.suit.index != b.suit.index) {
+        return a.suit.index.compareTo(b.suit.index);
+      }
+      return a.rank.index.compareTo(b.rank.index);
+    });
+    return indices;
+  }
+
+  CrazyEightsCardComponent? _componentForHandIndex(int handIndex) {
+    final displayIdx = playerCardIndexMap.indexOf(handIndex);
+    if (displayIdx < 0 || displayIdx >= playerCardComponents.length) return null;
+    return playerCardComponents[displayIdx];
+  }
+
   // ===========================================
   // RENDERING
   // ===========================================
@@ -573,45 +823,51 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       card.removeFromParent();
     }
     playerCardComponents.clear();
+    playerCardIndexMap.clear();
 
     discardTopComponent?.removeFromParent();
     discardTopComponent = null;
 
-    // Render player hand
+    // Render player hand (sorted for display only)
+    final sortedIndices = _getSortedHandIndices();
+
     final handSpacing = cardWidth * 0.8;
-    final totalWidth = (playerHand.length - 1) * handSpacing + cardWidth;
+    final totalWidth = (sortedIndices.length - 1) * handSpacing + cardWidth;
     final startX = (screenWidth - totalWidth) / 2 + cardWidth / 2;
     const bottomPadding = 30.0;
     final cardY = screenHeight - (cardHeight / 2) - bottomPadding;
 
-    for (var i = 0; i < playerHand.length; i++) {
-      final cardX = startX + (i * handSpacing);
+    for (var displayIdx = 0; displayIdx < sortedIndices.length; displayIdx++) {
+      final handIndex = sortedIndices[displayIdx];
+      final cardX = startX + (displayIdx * handSpacing);
 
       final cardComp = CrazyEightsCardComponent(
         position: Vector2(cardX, cardY),
         size: Vector2(cardWidth, cardHeight),
-        card: playerHand[i],
-        onTap: (tappedCard) {
-          final index = playerCardComponents.indexOf(tappedCard);
-          if (index >= 0) {
-            _handleCardTap(index);
-          }
+        card: playerHand[handIndex],
+        onTap: (_) {
+          _handleCardTap(handIndex);
         },
-      )..priority = layerCards + 10 + i;
+      )..priority = layerCards + 10 + displayIdx;
 
       playerCardComponents.add(cardComp);
+      playerCardIndexMap.add(handIndex);
       add(cardComp);
     }
 
     // Restore selection highlight if possible after rerender
-    if (selectedCardIndex != null &&
-        selectedCardIndex! >= 0 &&
-        selectedCardIndex! < playerCardComponents.length) {
-      selectedCard = playerCardComponents[selectedCardIndex!];
-      selectedCard!.setSelected(true);
+    if (selectedCardIndex != null) {
+      final comp = _componentForHandIndex(selectedCardIndex!);
+      if (comp != null) {
+        selectedCard = comp;
+        selectedCard!.setSelected(true);
+      } else {
+        selectedCard = null;
+        selectedCardIndex = null;
+        showSuitPicker = false;
+      }
     } else {
       selectedCard = null;
-      selectedCardIndex = null;
       showSuitPicker = false;
     }
 
@@ -657,6 +913,11 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     if (gameState == GameState.finished) {
       _drawGameOver(canvas);
+    }
+
+    // Show loading indicator during server validation
+    if (awaitingServerValidation) {
+      _drawLoadingOverlay(canvas);
     }
   }
 
@@ -746,7 +1007,6 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
   void _drawOtherPlayers(Canvas canvas) {
     final playerList = otherPlayers.values.toList();
-
     if (playerList.isEmpty) return;
 
     final positions = _calculatePlayerPositions(playerList.length);
@@ -1220,6 +1480,39 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     );
   }
 
+  // NEW: Loading overlay during server validation
+  void _drawLoadingOverlay(Canvas canvas) {
+    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
+    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
+
+    final textStyle = TextStyle(
+      fontFamily: 'Inter',
+      color: AppColors.textPrimary,
+      fontSize: 18 * uiScale,
+      fontWeight: FontWeight.bold,
+      shadows: [
+        Shadow(
+          blurRadius: 4,
+          color: AppColors.primaryNavyDark,
+          offset: const Offset(1, 1),
+        ),
+      ],
+    );
+
+    final textPainter = TextPainter(
+      text: TextSpan(text: 'Sending...', style: textStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        screenWidth / 2 - textPainter.width / 2,
+        screenHeight * 0.1,
+      ),
+    );
+  }
+
   Color _getSuitColor(CardSuit suit) {
     switch (suit) {
       case CardSuit.hearts:
@@ -1262,13 +1555,16 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       final buttonRect = Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize);
 
       if (buttonRect.contains(position)) {
+        // ✅ FIX: Actually PLAY the selected King/Ace with the chosen suit
+        // (Do NOT send chooseSuit as a standalone event here)
         final idx = selectedCardIndex;
         if (idx != null && idx >= 0 && idx < playerHand.length) {
           _playCard(idx, suits[i]);
+        } else {
+          // Safety fallback
+          showSuitPicker = false;
+          statusMessage = 'No card selected';
         }
-        showSuitPicker = false;
-        selectedCard = null;
-        selectedCardIndex = null;
         return;
       }
     }

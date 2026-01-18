@@ -1,4 +1,5 @@
 // lib/screens/multiplayer_crazy_eights_game_screen.dart
+// UPDATED: Added optimistic UI event handlers
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
@@ -28,20 +29,26 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
   late final MultiplayerCrazyEightsGame _game;
   final SocketService _socketService = SocketService();
 
-  // Socket event subscriptions
+  // Socket event subscriptions (UPDATED WITH NEW HANDLERS)
   StreamSubscription? _playerJoinedSub;
   StreamSubscription? _playerLeftSub;
   StreamSubscription? _playerReadySub;
   StreamSubscription? _gameStartingSub;
   StreamSubscription? _gameStartedSub;
   StreamSubscription? _cardPlayedSub;
+  StreamSubscription? _cardPlayRejectedSub; // NEW
   StreamSubscription? _cardDrawnSub;
+  StreamSubscription? _cardsDrawnSub; // NEW
+  StreamSubscription? _turnChangedSub; // NEW
+  StreamSubscription? _suitChosenSub; // NEW
+  StreamSubscription? _chooseSuitRequiredSub; // NEW
   StreamSubscription? _playerTurnSub;
   StreamSubscription? _crazyEightsCalledSub;
   StreamSubscription? _crazyEightsViolationSub;
   StreamSubscription? _challengeSuccessfulSub;
   StreamSubscription? _jackChoiceNeededSub;
   StreamSubscription? _jackActionChosenSub;
+  StreamSubscription? _chooseJackActionRequiredSub; // NEW
   StreamSubscription? _cardsReceivedSub;
   StreamSubscription? _gameEndedSub;
   StreamSubscription? _errorSub;
@@ -202,27 +209,89 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
         _game.handleCardPlayed(data);
         
         setState(() {
-          _statusMessage = '${data['username']} played a card';
+          _statusMessage = _game.statusMessage;
         });
       }
     });
 
-    // Card drawn
+    // NEW: Card play rejected (optimistic update rollback)
+    _cardPlayRejectedSub = _socketService.onCardPlayRejected.listen((data) {
+      if (mounted) {
+        print('❌ Card play rejected: ${data['reason']}');
+        _game.handleCardPlayRejected(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+        
+        _showError('Invalid move: ${data['reason']}');
+      }
+    });
+
+    // Card drawn (other player)
     _cardDrawnSub = _socketService.onCardDrawn.listen((data) {
       if (mounted) {
         print('📥 Card drawn event received');
         _game.handleCardDrawn(data);
         
         setState(() {
-          _statusMessage = '${data['username']} drew ${data['count']} card(s)';
+          _statusMessage = _game.statusMessage;
         });
       }
     });
 
-    // Player turn
+    // NEW: Cards drawn (my cards with data)
+    _cardsDrawnSub = _socketService.onCardsDrawn.listen((data) {
+      if (mounted) {
+        print('📨 My cards drawn');
+        _game.handleCardsDrawn(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+      }
+    });
+
+    // NEW: Turn changed
+    _turnChangedSub = _socketService.onTurnChanged.listen((data) {
+      if (mounted) {
+        print('🔄 Turn changed');
+        _game.handleTurnChanged(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+      }
+    });
+
+    // NEW: Suit chosen
+    _suitChosenSub = _socketService.onSuitChosen.listen((data) {
+      if (mounted) {
+        print('👑 Suit chosen');
+        _game.handleSuitChosen(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+      }
+    });
+
+    // NEW: Choose suit required
+    _chooseSuitRequiredSub = _socketService.onChooseSuitRequired.listen((data) {
+      if (mounted) {
+        print('👑 Choose suit required');
+        _game.handleChooseSuitRequired(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+      }
+    });
+
+    // Player turn (legacy - still supported)
     _playerTurnSub = _socketService.onPlayerTurn.listen((data) {
       if (mounted) {
-        print('👤 Player turn event received');
+        print('👤 Player turn event received (legacy)');
         _game.handlePlayerTurn(data);
         
         setState(() {
@@ -274,10 +343,10 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
       }
     });
 
-    // Jack choice needed
+    // Jack choice needed (legacy - still supported)
     _jackChoiceNeededSub = _socketService.onJackChoiceNeeded.listen((data) {
       if (mounted) {
-        print('🃏 Jack choice needed');
+        print('🃏 Jack choice needed (legacy)');
         _game.handleJackChoiceNeeded(data);
         
         if (data['userId'] == widget.user.id) {
@@ -293,13 +362,29 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
       if (mounted) {
         print('🃏 Jack action chosen: ${data['action']}');
         _game.handleJackActionChosen(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
       }
     });
 
-    // Cards received (my drawn cards)
+    // NEW: Choose Jack action required
+    _chooseJackActionRequiredSub = _socketService.onChooseJackActionRequired.listen((data) {
+      if (mounted) {
+        print('🃏 Choose Jack action required');
+        _game.handleChooseJackActionRequired(data);
+        
+        setState(() {
+          _statusMessage = _game.statusMessage;
+        });
+      }
+    });
+
+    // Cards received (my drawn cards - legacy)
     _cardsReceivedSub = _socketService.onCardsReceived.listen((data) {
       if (mounted) {
-        print('📨 Cards received');
+        print('📨 Cards received (legacy)');
         _game.handleCardsReceived(data);
       }
     });
@@ -426,13 +511,19 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
     _gameStartingSub?.cancel();
     _gameStartedSub?.cancel();
     _cardPlayedSub?.cancel();
+    _cardPlayRejectedSub?.cancel(); // NEW
     _cardDrawnSub?.cancel();
+    _cardsDrawnSub?.cancel(); // NEW
+    _turnChangedSub?.cancel(); // NEW
+    _suitChosenSub?.cancel(); // NEW
+    _chooseSuitRequiredSub?.cancel(); // NEW
     _playerTurnSub?.cancel();
     _crazyEightsCalledSub?.cancel();
     _crazyEightsViolationSub?.cancel();
     _challengeSuccessfulSub?.cancel();
     _jackChoiceNeededSub?.cancel();
     _jackActionChosenSub?.cancel();
+    _chooseJackActionRequiredSub?.cancel(); // NEW
     _cardsReceivedSub?.cancel();
     _gameEndedSub?.cancel();
     _errorSub?.cancel();

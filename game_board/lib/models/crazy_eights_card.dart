@@ -18,16 +18,16 @@ enum CardRank {
   seven,
   eight,
   nine,
-  jack,    // Choose: skip OR reverse
-  queen,   // Draw 2, stackable
-  king,    // Change suit
-  ace,     // Change suit & draw 4, stackable
+  jack, // Choose: skip OR reverse
+  queen, // Draw 2, stackable
+  king, // Change suit
+  ace, // Change suit & draw 4, stackable
 }
 
 class CrazyEightsCard {
   final CardSuit suit;
   final CardRank rank;
-  
+
   CrazyEightsCard({required this.suit, required this.rank});
 
   // Check if card is a special action card
@@ -35,27 +35,36 @@ class CrazyEightsCard {
   bool get isQueen => rank == CardRank.queen;
   bool get isKing => rank == CardRank.king;
   bool get isAce => rank == CardRank.ace;
-  
+
   bool get isAction => isJack || isQueen || isKing || isAce;
   bool get canChangeSuit => isKing || isAce;
   bool get isDrawCard => isQueen || isAce;
-  
+
   // Get numeric value for number cards
   int get numericValue {
     switch (rank) {
-      case CardRank.two: return 2;
-      case CardRank.three: return 3;
-      case CardRank.four: return 4;
-      case CardRank.five: return 5;
-      case CardRank.six: return 6;
-      case CardRank.seven: return 7;
-      case CardRank.eight: return 8;
-      case CardRank.nine: return 9;
-      default: return 0; // Face cards don't have numeric values
+      case CardRank.two:
+        return 2;
+      case CardRank.three:
+        return 3;
+      case CardRank.four:
+        return 4;
+      case CardRank.five:
+        return 5;
+      case CardRank.six:
+        return 6;
+      case CardRank.seven:
+        return 7;
+      case CardRank.eight:
+        return 8;
+      case CardRank.nine:
+        return 9;
+      default:
+        return 0; // Face cards don't have numeric values
     }
   }
 
-  // Get the display color for the card suit
+  // Get the display colour for the card suit
   Color get displayColor {
     switch (suit) {
       case CardSuit.hearts:
@@ -86,18 +95,30 @@ class CrazyEightsCard {
   // Get display text for the card rank
   String get rankText {
     switch (rank) {
-      case CardRank.two: return '2';
-      case CardRank.three: return '3';
-      case CardRank.four: return '4';
-      case CardRank.five: return '5';
-      case CardRank.six: return '6';
-      case CardRank.seven: return '7';
-      case CardRank.eight: return '8';
-      case CardRank.nine: return '9';
-      case CardRank.jack: return 'J';
-      case CardRank.queen: return 'Q';
-      case CardRank.king: return 'K';
-      case CardRank.ace: return 'A';
+      case CardRank.two:
+        return '2';
+      case CardRank.three:
+        return '3';
+      case CardRank.four:
+        return '4';
+      case CardRank.five:
+        return '5';
+      case CardRank.six:
+        return '6';
+      case CardRank.seven:
+        return '7';
+      case CardRank.eight:
+        return '8';
+      case CardRank.nine:
+        return '9';
+      case CardRank.jack:
+        return 'J';
+      case CardRank.queen:
+        return 'Q';
+      case CardRank.king:
+        return 'K';
+      case CardRank.ace:
+        return 'A';
     }
   }
 
@@ -129,9 +150,7 @@ class CrazyEightsCard {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CrazyEightsCard && 
-           other.suit == suit && 
-           other.rank == rank;
+    return other is CrazyEightsCard && other.suit == suit && other.rank == rank;
   }
 
   @override
@@ -146,13 +165,13 @@ class CrazyEightsCard {
   }
 
   // ============================================
-  // SERIALIZATION FOR MULTIPLAYER
+  // SERIALISATION FOR MULTIPLAYER
   // ============================================
-  
+
   // Convert server data to CrazyEightsCard
   factory CrazyEightsCard.fromMap(Map<String, dynamic> map) {
     return CrazyEightsCard(
-      suit: _parseSuit(map['suit']),
+      suit: _parseSuit(map['suit'] as String),
       rank: _parseRank(map['rank']),
     );
   }
@@ -161,60 +180,13 @@ class CrazyEightsCard {
   Map<String, dynamic> toMap() {
     return {
       'suit': suit.name,
-      'rank': _rankToString(rank),
+      'rank': rankServerValue,
     };
   }
 
-  // Parse suit string from server
-  static CardSuit _parseSuit(String suit) {
-    switch (suit) {
-      case 'hearts':
-        return CardSuit.hearts;
-      case 'diamonds':
-        return CardSuit.diamonds;
-      case 'clubs':
-        return CardSuit.clubs;
-      case 'spades':
-        return CardSuit.spades;
-      default:
-        throw Exception('Invalid suit: $suit');
-    }
-  }
-
-  // Parse rank string from server
-  static CardRank _parseRank(String rank) {
-    switch (rank) {
-      case '2':
-        return CardRank.two;
-      case '3':
-        return CardRank.three;
-      case '4':
-        return CardRank.four;
-      case '5':
-        return CardRank.five;
-      case '6':
-        return CardRank.six;
-      case '7':
-        return CardRank.seven;
-      case '8':
-        return CardRank.eight;
-      case '9':
-        return CardRank.nine;
-      case 'jack':
-        return CardRank.jack;
-      case 'queen':
-        return CardRank.queen;
-      case 'king':
-        return CardRank.king;
-      case 'ace':
-        return CardRank.ace;
-      default:
-        throw Exception('Invalid rank: $rank');
-    }
-  }
-
-  // Convert rank to string for server
-  String _rankToString(CardRank rank) {
+  /// ✅ FIX: one canonical representation for server rank strings.
+  /// Numbers are "2".."9". Faces are "jack/queen/king/ace".
+  String get rankServerValue {
     switch (rank) {
       case CardRank.two:
         return '2';
@@ -240,6 +212,65 @@ class CrazyEightsCard {
         return 'king';
       case CardRank.ace:
         return 'ace';
+    }
+  }
+
+  // Parse suit string from server
+  static CardSuit _parseSuit(String suit) {
+    switch (suit) {
+      case 'hearts':
+        return CardSuit.hearts;
+      case 'diamonds':
+        return CardSuit.diamonds;
+      case 'clubs':
+        return CardSuit.clubs;
+      case 'spades':
+        return CardSuit.spades;
+      default:
+        throw Exception('Invalid suit: $suit');
+    }
+  }
+
+  /// ✅ FIX: accept both formats:
+  /// - server canonical: "6", "7", "jack", ...
+  /// - accidental client format: "six", "seven", etc. (for robustness)
+  static CardRank _parseRank(dynamic rank) {
+    final r = rank.toString().toLowerCase().trim();
+    switch (r) {
+      case '2':
+      case 'two':
+        return CardRank.two;
+      case '3':
+      case 'three':
+        return CardRank.three;
+      case '4':
+      case 'four':
+        return CardRank.four;
+      case '5':
+      case 'five':
+        return CardRank.five;
+      case '6':
+      case 'six':
+        return CardRank.six;
+      case '7':
+      case 'seven':
+        return CardRank.seven;
+      case '8':
+      case 'eight':
+        return CardRank.eight;
+      case '9':
+      case 'nine':
+        return CardRank.nine;
+      case 'jack':
+        return CardRank.jack;
+      case 'queen':
+        return CardRank.queen;
+      case 'king':
+        return CardRank.king;
+      case 'ace':
+        return CardRank.ace;
+      default:
+        throw Exception('Invalid rank: $rank');
     }
   }
 }
@@ -289,7 +320,7 @@ class CrazyEightsDeck {
   }
 
   int get remainingCards => _cards.length - _index;
-  
+
   bool get isEmpty => _index >= _cards.length;
 
   // Reset with cards from discard pile (keep top card)
