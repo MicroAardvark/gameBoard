@@ -610,6 +610,8 @@ class SocketService {
     required String roomId,
     required String userId,
     required int cardIndex,
+    required String cardSuit,
+    required String cardRank,
     String? suit, // For King/Ace suit choice
   }) {
     if (!isConnected) {
