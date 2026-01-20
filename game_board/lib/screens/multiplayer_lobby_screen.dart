@@ -16,11 +16,11 @@ class MultiplayerLobbyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
     
-    final titleSize = isLandscape ? size.height * 0.10 : size.width * 0.08;
-    final cardWidth = isLandscape ? size.width * 0.28 : size.width * 0.85;
-    final cardHeight = isLandscape ? size.height * 0.65 : size.height * 0.30;
+    // Landscape-only sizing
+    final titleSize = size.height * 0.10;
+    final cardWidth = size.width * 0.28;
+    final cardHeight = size.height * 0.65;
     final spacing = size.height * 0.02;
 
     return Scaffold(
@@ -137,135 +137,70 @@ class MultiplayerLobbyScreen extends StatelessWidget {
 
               SizedBox(height: spacing),
 
-              // Game Selection
+              // Game Selection - Landscape layout only
               Expanded(
-                child: isLandscape
-                    ? _buildLandscapeLayout(context, cardWidth, cardHeight, spacing)
-                    : _buildPortraitLayout(context, cardWidth, cardHeight, spacing),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildGameCard(
+                        context: context,
+                        title: 'Blackjack',
+                        description: 'Classic card game - Beat the dealer to 21',
+                        icon: Icons.casino,
+                        color: Colors.red,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MultiplayerBlackjackScreen(user: user),
+                            ),
+                          );
+                        },
+                        width: cardWidth,
+                        height: cardHeight,
+                      ),
+                      SizedBox(width: spacing),
+                      _buildGameCard(
+                        context: context,
+                        title: 'Crazy Eights',
+                        description: 'Fast-paced matching card game',
+                        icon: Icons.style,
+                        color: Colors.orange,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MultiplayerCrazyEightsLobbyScreen(user: user),
+                            ),
+                          );
+                        },
+                        width: cardWidth,
+                        height: cardHeight,
+                      ),
+                      SizedBox(width: spacing),
+                      _buildGameCard(
+                        context: context,
+                        title: 'Checkers',
+                        description: 'Strategic board game classic',
+                        icon: Icons.grid_on,
+                        color: Colors.blue,
+                        isAvailable: false,
+                        onTap: null,
+                        width: cardWidth,
+                        height: cardHeight,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPortraitLayout(BuildContext context, double cardWidth, double cardHeight, double spacing) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildGameCard(
-            context: context,
-            title: 'Blackjack',
-            description: 'Classic card game - Beat the dealer to 21',
-            icon: Icons.casino,
-            color: Colors.red,
-            isAvailable: true,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MultiplayerBlackjackScreen(user: user),
-                ),
-              );
-            },
-            width: cardWidth,
-            height: cardHeight,
-          ),
-          SizedBox(height: spacing),
-          _buildGameCard(
-            context: context,
-            title: 'Crazy Eights',
-            description: 'Fast-paced matching card game',
-            icon: Icons.style,
-            color: Colors.orange,
-            isAvailable: true,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MultiplayerCrazyEightsLobbyScreen(user: user),
-                ),
-              );
-            },
-            width: cardWidth,
-            height: cardHeight,
-          ),
-          SizedBox(height: spacing),
-          _buildGameCard(
-            context: context,
-            title: 'Checkers',
-            description: 'Strategic board game classic',
-            icon: Icons.grid_on,
-            color: Colors.blue,
-            isAvailable: false,
-            onTap: null,
-            width: cardWidth,
-            height: cardHeight,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLandscapeLayout(BuildContext context, double cardWidth, double cardHeight, double spacing) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _buildGameCard(
-            context: context,
-            title: 'Blackjack',
-            description: 'Classic card game - Beat the dealer to 21',
-            icon: Icons.casino,
-            color: Colors.red,
-            isAvailable: true,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MultiplayerBlackjackScreen(user: user),
-                ),
-              );
-            },
-            width: cardWidth,
-            height: cardHeight,
-          ),
-          SizedBox(width: spacing),
-          _buildGameCard(
-            context: context,
-            title: 'Crazy Eights',
-            description: 'Fast-paced matching card game',
-            icon: Icons.style,
-            color: Colors.orange,
-            isAvailable: true,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MultiplayerCrazyEightsLobbyScreen(user: user),
-                ),
-              );
-            },  
-            width: cardWidth,
-            height: cardHeight,
-          ),
-          SizedBox(width: spacing),
-          _buildGameCard(
-            context: context,
-            title: 'Checkers',
-            description: 'Strategic board game classic',
-            icon: Icons.grid_on,
-            color: Colors.blue,
-            isAvailable: false,
-            onTap: null,
-            width: cardWidth,
-            height: cardHeight,
-          ),
-        ],
       ),
     );
   }

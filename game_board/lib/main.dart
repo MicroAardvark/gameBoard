@@ -10,6 +10,12 @@ import 'theme/app_theme.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Lock to landscape orientation
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  
   // Set system UI overlay style to match theme
   SystemChrome.setSystemUIOverlayStyle(
     SystemUiOverlayStyle(
@@ -30,59 +36,14 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp> {
   User? _currentUser;
   bool _isLoading = true;
-  bool _orientationSet = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _checkAuth();
-    _setOrientation();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    if (!_orientationSet) {
-      _setOrientation();
-    }
-  }
-
-  void _setOrientation() {
-    if (_orientationSet) return;
-    
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final view = WidgetsBinding.instance.platformDispatcher.views.first;
-      final physicalSize = view.physicalSize;
-      
-      final physicalWidth = physicalSize.width;
-      final physicalHeight = physicalSize.height;
-
-      if (physicalWidth > physicalHeight) {
-        // Device is naturally wider - lock to portrait
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-        ]);
-      } else {
-        // Device is naturally taller - lock to landscape
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-      }
-      
-      _orientationSet = true;
-    });
   }
 
   Future<void> _checkAuth() async {
@@ -107,34 +68,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Microvark Gaming',  // Using the brand name from report
+      title: 'Microvark Gaming',
       debugShowCheckedModeBanner: false,
-      
-      // Apply the new theme following report specifications
       theme: AppTheme.darkTheme,
-      
       home: _isLoading
-          ? Scaffold(
-              backgroundColor: AppColors.primaryNavy,
+          ? const Scaffold(
+              backgroundColor: AppColors.primaryNavyDark,
               body: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.accentElectricBlue,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Loading...',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                child: CircularProgressIndicator(
+                  color: AppColors.accentElectricBlue,
                 ),
               ),
             )

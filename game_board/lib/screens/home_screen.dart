@@ -19,18 +19,11 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final isLandscape = size.width > size.height;
     
-    // Responsive sizing
-    final titleSize = isLandscape 
-        ? size.height * 0.12 
-        : size.width * 0.10;
-    final buttonWidth = isLandscape 
-        ? size.width * 0.35 
-        : size.width * 0.80;
-    final buttonHeight = isLandscape 
-        ? size.height * 0.15 
-        : size.height * 0.10;
+    // Landscape-only sizing
+    final titleSize = size.height * 0.12;
+    final buttonWidth = size.width * 0.35;
+    final buttonHeight = size.height * 0.15;
     final spacing = size.height * 0.03;
     
     return Scaffold(
