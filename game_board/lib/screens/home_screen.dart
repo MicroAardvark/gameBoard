@@ -1,10 +1,13 @@
+// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'blackjack_screen.dart';
 import 'multiplayer_lobby_screen.dart';
-import 'chat_test_screen.dart'; // ADD THIS IMPORT
+import 'chat_test_screen.dart';
 import 'crazy_eights_screen.dart';
+import 'profile_screen.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
+import '../components/slide_in_panel.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -15,6 +18,45 @@ class HomeScreen extends StatelessWidget {
     required this.user,
     required this.onLogout,
   });
+
+  void _openMenu(BuildContext context) {
+    SlideInPanel.show(
+      context: context,
+      child: MenuPanel(
+        username: user.username,
+        onProfile: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProfileScreen(
+                user: user,
+                onLogout: onLogout,
+              ),
+            ),
+          );
+        },
+        onSettings: () {
+          // TODO: Navigate to settings screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Settings coming soon'),
+              backgroundColor: AppColors.secondaryAmber,
+            ),
+          );
+        },
+        onHelp: () {
+          // TODO: Navigate to help screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Help & Support coming soon'),
+              backgroundColor: AppColors.secondaryAmber,
+            ),
+          );
+        },
+        onLogout: onLogout,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +71,6 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.primaryNavyDark,
       body: Container(
-        
         child: SafeArea(
           child: Stack(
             children: [
@@ -67,17 +108,9 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Welcome, ${user.username}!',
                           style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: (titleSize * 0.4).clamp(16.0, 24.0),
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        Text(
-                          'Bankroll: £${user.bankroll.toStringAsFixed(0)}',
-                          style: TextStyle(
                             fontFamily: 'Inter',
-                            fontSize: (titleSize * 0.35).clamp(14.0, 20.0),
-                            color: AppColors.textPrimary,
+                            fontSize: (titleSize * 0.4).clamp(14.0, 24.0),
+                            color: AppColors.secondaryAmber,
                           ),
                         ),
                         SizedBox(height: spacing * 2),
@@ -86,16 +119,16 @@ class HomeScreen extends StatelessWidget {
                         Text(
                           'Single Player',
                           style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
+                            fontFamily: 'Montserrat',
+                            fontSize: (titleSize * 0.5).clamp(18.0, 32.0),
                             fontWeight: FontWeight.bold,
-                            color: Colors.amber,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: 'Blackjack',
+                          title: '🃏 Blackjack',
                           icon: Icons.casino,
                           onPressed: () {
                             Navigator.push(
@@ -112,7 +145,7 @@ class HomeScreen extends StatelessWidget {
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: 'CrazyEights',
+                          title: '🎴 Crazy Eights',
                           icon: Icons.style,
                           onPressed: () {
                             Navigator.push(
@@ -129,64 +162,30 @@ class HomeScreen extends StatelessWidget {
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: 'Checkers',
+                          title: '🎲 Checkers',
                           icon: Icons.grid_on,
                           onPressed: null,
                           enabled: false,
                           width: buttonWidth,
                           height: buttonHeight,
                         ),
-                        
                         SizedBox(height: spacing * 2),
                         
                         // Multiplayer Section
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.people, color: Colors.amber, size: 24),
-                              SizedBox(width: 8),
-                              Text(
-                                'Multiplayer',
-                                style: TextStyle(
-                                  fontFamily: 'Montserrat',
-                                  fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.amber,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'ONLINE',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        Text(
+                          'Multiplayer',
+                          style: TextStyle(
+                            fontFamily: 'Montserrat',
+                            fontSize: (titleSize * 0.5).clamp(18.0, 32.0),
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: 'Play Online',
-                          icon: Icons.wifi,
+                          title: '🃏 Blackjack (Online)',
+                          icon: Icons.group,
                           onPressed: () {
                             Navigator.push(
                               context,
@@ -263,20 +262,44 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               
-              // Logout button
+              // Menu button (top-right corner)
               Positioned(
                 top: 16,
                 right: 16,
-                child: ElevatedButton.icon(
-                  onPressed: onLogout,
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: Text('Logout', style: Theme.of(context).textTheme.bodyMedium),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    foregroundColor: AppColors.textPrimary,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _openMenu(context),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.secondaryAmber,
+                            AppColors.secondaryAmberDark,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.accentGold,
+                          width: 2,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.menu,
+                        color: AppColors.textOnAmber,
+                        size: 28,
+                      ),
                     ),
                   ),
                 ),
@@ -297,7 +320,7 @@ class _GameButton extends StatelessWidget {
   final double width;
   final double height;
   final bool isMultiplayer;
-  final bool isDebug; // ADD THIS
+  final bool isDebug;
 
   const _GameButton({
     required this.title,
@@ -307,7 +330,7 @@ class _GameButton extends StatelessWidget {
     required this.width,
     required this.height,
     this.isMultiplayer = false,
-    this.isDebug = false, // ADD THIS
+    this.isDebug = false,
   });
 
   @override
@@ -322,9 +345,9 @@ class _GameButton extends StatelessWidget {
         onPressed: enabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: enabled 
-              ? ((isDebug) 
-                  ? AppColors.secondaryAmber  // ADD THIS
-                  : ( AppColors.accentElectricBlue))
+              ? (isDebug 
+                  ? AppColors.secondaryAmber
+                  : AppColors.accentElectricBlue)
               : const Color.fromARGB(255, 0, 126, 146),
           disabledBackgroundColor: Color.fromARGB(183, 1, 86, 99),
           shape: RoundedRectangleBorder(

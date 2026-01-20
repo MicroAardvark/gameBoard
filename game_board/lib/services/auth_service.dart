@@ -1,3 +1,4 @@
+// lib/services/auth_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,7 +64,7 @@ class AuthService {
     }
   }
 
-  // Verify Token (Auto-login) - FIXED VERSION
+  // Verify Token (Auto-login)
   static Future<Map<String, dynamic>> verifyToken() async {
     try {
       final token = await getToken();
@@ -71,18 +72,16 @@ class AuthService {
         return {'success': false, 'error': 'No token found'};
       }
 
-      // FIXED: Changed to GET request with Authorization header
       final response = await http.get(
         Uri.parse('$baseUrl/verify'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',  // Token in Authorization header
+          'Authorization': 'Bearer $token',
         },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Backend returns {valid: true, user: {...}}
         return {'success': true, 'user': data['user']};
       } else {
         await clearToken();
@@ -93,7 +92,35 @@ class AuthService {
     }
   }
 
-  // Update Stats - ALSO FIXED to use Authorization header
+  // Get User Profile (Fetch fresh user data)
+  // This is a dedicated method for refreshing user data from the server
+  static Future<Map<String, dynamic>> getUserProfile() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No token found'};
+      }
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/verify'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'user': data['user']};
+      } else {
+        return {'success': false, 'error': 'Failed to fetch user profile'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  // Update Stats
   static Future<bool> updateStats({
     required double bankroll,
     required int playerWins,
@@ -104,10 +131,10 @@ class AuthService {
       if (token == null) return false;
 
       final response = await http.put(
-        Uri.parse('http://51.21.236.10:3000/api/game/update-stats'),
+        Uri.parse('http://192.168.0.118:3000/api/game/update-stats'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',  // Use Authorization header
+          'Authorization': 'Bearer $token',
         },
         body: jsonEncode({
           'bankroll': bankroll,
