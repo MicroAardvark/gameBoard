@@ -6,7 +6,7 @@
 // ====================================
 // ignore_for_file: avoid_print
 
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'dart:async';
 
 class SocketService {
@@ -16,7 +16,7 @@ class SocketService {
   SocketService._internal();
 
   // Socket instance
-  IO.Socket? _socket;
+  io.Socket? _socket;
 
   // IMPORTANT: Replace with your server IP/URL
   final String baseUrl = 'https://microaardvark.co.uk';
@@ -113,7 +113,7 @@ class SocketService {
     print('🔌 Connecting to: $baseUrl');
     print('   User ID: $userId');
 
-    _socket = IO.io(baseUrl, <String, dynamic>{
+    _socket = io.io(baseUrl, <String, dynamic>{
       'transports': ['websocket'],
       'auth': {
         'userId': userId,

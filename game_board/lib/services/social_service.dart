@@ -427,4 +427,60 @@ class FriendsService {
       };
     }
   }
+  
+  // ==================== REPORTING METHODS ====================
+  
+  /// Report a user for inappropriate behaviour
+  /// 
+  /// [userId] - ID of the user to report
+  /// [reason] - Reason for reporting (must be one of: 'harassment', 'inappropriate_content', 
+  ///            'cheating', 'spam', 'offensive_language', 'other')
+  /// [message] - Optional additional context (max 500 characters)
+  /// [chatMessageId] - Optional ID of specific chat message being reported
+  static Future<Map<String, dynamic>> reportUser({
+    required String userId,
+    required String reason,
+    String? message,
+    String? chatMessageId,
+  }) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/report/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'reason': reason,
+          'message': message,
+          'chatMessageId': chatMessageId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'],
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to report user',
+        };
+      }
+    } catch (e) {
+      print('❌ Report user error: $e');
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+      };
+    }
+  }
 }

@@ -1,7 +1,9 @@
 // lib/widgets/chat_overlay.dart
+// UPDATED: Added clickable usernames with block/report/friend request options
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
+import '../services/social_service.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
 
@@ -163,6 +165,28 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     widget.onClose();
   }
 
+  // NEW: Show user action modal
+  void _showUserActionModal(String messageUserId, String messageUsername) {
+    // Don't show modal for own messages
+    if (messageUserId == widget.userId) return;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => _UserActionModal(
+        userId: messageUserId,
+        username: messageUsername,
+        currentUserId: widget.userId,
+        onAction: () {
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _chatMessageSub.cancel();
@@ -307,18 +331,19 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                           horizontal: isSmall ? 12 : 16,
                           vertical: isSmall ? 4 : 6,
                         ),
+                        alignment: Alignment.centerLeft,
                         child: Text(
                           _buildTypingText(),
                           style: TextStyle(
                             fontFamily: 'Inter',
-                            color: Colors.grey[400],
+                            color: Colors.grey[500],
                             fontSize: isSmall ? 10 : 12,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
                       ),
 
-                    // Input Field
+                    // Message Input
                     Container(
                       padding: EdgeInsets.all(isSmall ? 8 : 12),
                       decoration: BoxDecoration(
@@ -438,15 +463,19 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isOwnMessage) ...[
-            CircleAvatar(
-              radius: isSmall ? 14 : 16,
-              backgroundColor: Colors.blue,
-              child: Text(
-                message.username[0].toUpperCase(),
-                style: TextStyle(
-                  fontFamily: 'Montserrat',
-                  color: AppColors.textPrimary,
-                  fontSize: isSmall ? 10 : 12,
+            // Make avatar clickable
+            GestureDetector(
+              onTap: () => _showUserActionModal(message.userId, message.username),
+              child: CircleAvatar(
+                radius: isSmall ? 14 : 16,
+                backgroundColor: Colors.blue,
+                child: Text(
+                  message.username[0].toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    color: AppColors.textPrimary,
+                    fontSize: isSmall ? 10 : 12,
+                  ),
                 ),
               ),
             ),
@@ -459,18 +488,23 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                   : CrossAxisAlignment.start,
               children: [
                 if (!isOwnMessage)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: isSmall ? 2 : 4,
-                      left: isSmall ? 3 : 4,
-                    ),
-                    child: Text(
-                      message.username,
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        color: Colors.grey[400],
-                        fontSize: isSmall ? 10 : 12,
-                        fontWeight: FontWeight.w500,
+                  // Make username clickable
+                  GestureDetector(
+                    onTap: () => _showUserActionModal(message.userId, message.username),
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        bottom: isSmall ? 2 : 4,
+                        left: isSmall ? 3 : 4,
+                      ),
+                      child: Text(
+                        message.username,
+                        style: TextStyle(
+                          fontFamily: 'Montserrat',
+                          color: Colors.blue[300], // Make it blue to show it's clickable
+                          fontSize: isSmall ? 10 : 12,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                   ),
@@ -550,5 +584,372 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     if (difference.inDays < 1) return '${difference.inHours}h ago';
     
     return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+// NEW: User Action Modal
+class _UserActionModal extends StatefulWidget {
+  final String userId;
+  final String username;
+  final String currentUserId;
+  final VoidCallback onAction;
+
+  const _UserActionModal({
+    required this.userId,
+    required this.username,
+    required this.currentUserId,
+    required this.onAction,
+  });
+
+  @override
+  State<_UserActionModal> createState() => _UserActionModalState();
+}
+
+class _UserActionModalState extends State<_UserActionModal> {
+  bool _isLoading = false;
+
+  Future<void> _handleFriendRequest() async {
+    setState(() => _isLoading = true);
+    
+    final result = await FriendsService.sendRequest(widget.userId);
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+      
+      if (result['success']) {
+        _showSnackBar('Friend request sent to ${widget.username}', Colors.green);
+        widget.onAction();
+      } else {
+        _showSnackBar(result['error'], Colors.red);
+      }
+    }
+  }
+
+  Future<void> _handleBlock() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: Text(
+          'Block ${widget.username}?',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Blocking ${widget.username} will prevent them from sending you messages or friend requests.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            child: Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+      
+      final result = await FriendsService.blockUser(widget.userId);
+      
+      if (mounted) {
+        setState(() => _isLoading = false);
+        
+        if (result['success']) {
+          _showSnackBar('${widget.username} has been blocked', Colors.orange);
+          widget.onAction();
+        } else {
+          _showSnackBar(result['error'], Colors.red);
+        }
+      }
+    }
+  }
+
+  Future<void> _handleReport() async {
+    // Show report reason selection
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => _ReportReasonDialog(username: widget.username),
+    );
+
+    if (reason != null) {
+      setState(() => _isLoading = true);
+      
+      final result = await FriendsService.reportUser(
+        userId: widget.userId,
+        reason: reason,
+      );
+      
+      if (mounted) {
+        setState(() => _isLoading = false);
+        
+        if (result['success']) {
+          _showSnackBar(
+            'Thank you for your report. Our moderation team will review it.',
+            Colors.green,
+          );
+          widget.onAction();
+        } else {
+          _showSnackBar(result['error'], Colors.red);
+        }
+      }
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(fontFamily: 'Inter'),
+        ),
+        backgroundColor: color,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.blue,
+                  child: Text(
+                    widget.username[0].toUpperCase(),
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.username,
+                    style: TextStyle(
+                      fontFamily: 'Montserrat',
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          Divider(color: Colors.grey[800]),
+          
+          if (_isLoading)
+            Padding(
+              padding: EdgeInsets.all(20),
+              child: CircularProgressIndicator(),
+            )
+          else ...[
+            // Send Friend Request
+            ListTile(
+              leading: Icon(Icons.person_add, color: Colors.green),
+              title: Text(
+                'Send Friend Request',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              onTap: _handleFriendRequest,
+            ),
+            
+            // Block User
+            ListTile(
+              leading: Icon(Icons.block, color: Colors.orange),
+              title: Text(
+                'Block User',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              onTap: _handleBlock,
+            ),
+            
+            // Report User
+            ListTile(
+              leading: Icon(Icons.flag, color: Colors.red),
+              title: Text(
+                'Report User',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              onTap: _handleReport,
+            ),
+            
+            SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// NEW: Report Reason Dialog
+class _ReportReasonDialog extends StatefulWidget {
+  final String username;
+
+  const _ReportReasonDialog({required this.username});
+
+  @override
+  State<_ReportReasonDialog> createState() => _ReportReasonDialogState();
+}
+
+class _ReportReasonDialogState extends State<_ReportReasonDialog> {
+  String? _selectedReason;
+  final TextEditingController _messageController = TextEditingController();
+
+  final List<Map<String, String>> _reasons = [
+    {'value': 'harassment', 'label': 'Harassment or Bullying'},
+    {'value': 'inappropriate_content', 'label': 'Inappropriate Content'},
+    {'value': 'offensive_language', 'label': 'Offensive Language'},
+    {'value': 'spam', 'label': 'Spam'},
+    {'value': 'cheating', 'label': 'Cheating'},
+    {'value': 'other', 'label': 'Other'},
+  ];
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.grey[900],
+      title: Text(
+        'Report ${widget.username}',
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          color: AppColors.textPrimary,
+        ),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please select a reason for reporting this user:',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 16),
+            ..._reasons.map((reason) => RadioListTile<String>(
+              value: reason['value']!,
+              groupValue: _selectedReason,
+              title: Text(
+                reason['label']!,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
+              ),
+              onChanged: (value) {
+                setState(() => _selectedReason = value);
+              },
+              activeColor: Colors.red,
+              contentPadding: EdgeInsets.zero,
+            )),
+            SizedBox(height: 16),
+            Text(
+              'Additional details (optional):',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 8),
+            TextField(
+              controller: _messageController,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: AppColors.textPrimary,
+                fontSize: 14,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Provide additional context...',
+                hintStyle: TextStyle(
+                  fontFamily: 'Inter',
+                  color: Colors.grey[600],
+                  fontSize: 12,
+                ),
+                filled: true,
+                fillColor: AppColors.primaryNavyDark,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: EdgeInsets.all(12),
+              ),
+              maxLines: 3,
+              maxLength: 500,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _selectedReason == null
+              ? null
+              : () => Navigator.pop(context, _selectedReason),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+          ),
+          child: Text(
+            'Report',
+            style: TextStyle(fontFamily: 'Inter'),
+          ),
+        ),
+      ],
+    );
   }
 }
