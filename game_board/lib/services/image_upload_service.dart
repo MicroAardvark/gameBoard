@@ -7,7 +7,7 @@ import 'auth_service.dart';
 import 'dart:convert';
 
 class ImageUploadService {
-  static const String baseUrl = 'http://192.168.0.118:3000/api/auth';
+  static const String baseUrl = 'https://microaardvark.co.uk/api/auth';
   
   /// Pick an image from gallery or camera
   static Future<File?> pickImage({bool fromCamera = false}) async {

@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class FriendsService {
-  static const String baseUrl = 'http://192.168.0.118:3000/api/social';
+  static const String baseUrl = 'https://microaardvark.co.uk/api/social';
   
   /// Search users by username
   static Future<Map<String, dynamic>> searchUsers(String username) async {

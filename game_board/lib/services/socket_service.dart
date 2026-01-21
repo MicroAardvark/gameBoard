@@ -19,7 +19,7 @@ class SocketService {
   IO.Socket? _socket;
 
   // IMPORTANT: Replace with your server IP/URL
-  final String baseUrl = 'http://192.168.0.118:3000';
+  final String baseUrl = 'https://microaardvark.co.uk';
 
   // Stream controllers for different events
   final _roomCreatedController = StreamController<Map<String, dynamic>>.broadcast();

@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String baseUrl = 'http://192.168.0.118:3000/api/auth';
+  static const String baseUrl = 'https://microaardvark.co.uk/api/auth';
   
   // Sign Up
   static Future<Map<String, dynamic>> signUp({
@@ -172,7 +172,7 @@ class AuthService {
       if (token == null) return false;
 
       final response = await http.put(
-        Uri.parse('http://192.168.0.118:3000/api/game/update-stats'),
+        Uri.parse('https://microaardvark.co.uk/api/game/update-stats'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
