@@ -170,4 +170,38 @@ class AuthService {
   static Future<void> signOut() async {
     await clearToken();
   }
+
+  static Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/account'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        await signOut(); // Clear local data
+        return {'success': true};
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to delete account',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+      };
+    }
+  }
 }
+

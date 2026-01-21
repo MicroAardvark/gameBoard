@@ -1,6 +1,7 @@
 // lib/components/slide_in_panel.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../screens/settings_screen.dart';
 
 /// Reusable slide-in panel that animates from the right side of the screen
 /// Used for menus, settings, notifications, etc.
@@ -278,8 +279,10 @@ class MenuPanel extends StatelessWidget {
                   icon: Icons.settings,
                   title: 'Settings',
                   onTap: () {
-                    Navigator.of(context).pop();
-                    onSettings!();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                    );
                   },
                 ),
               
