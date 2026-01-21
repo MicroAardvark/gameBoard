@@ -311,4 +311,120 @@ class FriendsService {
       };
     }
   }
+  
+  // ==================== BLOCKING METHODS ====================
+  
+  /// Get blocked users list
+  static Future<Map<String, dynamic>> getBlocked() async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/blocked'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'blocked': data['blocked'],
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to fetch blocked users',
+        };
+      }
+    } catch (e) {
+      print('❌ Get blocked users error: $e');
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+      };
+    }
+  }
+  
+  /// Block a user
+  static Future<Map<String, dynamic>> blockUser(String userId) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/block/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'],
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to block user',
+        };
+      }
+    } catch (e) {
+      print('❌ Block user error: $e');
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+      };
+    }
+  }
+  
+  /// Unblock a user
+  static Future<Map<String, dynamic>> unblockUser(String userId) async {
+    try {
+      final token = await AuthService.getToken();
+      if (token == null) {
+        return {'success': false, 'error': 'No authentication token found'};
+      }
+      
+      final response = await http.delete(
+        Uri.parse('$baseUrl/block/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'],
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to unblock user',
+        };
+      }
+    } catch (e) {
+      print('❌ Unblock user error: $e');
+      return {
+        'success': false,
+        'error': 'Network error: $e',
+      };
+    }
+  }
 }

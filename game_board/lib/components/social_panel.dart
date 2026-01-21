@@ -1,6 +1,6 @@
 // lib/components/friends_panel.dart
 import 'package:flutter/material.dart';
-import '../services/friends_service.dart';
+import '../services/social_service.dart';
 import '../theme/app_theme.dart';
 
 class FriendsPanel extends StatefulWidget {
@@ -19,6 +19,7 @@ class _FriendsPanelState extends State<FriendsPanel> {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _receivedRequests = [];
   List<Map<String, dynamic>> _sentRequests = [];
+  List<Map<String, dynamic>> _blockedUsers = []; // NEW
   bool _isLoading = true;
   bool _showSearch = false;
 
@@ -34,6 +35,7 @@ class _FriendsPanelState extends State<FriendsPanel> {
     try {
       final friendsResult = await FriendsService.getFriends();
       final requestsResult = await FriendsService.getRequests();
+      final blockedResult = await FriendsService.getBlocked(); // NEW
       
       if (mounted) {
         setState(() {
@@ -45,6 +47,9 @@ class _FriendsPanelState extends State<FriendsPanel> {
               : [];
           _sentRequests = requestsResult['success']
               ? List<Map<String, dynamic>>.from(requestsResult['sent'])
+              : [];
+          _blockedUsers = blockedResult['success'] // NEW
+              ? List<Map<String, dynamic>>.from(blockedResult['blocked'])
               : [];
           _isLoading = false;
         });
@@ -136,6 +141,98 @@ class _FriendsPanelState extends State<FriendsPanel> {
     }
   }
 
+  // NEW: Block user handler
+  Future<void> _handleBlockUser(String userId, String username) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Block User',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Block $username? This will remove them from your friends list and prevent all interactions.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade900,
+            ),
+            child: Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final result = await FriendsService.blockUser(userId);
+      
+      if (result['success']) {
+        _showSnackBar('User blocked', Colors.red.shade700);
+        _loadData();
+        widget.onUpdate?.call();
+      } else {
+        _showSnackBar(result['error'], AppColors.error);
+      }
+    }
+  }
+
+  // NEW: Unblock user handler
+  Future<void> _handleUnblockUser(String userId, String username) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Unblock User',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Unblock $username?',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentElectricBlue,
+            ),
+            child: Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final result = await FriendsService.unblockUser(userId);
+      
+      if (result['success']) {
+        _showSnackBar('User unblocked', Colors.green);
+        _loadData();
+        widget.onUpdate?.call();
+      } else {
+        _showSnackBar(result['error'], AppColors.error);
+      }
+    }
+  }
+
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -157,6 +254,7 @@ class _FriendsPanelState extends State<FriendsPanel> {
           _loadData();
           widget.onUpdate?.call();
         },
+        onBlock: _handleBlockUser, // NEW: Pass block handler
       );
     }
     
@@ -248,6 +346,7 @@ class _FriendsPanelState extends State<FriendsPanel> {
                           profileImage: request['profileImage'],
                           onAccept: () => _handleAccept(request['id']),
                           onReject: () => _handleReject(request['id']),
+                          onBlock: () => _handleBlockUser(request['id'], request['username']), // NEW
                         )),
                         SizedBox(height: size.height * 0.02),
                       ],
@@ -287,7 +386,27 @@ class _FriendsPanelState extends State<FriendsPanel> {
                             friend['id'],
                             friend['username'],
                           ),
+                          onBlock: () => _handleBlockUser(friend['id'], friend['username']), // NEW
                         )),
+                      
+                      // NEW: Blocked Users Section
+                      if (_blockedUsers.isNotEmpty) ...[
+                        SizedBox(height: size.height * 0.02),
+                        _SectionHeader(
+                          title: 'Blocked Users',
+                          count: _blockedUsers.length,
+                          color: Colors.red.shade700,
+                        ),
+                        ..._blockedUsers.map((blocked) => _BlockedUserCard(
+                          userId: blocked['id'],
+                          username: blocked['username'],
+                          profileImage: blocked['profileImage'],
+                          onUnblock: () => _handleUnblockUser(
+                            blocked['id'],
+                            blocked['username'],
+                          ),
+                        )),
+                      ],
                     ],
                   ),
                 ),
@@ -299,8 +418,12 @@ class _FriendsPanelState extends State<FriendsPanel> {
 
 class _FriendSearchPanel extends StatefulWidget {
   final VoidCallback onBack;
+  final Function(String, String) onBlock; // NEW
   
-  const _FriendSearchPanel({required this.onBack});
+  const _FriendSearchPanel({
+    required this.onBack,
+    required this.onBlock, // NEW
+  });
 
   @override
   State<_FriendSearchPanel> createState() => _FriendSearchPanelState();
@@ -485,10 +608,12 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
                           isFriend: user['isFriend'] ?? false,
                           hasRequestFrom: user['hasRequestFrom'] ?? false,
                           hasSentRequestTo: user['hasSentRequestTo'] ?? false,
+                          isBlocked: user['isBlocked'] ?? false, // NEW
                           onSendRequest: () => _sendRequest(
                             user['id'],
                             user['username'],
                           ),
+                          onBlock: () => widget.onBlock(user['id'], user['username']), // NEW
                         );
                       },
                     )
@@ -508,10 +633,12 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
 class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
+  final Color? color;
   
   const _SectionHeader({
     required this.title,
     required this.count,
+    this.color,
   });
 
   @override
@@ -531,7 +658,7 @@ class _SectionHeader extends StatelessWidget {
               fontFamily: 'Montserrat',
               fontSize: size.height * 0.025,
               fontWeight: FontWeight.bold,
-              color: AppColors.secondaryAmber,
+              color: color ?? AppColors.secondaryAmber,
             ),
           ),
           SizedBox(width: size.width * 0.02),
@@ -541,7 +668,7 @@ class _SectionHeader extends StatelessWidget {
               vertical: size.height * 0.005,
             ),
             decoration: BoxDecoration(
-              color: AppColors.secondaryAmber,
+              color: color ?? AppColors.secondaryAmber,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -565,69 +692,14 @@ class _FriendCard extends StatelessWidget {
   final String username;
   final String? profileImage;
   final VoidCallback onRemove;
+  final VoidCallback onBlock; // NEW
   
   const _FriendCard({
     required this.userId,
     required this.username,
     this.profileImage,
     required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    
-    return Card(
-      color: AppColors.surface,
-      margin: EdgeInsets.only(bottom: size.height * 0.01),
-      child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
-          backgroundColor: AppColors.secondaryAmber,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: AppColors.textOnAmber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
-        ),
-        title: Text(
-          username,
-          style: TextStyle(
-            fontFamily: 'Inter',
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        trailing: IconButton(
-          icon: Icon(Icons.person_remove, color: Colors.red.shade400),
-          onPressed: onRemove,
-        ),
-      ),
-    );
-  }
-}
-
-class _RequestCard extends StatelessWidget {
-  final String userId;
-  final String username;
-  final String? profileImage;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-  
-  const _RequestCard({
-    required this.userId,
-    required this.username,
-    this.profileImage,
-    required this.onAccept,
-    required this.onReject,
+    required this.onBlock, // NEW
   });
 
   @override
@@ -666,6 +738,80 @@ class _RequestCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // NEW: Block button
+            IconButton(
+              icon: Icon(Icons.block, color: Colors.red.shade700),
+              onPressed: onBlock,
+            ),
+            IconButton(
+              icon: Icon(Icons.person_remove, color: Colors.red.shade400),
+              onPressed: onRemove,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestCard extends StatelessWidget {
+  final String userId;
+  final String username;
+  final String? profileImage;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+  final VoidCallback onBlock; // NEW
+  
+  const _RequestCard({
+    required this.userId,
+    required this.username,
+    this.profileImage,
+    required this.onAccept,
+    required this.onReject,
+    required this.onBlock, // NEW
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    
+    return Card(
+      color: AppColors.surface,
+      margin: EdgeInsets.only(bottom: size.height * 0.01),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: size.height * 0.03,
+          backgroundImage: profileImage != null 
+              ? NetworkImage(profileImage!)
+              : null,
+          backgroundColor: AppColors.secondaryAmber,
+          child: profileImage == null
+              ? Text(
+                  username[0].toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    color: AppColors.textOnAmber,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
+        ),
+        title: Text(
+          username,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // NEW: Block button
+            IconButton(
+              icon: Icon(Icons.block, color: Colors.red.shade900),
+              onPressed: onBlock,
+            ),
             IconButton(
               icon: Icon(Icons.check, color: Colors.green),
               onPressed: onAccept,
@@ -747,6 +893,77 @@ class _SentRequestCard extends StatelessWidget {
   }
 }
 
+// NEW: Blocked user card
+class _BlockedUserCard extends StatelessWidget {
+  final String userId;
+  final String username;
+  final String? profileImage;
+  final VoidCallback onUnblock;
+  
+  const _BlockedUserCard({
+    required this.userId,
+    required this.username,
+    this.profileImage,
+    required this.onUnblock,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    
+    return Card(
+      color: AppColors.surface,
+      margin: EdgeInsets.only(bottom: size.height * 0.01),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: size.height * 0.03,
+          backgroundImage: profileImage != null 
+              ? NetworkImage(profileImage!)
+              : null,
+          backgroundColor: Colors.red.shade700,
+          child: profileImage == null
+              ? Text(
+                  username[0].toUpperCase(),
+                  style: TextStyle(
+                    fontFamily: 'Montserrat',
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
+        ),
+        title: Text(
+          username,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          'Blocked',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: Colors.red.shade700,
+            fontSize: size.height * 0.018,
+          ),
+        ),
+        trailing: ElevatedButton(
+          onPressed: onUnblock,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.accentElectricBlue,
+            padding: EdgeInsets.symmetric(
+              horizontal: size.width * 0.03,
+              vertical: size.height * 0.01,
+            ),
+          ),
+          child: Text('Unblock'),
+        ),
+      ),
+    );
+  }
+}
+
 class _SearchResultCard extends StatelessWidget {
   final String userId;
   final String username;
@@ -754,7 +971,9 @@ class _SearchResultCard extends StatelessWidget {
   final bool isFriend;
   final bool hasRequestFrom;
   final bool hasSentRequestTo;
+  final bool isBlocked; // NEW
   final VoidCallback onSendRequest;
+  final VoidCallback onBlock; // NEW
   
   const _SearchResultCard({
     required this.userId,
@@ -763,7 +982,9 @@ class _SearchResultCard extends StatelessWidget {
     required this.isFriend,
     required this.hasRequestFrom,
     required this.hasSentRequestTo,
+    required this.isBlocked, // NEW
     required this.onSendRequest,
+    required this.onBlock, // NEW
   });
 
   @override
@@ -773,8 +994,14 @@ class _SearchResultCard extends StatelessWidget {
     String statusText = '';
     Color? statusColor;
     bool canSendRequest = true;
+    bool showBlockButton = true; // NEW
     
-    if (isFriend) {
+    if (isBlocked) { // NEW
+      statusText = 'Blocked';
+      statusColor = Colors.red.shade700;
+      canSendRequest = false;
+      showBlockButton = false;
+    } else if (isFriend) {
       statusText = 'Friends';
       statusColor = Colors.green;
       canSendRequest = false;
@@ -797,13 +1024,13 @@ class _SearchResultCard extends StatelessWidget {
           backgroundImage: profileImage != null 
               ? NetworkImage(profileImage!)
               : null,
-          backgroundColor: AppColors.secondaryAmber,
+          backgroundColor: isBlocked ? Colors.red.shade700 : AppColors.secondaryAmber,
           child: profileImage == null
               ? Text(
                   username[0].toUpperCase(),
                   style: TextStyle(
                     fontFamily: 'Montserrat',
-                    color: AppColors.textOnAmber,
+                    color: isBlocked ? AppColors.textPrimary : AppColors.textOnAmber,
                     fontWeight: FontWeight.bold,
                   ),
                 )
@@ -827,12 +1054,23 @@ class _SearchResultCard extends StatelessWidget {
                 ),
               )
             : null,
-        trailing: canSendRequest
-            ? IconButton(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // NEW: Block button (show for non-blocked users)
+            if (showBlockButton)
+              IconButton(
+                icon: Icon(Icons.block, color: Colors.red.shade700),
+                onPressed: onBlock,
+              ),
+            // Add friend button (show if can send request)
+            if (canSendRequest)
+              IconButton(
                 icon: Icon(Icons.person_add, color: AppColors.accentElectricBlue),
                 onPressed: onSendRequest,
-              )
-            : null,
+              ),
+          ],
+        ),
       ),
     );
   }

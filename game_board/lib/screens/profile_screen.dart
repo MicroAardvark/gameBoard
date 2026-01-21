@@ -5,7 +5,7 @@ import '../services/auth_service.dart';
 import '../services/image_upload_service.dart';
 import '../theme/app_theme.dart';
 import '../components/slide_in_panel.dart';
-import '../components/friends_panel.dart';
+import '../components/social_panel.dart';
 
 class ProfileScreen extends StatefulWidget {
   final User user;
