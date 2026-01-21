@@ -211,6 +211,305 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _handleChangePassword() async {
+    final TextEditingController currentPasswordController = TextEditingController();
+    final TextEditingController newPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
+    
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
+    String? errorMessage;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(
+            'Change Password',
+            style: TextStyle(
+              fontFamily: 'Montserrat',
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (errorMessage != null) ...[
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorMessage!,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                ],
+                
+                // Current Password
+                Text(
+                  'Current Password',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: currentPasswordController,
+                  obscureText: obscureCurrentPassword,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter current password',
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
+                    filled: true,
+                    fillColor: AppColors.primaryNavyDark,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.secondaryAmber),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureCurrentPassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureCurrentPassword = !obscureCurrentPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                
+                // New Password
+                Text(
+                  'New Password',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNewPassword,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Enter new password (min. 6 characters)',
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
+                    filled: true,
+                    fillColor: AppColors.primaryNavyDark,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.secondaryAmber),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureNewPassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureNewPassword = !obscureNewPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+                
+                // Confirm Password
+                Text(
+                  'Confirm New Password',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirmPassword,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Re-enter new password',
+                    hintStyle: TextStyle(color: AppColors.textSecondary),
+                    filled: true,
+                    fillColor: AppColors.primaryNavyDark,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: AppColors.secondaryAmber),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          obscureConfirmPassword = !obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Client-side validation
+                final currentPassword = currentPasswordController.text;
+                final newPassword = newPasswordController.text;
+                final confirmPassword = confirmPasswordController.text;
+
+                if (currentPassword.isEmpty) {
+                  setState(() {
+                    errorMessage = 'Please enter your current password';
+                  });
+                  return;
+                }
+
+                if (newPassword.isEmpty) {
+                  setState(() {
+                    errorMessage = 'Please enter a new password';
+                  });
+                  return;
+                }
+
+                if (newPassword.length < 6) {
+                  setState(() {
+                    errorMessage = 'Password must be at least 6 characters';
+                  });
+                  return;
+                }
+
+                if (newPassword != confirmPassword) {
+                  setState(() {
+                    errorMessage = 'Passwords do not match';
+                  });
+                  return;
+                }
+
+                if (currentPassword == newPassword) {
+                  setState(() {
+                    errorMessage = 'New password must be different from current password';
+                  });
+                  return;
+                }
+
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondaryAmber,
+              ),
+              child: Text(
+                'Change Password',
+                style: TextStyle(color: AppColors.textOnAmber),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      // Show loading
+      setState(() => _isLoading = true);
+
+      final changeResult = await AuthService.changePassword(
+        currentPassword: currentPasswordController.text,
+        newPassword: newPasswordController.text,
+      );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        if (changeResult['success']) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Password changed successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(changeResult['error'] ?? 'Failed to change password'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -336,7 +635,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ProfileScreen(user: widget.user),
+                              builder: (context) => ProfileScreen(
+                                user: widget.user,
+                                onLogout: widget.onLogout,
+                              ),
                             ),
                           );
                         },
@@ -361,7 +663,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Icons.chevron_right,
                           color: AppColors.textSecondary,
                         ),
-                        onTap: () => _showComingSoonDialog('Password change'),
+                        onTap: () => _handleChangePassword(),
                       ),
                       Divider(color: AppColors.border, height: 1),
                       _SettingsTile(

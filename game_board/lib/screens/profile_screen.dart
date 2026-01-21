@@ -72,6 +72,120 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _editUsername() async {
+    final TextEditingController usernameController = TextEditingController(
+      text: _currentUser.username,
+    );
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Edit Username',
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter your new username (3-20 characters)',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: AppColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: usernameController,
+              autofocus: true,
+              maxLength: 20,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: AppColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'New username',
+                hintStyle: TextStyle(color: AppColors.textSecondary),
+                filled: true,
+                fillColor: AppColors.primaryNavyDark,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppColors.secondaryAmber),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newUsername = usernameController.text.trim();
+              if (newUsername.isEmpty) {
+                Navigator.pop(context);
+                return;
+              }
+              Navigator.pop(context, newUsername);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.secondaryAmber,
+            ),
+            child: Text(
+              'Save',
+              style: TextStyle(color: AppColors.textOnAmber),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && result != _currentUser.username) {
+      // Show loading
+      setState(() => _isRefreshing = true);
+
+      final updateResult = await AuthService.updateUsername(result);
+
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+
+        if (updateResult['success']) {
+          setState(() {
+            _currentUser = User.fromJson(updateResult['user']);
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Username updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          _showErrorSnackBar(updateResult['error'] ?? 'Failed to update username');
+        }
+      }
+    }
+  }
+
   Future<void> _uploadProfileImage() async {
     // Show source selection dialog
     final source = await showDialog<ImageSource>(
@@ -563,14 +677,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _currentUser.username,
-                      style: TextStyle(
-                        fontFamily: 'Montserrat',
-                        fontSize: (size.height * 0.05).clamp(18.0, 32.0),
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _currentUser.username,
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              fontSize: (size.height * 0.05).clamp(18.0, 32.0),
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: padding * 0.3),
+                        // Edit button
+                        InkWell(
+                          onTap: _editUsername,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: EdgeInsets.all(padding * 0.2),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondaryAmber.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.edit,
+                              size: (size.height * 0.025).clamp(16.0, 22.0),
+                              color: AppColors.secondaryAmber,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: padding * 0.3),
                     Row(
