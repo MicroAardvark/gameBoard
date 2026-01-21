@@ -680,17 +680,18 @@ class _UserActionModalState extends State<_UserActionModal> {
 
   Future<void> _handleReport() async {
     // Show report reason selection
-    final reason = await showDialog<String>(
+    final reportData = await showDialog<Map<String, String>>(  // Changed return type
       context: context,
-      builder: (context) => _ReportReasonDialog(username: widget.username),
+      builder: (context) => (username: widget.username),
     );
 
-    if (reason != null) {
+    if (reportData != null && reportData['reason'] != null) {  // Check for both
       setState(() => _isLoading = true);
       
       final result = await FriendsService.reportUser(
         userId: widget.userId,
-        reason: reason,
+        reason: reportData['reason']!,  // FIXED: Use non-null assertion
+        message: reportData['message'],  // Add optional message
       );
       
       if (mounted) {
@@ -940,7 +941,13 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
         ElevatedButton(
           onPressed: _selectedReason == null
               ? null
-              : () => Navigator.pop(context, _selectedReason),
+              : () {
+                  final message = _messageController.text.trim();
+                  Navigator.pop(context, {  // FIXED: Return a Map
+                    'reason': _selectedReason!,
+                    'message': message.isEmpty ? null : message,
+                  });
+                },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red.shade700,
           ),
