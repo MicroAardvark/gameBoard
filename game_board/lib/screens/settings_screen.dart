@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../models/user.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final User user;
@@ -332,10 +333,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: AppColors.textSecondary,
                         ),
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Profile editing available in Profile screen'),
-                              backgroundColor: AppColors.secondaryAmber,
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(user: widget.user),
                             ),
                           );
                         },
