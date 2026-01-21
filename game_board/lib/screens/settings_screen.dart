@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../models/user.dart';
 import 'login_screen.dart';
+import 'home_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  final User user;
+  final VoidCallback onLogout;
+
+  const SettingsScreen({
+    Key? key,
+    required this.user,
+    required this.onLogout,
+  }) : super(key: key);
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -71,7 +80,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await AuthService.signOut();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          MaterialPageRoute(
+            builder: (context) => LoginScreen(
+              onLoginSuccess: (user) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => HomeScreen(
+                      user: user,
+                      onLogout: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => LoginScreen(
+                              onLoginSuccess: (newUser) {},
+                            ),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
           (route) => false,
         );
       }
@@ -87,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Delete Account',
           style: TextStyle(
             fontFamily: 'Montserrat',
-            color: Colors.red.shade700,
+            color: AppColors.error,
           ),
         ),
         content: Text(
@@ -102,9 +133,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade900,
+              backgroundColor: AppColors.error,
             ),
-            child: Text('Delete'),
+            child: Text('Delete', style: TextStyle(color: AppColors.textPrimary)),
           ),
         ],
       ),
@@ -116,7 +147,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         if (result['success']) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            MaterialPageRoute(
+              builder: (context) => LoginScreen(
+                onLoginSuccess: (user) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => HomeScreen(
+                        user: user,
+                        onLogout: () {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => LoginScreen(
+                                onLoginSuccess: (newUser) {},
+                              ),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
             (route) => false,
           );
         } else {
@@ -162,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.primaryNavyDark,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
@@ -207,6 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: () => _showComingSoonDialog('Theme'),
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Colour Scheme',
                         subtitle: 'Customise your colours',
@@ -237,6 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: () => _showComingSoonDialog('Master volume'),
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Sound Effects',
                         subtitle: 'Game sound effects volume',
@@ -247,6 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         onTap: () => _showComingSoonDialog('Sound effects'),
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Chat Notifications',
                         subtitle: 'Message notification sounds',
@@ -269,65 +325,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _SettingsTile(
                         title: 'Profile',
-                        subtitle: _userData?['username'] ?? 'Loading...',
+                        subtitle: _userData?['username'] ?? widget.user.username,
                         icon: Icons.account_circle_outlined,
                         trailing: Icon(
                           Icons.chevron_right,
                           color: AppColors.textSecondary,
                         ),
                         onTap: () {
-                          // TODO: Navigate to profile edit screen
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Profile editing coming soon'),
+                              content: Text('Profile editing available in Profile screen'),
                               backgroundColor: AppColors.secondaryAmber,
                             ),
                           );
                         },
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Email',
-                        subtitle: _userData?['email'] ?? 'Loading...',
+                        subtitle: _userData?['email'] ?? widget.user.email,
                         icon: Icons.email_outlined,
                         trailing: Icon(
                           Icons.chevron_right,
                           color: AppColors.textSecondary,
                         ),
-                        onTap: () {
-                          // TODO: Navigate to email change screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Email change coming soon'),
-                              backgroundColor: AppColors.secondaryAmber,
-                            ),
-                          );
-                        },
+                        onTap: () => _showComingSoonDialog('Email change'),
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
-                        title: 'Change Password',
-                        subtitle: 'Update your password',
+                        title: 'Password',
+                        subtitle: 'Change your password',
                         icon: Icons.lock_outline,
                         trailing: Icon(
                           Icons.chevron_right,
                           color: AppColors.textSecondary,
                         ),
-                        onTap: () {
-                          // TODO: Navigate to password change screen
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Password change coming soon'),
-                              backgroundColor: AppColors.secondaryAmber,
-                            ),
-                          );
-                        },
+                        onTap: () => _showComingSoonDialog('Password change'),
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Bankroll',
-                        subtitle: '£${_userData?['bankroll'] ?? 0}',
+                        subtitle: 'View your current balance',
                         icon: Icons.account_balance_wallet_outlined,
                         trailing: Icon(
-                          Icons.info_outline,
-                          color: AppColors.textSecondary,
+                          Icons.chevron_right,
+                          color: AppColors.accentGold,
                         ),
                         onTap: () {
                           showDialog(
@@ -342,7 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                               content: Text(
-                                'Your current bankroll is £${_userData?['bankroll'] ?? 0}. Win games to increase it!',
+                                'Current balance: £${_userData?['bankroll'] ?? widget.user.bankroll ?? 0}. Win games to increase it!',
                                 style: TextStyle(color: AppColors.textSecondary),
                               ),
                               actions: [
@@ -355,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
-                      Divider(color: AppColors.textSecondary.withOpacity(0.3), height: 1),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Logout',
                         subtitle: 'Sign out of your account',
@@ -367,16 +409,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: _handleLogout,
                         titleColor: AppColors.secondaryAmber,
                       ),
+                      Divider(color: AppColors.border, height: 1),
                       _SettingsTile(
                         title: 'Delete Account',
                         subtitle: 'Permanently delete your account',
                         icon: Icons.delete_forever,
                         trailing: Icon(
                           Icons.chevron_right,
-                          color: Colors.red.shade700,
+                          color: AppColors.error,
                         ),
                         onTap: _handleDeleteAccount,
-                        titleColor: Colors.red.shade700,
+                        titleColor: AppColors.error,
                       ),
                     ],
                   ),
@@ -464,6 +507,13 @@ class _SettingsSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(children: children),
         ),

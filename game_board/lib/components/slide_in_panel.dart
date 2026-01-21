@@ -1,6 +1,7 @@
 // lib/components/slide_in_panel.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/user.dart';
 import '../screens/settings_screen.dart';
 
 /// Reusable slide-in panel that animates from the right side of the screen
@@ -157,6 +158,7 @@ class _SlideInPanelState extends State<SlideInPanel> with SingleTickerProviderSt
 
 /// Pre-built menu panel with common options
 class MenuPanel extends StatelessWidget {
+  final User user;
   final String username;
   final VoidCallback onProfile;
   final VoidCallback? onSettings;
@@ -165,6 +167,7 @@ class MenuPanel extends StatelessWidget {
   
   const MenuPanel({
     super.key,
+    required this.user,
     required this.username,
     required this.onProfile,
     required this.onLogout,
@@ -279,9 +282,15 @@ class MenuPanel extends StatelessWidget {
                   icon: Icons.settings,
                   title: 'Settings',
                   onTap: () {
+                    Navigator.of(context).pop();
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => SettingsScreen(
+                          user: user,
+                          onLogout: onLogout,
+                        ),
+                      ),
                     );
                   },
                 ),

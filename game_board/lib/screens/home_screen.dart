@@ -23,6 +23,7 @@ class HomeScreen extends StatelessWidget {
     SlideInPanel.show(
       context: context,
       child: MenuPanel(
+        user: user,
         username: user.username,
         onProfile: () {
           Navigator.push(
