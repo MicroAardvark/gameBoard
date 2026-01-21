@@ -25,8 +25,12 @@ class AuthService {
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        await _saveToken(data['token']);
-        return {'success': true, 'user': data['user']};
+        // Don't save token - user needs to verify email first
+        return {
+          'success': true,
+          'message': data['message'],
+          'email': data['email']
+        };
       } else {
         final error = jsonDecode(response.body);
         return {'success': false, 'error': error['error']};
@@ -57,10 +61,47 @@ class AuthService {
         return {'success': true, 'user': data['user']};
       } else {
         final error = jsonDecode(response.body);
-        return {'success': false, 'error': error['error']};
+        return {
+          'success': false,
+          'error': error['error'],
+          'emailNotVerified': error['emailNotVerified'] ?? false,
+          'email': error['email']
+        };
       }
     } catch (e) {
       return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resendVerificationEmail({
+    required String email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/resend-verification'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'message': data['message'],
+          'email': data['email']
+        };
+      } else {
+        final error = jsonDecode(response.body);
+        return {
+          'success': false,
+          'error': error['error'] ?? 'Failed to resend verification email'
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Network error: $e'
+      };
     }
   }
 
