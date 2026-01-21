@@ -36,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     
     if (mounted) {
       setState(() {
-        if (result['valid']) {
+        if (result['success']) {
           _userData = result['user'];
         }
         _isLoading = false;
