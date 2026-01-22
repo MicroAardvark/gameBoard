@@ -1,0 +1,54 @@
+GAME OBJECTIVE:
+Beat the dealer by getting a hand value closer to 21 without going over.
+
+CARD VALUES:
+- Number cards (2-10): Face value
+- Face cards (Jack, Queen, King): Worth 10 points
+- Aces: Worth 1 or 11 points (whichever is better for your hand)
+
+HOW TO PLAY:
+
+1. Place your bet at the start of each round
+2. You and the dealer receive two cards each
+3. The dealer shows one card face up
+4. Choose your action based on your hand
+
+PLAYER ACTIONS:
+
+Hit
+Take another card to improve your hand. You can hit multiple times, but if you go over 21, you "bust" and lose your bet.
+
+Stand
+Keep your current hand and end your turn. The dealer will then play their hand.
+
+Double Down
+Double your original bet and receive exactly one more card. Only available on your first two cards.
+
+Split
+If your first two cards have the same value, you can split them into two separate hands. Each hand gets an additional card and you play them independently. Requires an additional bet equal to your original bet.
+
+Insurance
+If the dealer's face-up card is an Ace, you can take insurance. This is a side bet (half your original bet) that pays 2:1 if the dealer has blackjack.
+
+DEALER RULES:
+- The dealer must hit on 16 or less
+- The dealer must stand on 17 or more
+- Dealer plays their hand only after all players have finished
+
+WINNING CONDITIONS:
+
+Blackjack (21 with first two cards)
+Pays 3:2 on your bet. The best possible hand!
+
+Win
+Your hand is closer to 21 than the dealer's without busting. Pays 1:1 on your bet.
+
+Push
+Your hand value equals the dealer's hand value. Your bet is returned.
+
+Lose
+The dealer's hand is closer to 21, or you bust. You lose your bet.
+
+SPECIAL NOTES:
+- Splitting Aces: You receive only one additional card per Ace
+- Blackjack always beats a hand of 21 made with more than two cards

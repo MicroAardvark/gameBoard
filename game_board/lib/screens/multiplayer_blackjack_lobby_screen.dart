@@ -39,7 +39,16 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
   @override
   void initState() {
     super.initState();
-    _connectToSocket();
+    if (_socketService.isConnected) {
+      print('✅ Socket already connected, using existing connection');
+      setState(() {
+        _isConnected = true;
+        _isConnecting = false;
+      });
+      _loadAvailableRooms();
+    } else {
+      _connectToSocket();
+    }
     _setupSocketListeners();
   }
 
@@ -54,6 +63,13 @@ class _MultiplayerBlackjackScreenState extends State<MultiplayerBlackjackScreen>
     // Give it a moment to connect
     Future.delayed(Duration(seconds: 2), () {
       if (mounted) {
+        // Double-check connection status
+        if (_socketService.isConnected) {
+          setState(() {
+            _isConnected = true;
+            _isConnecting = false;
+          });
+        }
         _loadAvailableRooms();
       }
     });

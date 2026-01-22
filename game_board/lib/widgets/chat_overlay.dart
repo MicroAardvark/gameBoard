@@ -209,7 +209,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
       onTap: _close,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        color: AppColors.primaryNavyDark.withOpacity(0.5),
+        color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
         child: Center(
           child: GestureDetector(
             onTap: () {}, // Prevent tap from closing when tapping inside
@@ -465,7 +465,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
           if (!isOwnMessage) ...[
             // Make avatar clickable
             GestureDetector(
-              onTap: () => _showUserActionModal(message.userId, message.username),
+              onTap: () => _showUserActionModal(message.userId!, message.username),
               child: CircleAvatar(
                 radius: isSmall ? 14 : 16,
                 backgroundColor: Colors.blue,
@@ -490,7 +490,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                 if (!isOwnMessage)
                   // Make username clickable
                   GestureDetector(
-                    onTap: () => _showUserActionModal(message.userId, message.username),
+                    onTap: () => _showUserActionModal(message.userId!, message.username),
                     child: Padding(
                       padding: EdgeInsets.only(
                         bottom: isSmall ? 2 : 4,
@@ -682,7 +682,7 @@ class _UserActionModalState extends State<_UserActionModal> {
     // Show report reason selection
     final reportData = await showDialog<Map<String, String>>(  // Changed return type
       context: context,
-      builder: (context) => (username: widget.username),
+      builder: (context) => _ReportReasonDialog(username: widget.username),
     );
 
     if (reportData != null && reportData['reason'] != null) {  // Check for both

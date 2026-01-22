@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../games/blackjack_game.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
+import '../widgets/game_rules_popup.dart';
+import '../widgets/betting_side_menu.dart';
 
 class BlackjackScreen extends StatefulWidget {
   final User user;
@@ -35,6 +37,7 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
         children: [
           GameWidget(game: _game),
           
+          
           // Back button overlay
           Positioned(
             top: topPadding,
@@ -56,6 +59,22 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
               ),
             ),
           ),
+          Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.info_outline, color: AppColors.textPrimary, size: 28),
+                onPressed: () {
+                  GameRulesPopup.show(
+                    context: context,
+                    gameType: 'blackjack',
+                    isMultiplayer: false,
+                  );
+                },
+              ),
+            ),
+
+            
         ],
       ),
     );

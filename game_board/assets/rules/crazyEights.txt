@@ -1,0 +1,42 @@
+GAME OBJECTIVE:
+Be the first player to get rid of all your cards. When you have only one card left, you must call "Crazy Eights!" or face a penalty.
+
+BASIC RULES:
+
+On your turn, you must play a card that matches either:
+- The suit of the top card (e.g., Hearts on Hearts)
+- The rank of the top card (e.g., 7 on 7)
+
+If you cannot play a card, you must draw one card from the draw pile. If the drawn card can be played, you may play it immediately. Otherwise, your turn ends.
+
+SPECIAL CARDS - ENHANCED RULES:
+
+JACKS - Dual Choice Power:
+When you play a Jack, choose one of two actions
+- Skip the next player's turn, OR
+- Reverse the direction of play
+
+QUEENS - Stackable Draw Two:
+The next player must draw 2 cards unless they also play a Queen. Queens can be stacked! If Player 2 plays a Queen on Player 1's Queen, Player 3 must draw 4 cards (or stack another Queen for 6, and so on).
+
+KINGS - Suit Change:
+Choose any suit. The next player must play that suit or another King.
+
+ACES - Wild Draw Four:
+The ultimate power card! Choose any suit AND the next player draws 4 cards. Aces can also be stacked like Queens, forcing the next player to draw 8, 12, or even more cards!
+
+NUMBER CARDS:
+Play normally by matching suit or rank. No special effects.
+
+CRAZY EIGHTS RULE:
+
+When you have exactly one card remaining, you MUST call "Crazy Eights!" before the next player takes their turn.
+
+- If you call it correctly: Continue playing normally
+- If you forget: Draw 2 penalty cards as punishment
+
+Other players can challenge you if they believe you failed to call "Crazy Eights!" in time.
+
+WINNING THE GAME:
+
+The first player to successfully play all their cards wins! If you win by playing a special card (Jack, Queen, King, or Ace), its effect still applies to the other players - even though you've won!

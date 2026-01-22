@@ -41,8 +41,8 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   final List<BetChip> stagedChips = [];  // staged before confirm
 
   // Mock players (UI only)
-  late MockPlayerUI mockLeft;
-  late MockPlayerUI mockRight;
+  //late MockPlayerUI mockLeft;
+  //late MockPlayerUI mockRight;
 
   // Adaptive sizing
   double get screenWidth => size.x;
@@ -99,7 +99,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     hud.setupHUD();
 
     _setupChips();
-    _addMockPlayers();
+    //_addMockPlayers();
 
     _buildCachedPaintsAndShaders();
     _updateHUDTexts();
@@ -116,12 +116,12 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
       p.removeFromParent();
     }
     paletteChips.clear();
-    mockLeft.removeFromParent();
-    mockRight.removeFromParent();
+    //mockLeft.removeFromParent();
+    //mockRight.removeFromParent();
 
     hud.setupHUD();
     _setupChips();
-    _addMockPlayers();
+    //_addMockPlayers();
 
     _buildCachedPaintsAndShaders();
     _updateHUDTexts();
@@ -135,26 +135,26 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   // -----------------------------
   // Mock players (UI-only)
   // -----------------------------
-  void _addMockPlayers() {
-    mockLeft = MockPlayerUI(
-      name: 'Player 2',
-      bank: 1000,
-      anchorPos: Vector2(screenWidth * 0.08, screenHeight * 0.62),
-      cardsCenter: Vector2(screenWidth * 0.22, screenHeight * 0.62),
-      cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
-    )..priority = layerHud;
-    add(mockLeft);
+  // void _addMockPlayers() {
+  //   mockLeft = MockPlayerUI(
+  //     name: 'Player 2',
+  //     bank: 1000,
+  //     anchorPos: Vector2(screenWidth * 0.08, screenHeight * 0.62),
+  //     cardsCenter: Vector2(screenWidth * 0.22, screenHeight * 0.62),
+  //     cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
+  //   )..priority = layerHud;
+  //   add(mockLeft);
 
-    mockRight = MockPlayerUI(
-      name: 'Player 3',
-      bank: 1000,
-      anchorPos: Vector2(screenWidth * 0.92, screenHeight * 0.62),
-      cardsCenter: Vector2(screenWidth * 0.78, screenHeight * 0.62),
-      cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
-      rightSide: true,
-    )..priority = layerHud;
-    add(mockRight);
-  }
+  //   mockRight = MockPlayerUI(
+  //     name: 'Player 3',
+  //     bank: 1000,
+  //     anchorPos: Vector2(screenWidth * 0.92, screenHeight * 0.62),
+  //     cardsCenter: Vector2(screenWidth * 0.78, screenHeight * 0.62),
+  //     cardSize: Vector2(cardWidth * 0.9, cardHeight * 0.9),
+  //     rightSide: true,
+  //   )..priority = layerHud;
+  //   add(mockRight);
+  // }
 
   // -----------------------------
   // Chips row (VERTICAL layout)

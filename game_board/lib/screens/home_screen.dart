@@ -173,20 +173,53 @@ class HomeScreen extends StatelessWidget {
                         SizedBox(height: spacing * 2),
                         
                         // Multiplayer Section
-                        Text(
-                          'Multiplayer',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            fontSize: (titleSize * 0.5).clamp(18.0, 32.0),
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.people, color: Colors.amber, size: 24),
+                              SizedBox(width: 8),
+                              Text(
+                                'Multiplayer',
+                                style: TextStyle(
+                                  fontFamily: 'Montserrat',
+                                  fontSize: (titleSize * 0.5).clamp(18.0, 28.0),
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'ONLINE',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: (titleSize * 0.3).clamp(10.0, 14.0),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         SizedBox(height: spacing),
                         
                         _GameButton(
-                          title: '🃏 Blackjack (Online)',
-                          icon: Icons.group,
+                          title: 'Play Online',
+                          icon: Icons.wifi,
                           onPressed: () {
                             Navigator.push(
                               context,

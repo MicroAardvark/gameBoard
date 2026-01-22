@@ -46,7 +46,16 @@ class _MultiplayerCrazyEightsLobbyScreenState
   @override
   void initState() {
     super.initState();
-    _connectToSocket();
+    if (_socketService.isConnected) {
+      print('✅ Socket already connected, using existing connection');
+      setState(() {
+        _isConnected = true;
+        _isConnecting = false;
+      });
+      _loadAvailableRooms();
+    } else {
+      _connectToSocket();
+    }
     _setupSocketListeners();
   }
 
