@@ -22,6 +22,15 @@ class SocketService {
   final String baseUrl = 'https://microaardvark.co.uk';
 
   // Stream controllers for different events
+  final _voiceParticipantsUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _voiceJoinedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _voiceParticipantLeftController = StreamController<Map<String, dynamic>>.broadcast();
+  final _voiceMuteUpdatedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _voiceUserKickedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _voiceErrorController = StreamController<Map<String, dynamic>>.broadcast();
+  final _webrtcOfferReceivedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _webrtcAnswerReceivedController = StreamController<Map<String, dynamic>>.broadcast();
+  final _webrtcIceCandidateReceivedController = StreamController<Map<String, dynamic>>.broadcast();
   final _roomCreatedController = StreamController<Map<String, dynamic>>.broadcast();
   final _playerJoinedController = StreamController<Map<String, dynamic>>.broadcast();
   final _playerLeftController = StreamController<Map<String, dynamic>>.broadcast();
@@ -68,6 +77,15 @@ class SocketService {
   Stream<Map<String, dynamic>> get onChatMessage => _chatMessageController.stream;
   Stream<Map<String, dynamic>> get onInsuranceOffered => _insuranceOfferedController.stream;
   Stream<Map<String, dynamic>> get onNewRoundStarting => _newRoundStartingController.stream;
+  Stream<Map<String, dynamic>> get onVoiceParticipantsUpdated => _voiceParticipantsUpdatedController.stream;
+  Stream<Map<String, dynamic>> get onVoiceJoined => _voiceJoinedController.stream;
+  Stream<Map<String, dynamic>> get onVoiceParticipantLeft => _voiceParticipantLeftController.stream;
+  Stream<Map<String, dynamic>> get onVoiceMuteUpdated => _voiceMuteUpdatedController.stream;
+  Stream<Map<String, dynamic>> get onVoiceUserKicked => _voiceUserKickedController.stream;
+  Stream<Map<String, dynamic>> get onVoiceError => _voiceErrorController.stream;
+  Stream<Map<String, dynamic>> get onWebRTCOfferReceived => _webrtcOfferReceivedController.stream;
+  Stream<Map<String, dynamic>> get onWebRTCAnswerReceived => _webrtcAnswerReceivedController.stream;
+  Stream<Map<String, dynamic>> get onWebRTCIceCandidateReceived => _webrtcIceCandidateReceivedController.stream;
 
   // Chat stream getters
   Stream<Map<String, dynamic>> get onChatHistory => _chatHistoryController.stream;
@@ -330,6 +348,8 @@ class SocketService {
       _userTypingController.add(data);
     });
 
+
+
     // ===================================
     // CRAZY EIGHTS EVENTS (UPDATED FOR OPTIMISTIC UI)
     // ===================================
@@ -439,6 +459,45 @@ class SocketService {
     // Pong response
     _socket!.on('pong', (data) {
       print('🏓 Pong received at ${data['timestamp']}');
+    });
+
+    // ===========================================
+    // VOICE CHAT EVENTS
+    // ===========================================
+    _socket!.on('voice_participants_updated', (data) {
+      _voiceParticipantsUpdatedController.add(data);
+    });
+
+    _socket!.on('voice_joined', (data) {
+      _voiceJoinedController.add(data);
+    });
+
+    _socket!.on('voice_participant_left', (data) {
+      _voiceParticipantLeftController.add(data);
+    });
+
+    _socket!.on('voice_mute_updated', (data) {
+      _voiceMuteUpdatedController.add(data);
+    });
+
+    _socket!.on('voice_user_kicked', (data) {
+      _voiceUserKickedController.add(data);
+    });
+
+    _socket!.on('voice_error', (data) {
+      _voiceErrorController.add(data);
+    });
+
+    _socket!.on('webrtc_offer_received', (data) {
+      _webrtcOfferReceivedController.add(data);
+    });
+
+    _socket!.on('webrtc_answer_received', (data) {
+      _webrtcAnswerReceivedController.add(data);
+    });
+
+    _socket!.on('webrtc_ice_candidate_received', (data) {
+      _webrtcIceCandidateReceivedController.add(data);
     });
   }
 
@@ -963,6 +1022,116 @@ class SocketService {
   }
 
   // ===========================================
+  // VOICE CHAT METHODS
+  // ===========================================
+
+  void voiceJoin({
+    required String roomId,
+    required String userId,
+    required String username,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('voice_join', {
+      'roomId': roomId,
+      'userId': userId,
+      'username': username,
+    });
+  }
+
+  void voiceLeave({
+    required String roomId,
+    required String userId,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('voice_leave', {
+      'roomId': roomId,
+      'userId': userId,
+    });
+  }
+
+  void voiceMuteToggle({
+    required String roomId,
+    required String userId,
+    required bool muted,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('voice_mute_toggle', {
+      'roomId': roomId,
+      'userId': userId,
+      'muted': muted,
+    });
+  }
+
+  void sendWebRTCOffer({
+    required String roomId,
+    required String targetUserId,
+    required String fromUserId,
+    required Map<String, dynamic> offer,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('webrtc_offer', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+      'fromUserId': fromUserId,
+      'offer': offer,
+    });
+  }
+
+  void sendWebRTCAnswer({
+    required String roomId,
+    required String targetUserId,
+    required String fromUserId,
+    required Map<String, dynamic> answer,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('webrtc_answer', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+      'fromUserId': fromUserId,
+      'answer': answer,
+    });
+  }
+
+  void sendWebRTCIceCandidate({
+    required String roomId,
+    required String targetUserId,
+    required String fromUserId,
+    required Map<String, dynamic> candidate,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('webrtc_ice_candidate', {
+      'roomId': roomId,
+      'targetUserId': targetUserId,
+      'fromUserId': fromUserId,
+      'candidate': candidate,
+    });
+  }
+
+  void voiceReportUser({
+    required String roomId,
+    required String reportedUserId,
+    required String reportedUsername,
+    required String reason,
+    required String reporterId,
+  }) {
+    if (!isConnected) return;
+    
+    _socket!.emit('voice_report_user', {
+      'roomId': roomId,
+      'reportedUserId': reportedUserId,
+      'reportedUsername': reportedUsername,
+      'reason': reason,
+      'reporterId': reporterId,
+    });
+  }
+
+  // ===========================================
   // CLEANUP
   // ===========================================
 
@@ -999,5 +1168,14 @@ class SocketService {
     _jackActionChosenController.close();
     _chooseJackActionRequiredController.close(); // NEW
     _cardsReceivedController.close();
+    _voiceParticipantsUpdatedController.close();
+    _voiceJoinedController.close();
+    _voiceParticipantLeftController.close();
+    _voiceMuteUpdatedController.close();
+    _voiceUserKickedController.close();
+    _voiceErrorController.close();
+    _webrtcOfferReceivedController.close();
+    _webrtcAnswerReceivedController.close();
+    _webrtcIceCandidateReceivedController.close();
   }
 }

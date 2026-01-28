@@ -1,11 +1,13 @@
 // lib/screens/chat_test_screen.dart
-// Fully responsive test screen with Join Room functionality
+// UPDATED: Added voice chat functionality
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
+import '../services/voice_chat_service.dart';  // NEW
 import '../models/user.dart';
 import '../theme/app_theme.dart';
+import '../widgets/voice_chat_widget.dart';  // NEW
 
 class ChatTestScreen extends StatefulWidget {
   final User user;
@@ -21,6 +23,7 @@ class ChatTestScreen extends StatefulWidget {
 
 class _ChatTestScreenState extends State<ChatTestScreen> {
   final SocketService _socketService = SocketService();
+  late final VoiceChatService _voiceService;  // NEW
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _roomIdController = TextEditingController();
   final List<String> _logs = [];
@@ -36,6 +39,10 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
   StreamSubscription? _chatHistorySub;
   StreamSubscription? _typingSub;
   StreamSubscription? _errorSub;
+  
+  // NEW: Voice chat subscriptions
+  StreamSubscription? _voiceParticipantsSub;
+  StreamSubscription? _voiceErrorSub;
 
   @override
   void initState() {
@@ -43,10 +50,14 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
     _userId = widget.user.id;
     _username = widget.user.username;
     
+    // NEW: Initialize voice service
+    _voiceService = VoiceChatService(_socketService);
+    
     _addLog('👤 Testing as: $_username');
     _addLog('🆔 User ID: $_userId');
     
     _setupListeners();
+    _setupVoiceListeners();  // NEW
   }
 
   void _setupListeners() {
@@ -97,10 +108,27 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
     });
   }
 
-  void _addLog(String log) {
-    setState(() {
-      _logs.insert(0, '${DateTime.now().toString().substring(11, 19)} $log');
+  // NEW: Voice chat listeners
+  void _setupVoiceListeners() {
+    _voiceParticipantsSub = _voiceService.participantsStream.listen((participants) {
+      _addLog('🎤 Voice participants: ${participants.length}');
+      for (var participant in participants) {
+        final muteStatus = participant.muted ? '🔇' : '🔊';
+        _addLog('  $muteStatus ${participant.username}');
+      }
     });
+
+    _voiceErrorSub = _voiceService.errorStream.listen((error) {
+      _addLog('❌ Voice error: $error');
+    });
+  }
+
+  void _addLog(String log) {
+    if (mounted) {
+      setState(() {
+        _logs.insert(0, '${DateTime.now().toString().substring(11, 19)} $log');
+      });
+    }
   }
 
   void _connect() {
@@ -240,13 +268,15 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
       Clipboard.setData(ClipboardData(text: _roomId!));
       _addLog('📋 Room ID copied!');
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Room ID copied!', style: Theme.of(context).textTheme.bodyMedium),
-          duration: Duration(seconds: 1),
-          backgroundColor: AppColors.primaryNavyLight,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Room ID copied!', style: Theme.of(context).textTheme.bodyMedium),
+            duration: const Duration(seconds: 1),
+            backgroundColor: AppColors.primaryNavyLight,
+          ),
+        );
+      }
     }
   }
 
@@ -259,8 +289,11 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
     _chatHistorySub?.cancel();
     _typingSub?.cancel();
     _errorSub?.cancel();
+    _voiceParticipantsSub?.cancel();  // NEW
+    _voiceErrorSub?.cancel();  // NEW
     _messageController.dispose();
     _roomIdController.dispose();
+    _voiceService.dispose();  // NEW
     super.dispose();
   }
 
@@ -274,7 +307,7 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
       backgroundColor: AppColors.primaryNavyDark,
       appBar: AppBar(
         title: Text(
-          'Chat Test',
+          'Chat & Voice Test',  // UPDATED: Changed title
           style: TextStyle(fontFamily: 'Inter', fontSize: isSmall ? 16 : 18),
         ),
         backgroundColor: Colors.grey[900],
@@ -287,331 +320,387 @@ class _ChatTestScreenState extends State<ChatTestScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: Stack(  // NEW: Wrap in Stack for voice widget
         children: [
-          // Status Bar (Compact)
-          Container(
-            padding: EdgeInsets.all(isSmall ? 8 : 12),
-            color: Colors.grey[900],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          // Main content
+          Column(
+            children: [
+              // Status Bar (Compact)
+              Container(
+                padding: EdgeInsets.all(isSmall ? 8 : 12),
+                color: Colors.grey[900],
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _socketService.isConnected ? Icons.check_circle : Icons.cancel,
-                      color: _socketService.isConnected ? AppColors.primaryNavyLight : Colors.red,
-                      size: isSmall ? 16 : 20,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _socketService.isConnected ? 'Connected' : 'Disconnected',
-                      style: TextStyle(fontFamily: 'Inter',
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: isSmall ? 12 : 14,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: isSmall ? 4 : 6),
-                Text(
-                  'User: $_username',
-                  style: TextStyle(fontFamily: 'Inter',
-                    color: Colors.grey[400],
-                    fontSize: isSmall ? 10 : 11,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (_roomId != null) ...[
-                  SizedBox(height: isSmall ? 4 : 6),
-                  Container(
-                    padding: EdgeInsets.all(isSmall ? 4 : 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.blue, width: 1),
-                    ),
-                    child: Row(
+                    Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            _roomId!,
-                            style: TextStyle(fontFamily: 'Inter',
-                              color: AppColors.textPrimary,
-                              fontSize: isSmall ? 9 : 10,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                        Icon(
+                          _socketService.isConnected ? Icons.check_circle : Icons.cancel,
+                          color: _socketService.isConnected ? AppColors.success : Colors.red,
+                          size: isSmall ? 16 : 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _socketService.isConnected ? 'Connected' : 'Disconnected',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: isSmall ? 12 : 14,
                           ),
                         ),
-                        SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(Icons.copy, size: isSmall ? 14 : 16),
-                            onPressed: _copyRoomId,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          // Control Buttons (Compact)
-          Container(
-            padding: EdgeInsets.all(isSmall ? 6 : 8),
-            color: Colors.grey[850],
-            child: Column(
-              children: [
-                // Row 1: Connection & Room
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          onPressed: _connect,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmall ? 8 : 10,
-                              horizontal: isSmall ? 4 : 8,
-                            ),
-                          ),
-                          child: Text(
-                            'Connect',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          onPressed: _createRoom,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryNavyLight,
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmall ? 8 : 10,
-                              horizontal: isSmall ? 4 : 8,
-                            ),
-                          ),
-                          child: Text(
-                            'Create',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          onPressed: _showJoinDialog,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmall ? 8 : 10,
-                              horizontal: isSmall ? 4 : 8,
-                            ),
-                          ),
-                          child: Text(
-                            'Join',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: isSmall ? 4 : 6),
-                // Row 2: Chat Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          onPressed: _getChatHistory,
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmall ? 8 : 10,
-                              horizontal: isSmall ? 4 : 8,
-                            ),
-                          ),
-                          child: Text(
-                            'History',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() => _logs.clear());
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            padding: EdgeInsets.symmetric(
-                              vertical: isSmall ? 8 : 10,
-                              horizontal: isSmall ? 4 : 8,
-                            ),
-                          ),
-                          child: Text(
-                            'Clear',
-                            style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Logs Display
-          Expanded(
-            child: Container(
-              color: AppColors.primaryNavyDark,
-              child: _logs.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                        // NEW: Voice status indicator
+                        if (_voiceService.inVoiceChat) ...[
+                          const SizedBox(width: 12),
                           Icon(
-                            Icons.chat_bubble_outline,
-                            size: isSmall ? 48 : 64,
-                            color: Colors.grey[700],
+                            _voiceService.isMuted ? Icons.mic_off : Icons.mic,
+                            color: _voiceService.isMuted ? Colors.red : Colors.green,
+                            size: isSmall ? 16 : 20,
                           ),
-                          SizedBox(height: isSmall ? 8 : 12),
+                          const SizedBox(width: 4),
                           Text(
-                            'No activity yet',
-                            style: TextStyle(fontFamily: 'Inter',
-                              color: Colors.grey[600],
-                              fontSize: isSmall ? 14 : 16,
-                            ),
-                          ),
-                          SizedBox(height: isSmall ? 4 : 6),
-                          Text(
-                            'Click Connect to start!',
-                            style: TextStyle(fontFamily: 'Inter',
-                              color: Colors.grey[700],
+                            'Voice ${_voiceService.participants.length}',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.green,
                               fontSize: isSmall ? 10 : 12,
                             ),
                           ),
                         ],
+                      ],
+                    ),
+                    SizedBox(height: isSmall ? 4 : 6),
+                    Text(
+                      'User: $_username',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: Colors.grey[400],
+                        fontSize: isSmall ? 10 : 11,
                       ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.all(isSmall ? 6 : 8),
-                      itemCount: _logs.length,
-                      reverse: true,
-                      itemBuilder: (context, index) {
-                        final log = _logs[index];
-                        Color logColor = AppColors.textPrimary;
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (_roomId != null) ...[
+                      SizedBox(height: isSmall ? 4 : 6),
+                      Container(
+                        padding: EdgeInsets.all(isSmall ? 4 : 6),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.blue, width: 1),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _roomId!,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: AppColors.textPrimary,
+                                  fontSize: isSmall ? 9 : 10,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: Icon(Icons.copy, size: isSmall ? 14 : 16),
+                                onPressed: _copyRoomId,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
 
-                        if (log.contains('❌')) {
-                          logColor = Colors.red;
-                        } else if (log.contains('✅') || log.contains('📥')) {
-                          logColor = AppColors.primaryNavyLight;
-                        } else if (log.contains('📤')) {
-                          logColor = Colors.blue;
-                        } else if (log.contains('⌨️')) {
-                          logColor = Colors.yellow;
-                        }
-
-                        return Padding(
-                          padding: EdgeInsets.symmetric(vertical: isSmall ? 1 : 2),
-                          child: Text(
-                            log,
-                            style: TextStyle(fontFamily: 'Inter',
-                              color: logColor,
-                              fontSize: isSmall ? 10 : 11,
+              // Control Buttons (Compact)
+              Container(
+                padding: EdgeInsets.all(isSmall ? 6 : 8),
+                color: Colors.grey[850],
+                child: Column(
+                  children: [
+                    // Row 1: Connection & Room
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ElevatedButton(
+                              onPressed: _connect,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: isSmall ? 8 : 10,
+                                  horizontal: isSmall ? 4 : 8,
+                                ),
+                              ),
+                              child: Text(
+                                'Connect',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ElevatedButton(
+                              onPressed: _createRoom,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: isSmall ? 8 : 10,
+                                  horizontal: isSmall ? 4 : 8,
+                                ),
+                              ),
+                              child: Text(
+                                'Create',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ElevatedButton(
+                              onPressed: _showJoinDialog,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: isSmall ? 8 : 10,
+                                  horizontal: isSmall ? 4 : 8,
+                                ),
+                              ),
+                              child: Text(
+                                'Join',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-            ),
-          ),
+                    SizedBox(height: isSmall ? 4 : 6),
+                    // Row 2: Chat Actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ElevatedButton(
+                              onPressed: _getChatHistory,
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: isSmall ? 8 : 10,
+                                  horizontal: isSmall ? 4 : 8,
+                                ),
+                              ),
+                              child: Text(
+                                'History',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() => _logs.clear());
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                padding: EdgeInsets.symmetric(
+                                  vertical: isSmall ? 8 : 10,
+                                  horizontal: isSmall ? 4 : 8,
+                                ),
+                              ),
+                              child: Text(
+                                'Clear',
+                                style: TextStyle(fontFamily: 'Inter', fontSize: buttonFontSize),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
 
-          // Message Input (Compact)
-          Container(
-            padding: EdgeInsets.all(isSmall ? 6 : 8),
-            color: Colors.grey[900],
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: TextStyle(fontFamily: 'Inter',
-                      color: AppColors.textPrimary,
-                      fontSize: isSmall ? 12 : 14,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: _roomId == null
-                          ? 'Join a room first...'
-                          : 'Type message...',
-                      hintStyle: TextStyle(fontFamily: 'Inter',
-                        color: Colors.grey[600],
-                        fontSize: isSmall ? 11 : 13,
-                      ),
-                      filled: true,
-                      fillColor: AppColors.primaryNavyDark,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: isSmall ? 12 : 16,
-                        vertical: isSmall ? 8 : 10,
-                      ),
-                    ),
-                    enabled: _roomId != null,
-                    onChanged: (text) {
-                      if (text.isNotEmpty) {
-                        _startTyping();
-                      } else {
-                        _stopTyping();
-                      }
-                    },
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
+              // Logs Display
+              Expanded(
+                child: Container(
+                  color: AppColors.primaryNavyDark,
+                  child: _logs.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline,
+                                size: isSmall ? 48 : 64,
+                                color: Colors.grey[700],
+                              ),
+                              SizedBox(height: isSmall ? 8 : 12),
+                              Text(
+                                'No activity yet',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.grey[600],
+                                  fontSize: isSmall ? 14 : 16,
+                                ),
+                              ),
+                              SizedBox(height: isSmall ? 4 : 6),
+                              Text(
+                                'Click Connect to start!',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.grey[700],
+                                  fontSize: isSmall ? 10 : 12,
+                                ),
+                              ),
+                              // NEW: Voice hint
+                              if (_roomId != null) ...[
+                                SizedBox(height: isSmall ? 8 : 12),
+                                Text(
+                                  'Tap 🎤 in top-right for voice chat',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    color: Colors.amber,
+                                    fontSize: isSmall ? 10 : 12,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: EdgeInsets.all(isSmall ? 6 : 8),
+                          itemCount: _logs.length,
+                          reverse: true,
+                          itemBuilder: (context, index) {
+                            final log = _logs[index];
+                            Color logColor = AppColors.textPrimary;
+
+                            if (log.contains('❌')) {
+                              logColor = Colors.red;
+                            } else if (log.contains('✅') || log.contains('📥')) {
+                              logColor = AppColors.success;
+                            } else if (log.contains('📤')) {
+                              logColor = Colors.blue;
+                            } else if (log.contains('⌨️')) {
+                              logColor = Colors.yellow;
+                            } else if (log.contains('🎤')) {  // NEW: Voice logs
+                              logColor = Colors.green;
+                            } else if (log.contains('🔇') || log.contains('🔊')) {  // NEW: Mute logs
+                              logColor = Colors.amber;
+                            }
+
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: isSmall ? 1 : 2),
+                              child: Text(
+                                log,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: logColor,
+                                  fontSize: isSmall ? 10 : 11,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                 ),
-                SizedBox(width: isSmall ? 6 : 8),
-                SizedBox(
-                  width: isSmall ? 36 : 44,
-                  height: isSmall ? 36 : 44,
-                  child: IconButton(
-                    onPressed: _roomId != null ? _sendMessage : null,
-                    icon: Icon(
-                      Icons.send,
-                      size: isSmall ? 18 : 22,
+              ),
+
+              // Message Input (Compact)
+              Container(
+                padding: EdgeInsets.all(isSmall ? 6 : 8),
+                color: Colors.grey[900],
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: AppColors.textPrimary,
+                          fontSize: isSmall ? 12 : 14,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: _roomId == null
+                              ? 'Join a room first...'
+                              : 'Type message...',
+                          hintStyle: TextStyle(
+                            fontFamily: 'Inter',
+                            color: Colors.grey[600],
+                            fontSize: isSmall ? 11 : 13,
+                          ),
+                          filled: true,
+                          fillColor: AppColors.primaryNavyDark,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: isSmall ? 12 : 16,
+                            vertical: isSmall ? 8 : 10,
+                          ),
+                        ),
+                        enabled: _roomId != null,
+                        onChanged: (text) {
+                          if (text.isNotEmpty) {
+                            _startTyping();
+                          } else {
+                            _stopTyping();
+                          }
+                        },
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
                     ),
-                    color: _roomId != null ? Colors.blue : Colors.grey,
-                    padding: EdgeInsets.zero,
-                  ),
+                    SizedBox(width: isSmall ? 6 : 8),
+                    SizedBox(
+                      width: isSmall ? 36 : 44,
+                      height: isSmall ? 36 : 44,
+                      child: IconButton(
+                        onPressed: _roomId != null ? _sendMessage : null,
+                        icon: Icon(
+                          Icons.send,
+                          size: isSmall ? 18 : 22,
+                        ),
+                        color: _roomId != null ? Colors.blue : Colors.grey,
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          
+          // NEW: Voice chat widget overlay
+          if (_roomId != null)
+            VoiceChatWidget(
+              voiceService: _voiceService,
+              roomId: _roomId!,
+              userId: _userId,
+              username: _username,
+            ),
         ],
       ),
     );
