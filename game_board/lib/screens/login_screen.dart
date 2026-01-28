@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
+import 'forgot_pass_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(User) onLoginSuccess;
@@ -434,6 +435,27 @@ class _LoginScreenState extends State<LoginScreen> {
                           : 'Already have an account? Login',
                     ),
                   ),
+
+                  if (_isLogin)
+                  Align(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Forgot password?',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
                 ],
               ),
             ),

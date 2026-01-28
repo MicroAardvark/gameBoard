@@ -329,5 +329,117 @@ class AuthService {
       };
     }
   }
+
+  // ============================================
+  // FORGOT PASSWORD
+  // ============================================
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'],
+          'email': data['email'],
+        };
+      } else {
+        return {
+          'success': false,
+          'error': data['error'] ?? 'Failed to send reset email',
+        };
+      }
+    } catch (e) {
+      print('❌ Forgot password error: $e');
+      return {
+        'success': false,
+        'error': 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  // ============================================
+  // RESET PASSWORD
+  // ============================================
+  static Future<Map<String, dynamic>> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'token': token,
+          'newPassword': newPassword,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'],
+        };
+      } else {
+        return {
+          'success': false,
+          'error': data['error'] ?? 'Failed to reset password',
+        };
+      }
+    } catch (e) {
+      print('❌ Reset password error: $e');
+      return {
+        'success': false,
+        'error': 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  // ============================================
+  // VERIFY RESET TOKEN (Optional)
+  // ============================================
+  static Future<Map<String, dynamic>> verifyResetToken({
+    required String token,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/verify-reset-token?token=$token'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'valid': data['valid'] ?? false,
+          'email': data['email'],
+        };
+      } else {
+        return {
+          'success': false,
+          'valid': false,
+          'error': data['error'] ?? 'Invalid token',
+        };
+      }
+    } catch (e) {
+      print('❌ Verify reset token error: $e');
+      return {
+        'success': false,
+        'valid': false,
+        'error': 'Network error. Please check your connection.',
+      };
+    }
+  }
 }
 
