@@ -8,17 +8,18 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:flame/components.dart';
 import '../models/playing_card.dart';
 import '../models/enums.dart';
 import '../models/user.dart';
 import '../components/card_component.dart';
 import '../components/chip_components.dart';
 import '../components/multiplayer_player.dart';
-import '../ui/multiplayer_hud.dart';
 import '../services/socket_service.dart';
 import '../components/result_popup_component.dart';
 import '../theme/app_theme.dart';
+import '../components/text_component.dart';
+import '../components/button_component.dart';
 
 class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
@@ -42,7 +43,20 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   static const int layerHudPanel = 5;
 
   late CardDeck deck;
-  late MultiplayerHudManager hud;
+  InfoTextComponent? betText;
+  InfoTextComponent? gameResultText;
+  InfoTextComponent? myHandText;
+  InfoTextComponent? dealerHandText;
+  InfoTextComponent? turnIndicatorText;
+  InfoTextComponent? roomInfoText;
+  InfoTextComponent? playerCountText;
+  InfoTextComponent? waitingStatusText;
+
+  // Buttons
+  List<GameButton> _waitingBtns = [];
+  List<GameButton> _bettingBtns = [];
+  List<GameButton> _playingBtns = [];
+  List<GameButton> _gameOverBtns = [];
 
   // Cards and hands
   final List<CardComponent> myCards = [];
@@ -111,14 +125,14 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
     debugPrint('🎮 [GAME] onLoad - Initial state: $gameState');
 
-    hud = MultiplayerHudManager(this);
-    await hud.setupHUD();
+    _createTextComponents();
+    _createButtons();
 
     debugPrint('🎮 [GAME] HUD setup complete'); 
 
     _setupChips();
     _buildCachedPaintsAndShaders();
-    _updateHUDTexts();
+    _updateTexts();
     _hudInit = true;
 
     debugPrint('🎮 [GAME] Game state after init: $gameState');
@@ -126,8 +140,329 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     // Subscribe to socket events
     _setupSocketListeners();
     Future.delayed(Duration(milliseconds: 100), () {
-      hud.updateHudVisibility();
+      _updateButtonVisibility();
     });
+  }
+
+  void _createTextComponents() {
+    // Game result at top left
+    gameResultText = InfoTextComponent(
+      text: '',
+      position: Vector2(20, 20),
+      fontSize: fontSize,
+    )..priority = layerHud;
+    add(gameResultText!);
+
+    // Player hand below game result
+    myHandText = InfoTextComponent(
+      text: 'Player Hand',
+      position: Vector2(20, 80),
+      fontSize: fontSize,
+    )..priority = layerHud;
+    add(myHandText!);
+
+    // Dealer hand below player hand
+    dealerHandText = InfoTextComponent(
+      text: 'Dealer Hand',
+      position: Vector2(20, 120),
+      fontSize: fontSize,
+    )..priority = layerHud;
+    add(dealerHandText!);
+
+    // Turn indicator (center top)
+    turnIndicatorText = InfoTextComponent(
+      text: '',
+      position: Vector2(screenWidth / 2, 160),
+      fontSize: largeFontSize,
+    )..priority = layerHud;
+    turnIndicatorText!.anchor = Anchor.center;
+    add(turnIndicatorText!);
+
+    // Waiting status text (center of screen)
+    waitingStatusText = InfoTextComponent(
+      text: 'Waiting for players to ready up...',
+      position: Vector2(screenWidth / 2, screenHeight / 2 - 100),
+      fontSize: largeFontSize,
+    )..priority = layerHud;
+    waitingStatusText!.anchor = Anchor.center;
+    add(waitingStatusText!);
+
+    // Bet text (bottom left)
+    betText = InfoTextComponent(
+      text: 'Bet: £0',
+      position: Vector2(20, screenHeight - 40),
+      fontSize: fontSize,
+    )..priority = layerHud;
+    add(betText!);
+
+    // Room info (top right)
+    roomInfoText = InfoTextComponent(
+      text: 'Room: ...',
+      position: Vector2(screenWidth - 20, 20),
+      fontSize: fontSize * 0.7,
+    )..priority = layerHud;
+    roomInfoText!.anchor = Anchor.topRight;
+    add(roomInfoText!);
+
+    playerCountText = InfoTextComponent(
+      text: '0/3',
+      position: Vector2(screenWidth - 20, 40),
+      fontSize: fontSize * 0.8,
+    )..priority = layerHud;
+    playerCountText!.anchor = Anchor.topRight;
+    add(playerCountText!);
+  }
+
+  void _createButtons() {
+    final double leftButtonX = screenWidth * 0.15;
+    final double buttonSpacing = screenHeight * 0.10;
+    final double startY = screenHeight * 0.35;
+
+    // Ready button
+    _waitingBtns = [
+      GameButton(
+        position: Vector2(screenWidth * 0.5, screenHeight / 2),
+        size: Vector2(buttonWidth * 1.5, buttonHeight * 1.2),
+        text: 'Ready',
+        onTap: () {
+          socketService.playerReady(roomId: roomId, userId: user.id);
+        },
+      )..priority = layerHudPanel + 1,
+    ];
+
+    // Betting buttons (Start only - others hidden with side menu)
+    _bettingBtns = [
+      GameButton(
+        position: Vector2(leftButtonX, startY),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Start',
+        onTap: () => startRound(),
+      )..priority = layerHudPanel + 1,
+    ];
+
+    // Playing buttons
+    _playingBtns = [
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Hit',
+        onTap: () => hit(),
+      )..priority = layerHudPanel + 1,
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing * 2),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Stand',
+        onTap: () => stand(),
+      )..priority = layerHudPanel + 1,
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing * 3),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Double',
+        onTap: () => doubleDown(),
+      )..priority = layerHudPanel + 1,
+    ];
+
+    // Game over buttons
+    _gameOverBtns = [
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Next Round',
+        onTap: () => newRound(),
+      )..priority = layerHudPanel + 1,
+      GameButton(
+        position: Vector2(leftButtonX, startY + buttonSpacing * 2),
+        size: Vector2(buttonWidth, buttonHeight),
+        text: 'Leave',
+        onTap: () => leaveRoom(),
+      )..priority = layerHudPanel + 1,
+    ];
+  }
+
+  void _updateButtonVisibility() {
+    updateChipPaletteState();
+    
+    if (gameState == GameState.waiting) {
+      _showOnlyButtons(_waitingBtns);
+      if (!children.contains(waitingStatusText!)) {
+        add(waitingStatusText!);
+      }
+      turnIndicatorText?.removeFromParent();
+      gameResultText?.text = '';
+    } 
+    else if (gameState == GameState.betting) {
+      waitingStatusText?.removeFromParent();
+      
+      if (!children.contains(turnIndicatorText!)) {
+        add(turnIndicatorText!);
+      }
+      
+      gameResultText?.text = '';
+      
+      // Only show Start button when host and all bets are placed
+      if (isHost && allBetsPlaced && _bettingBtns.isNotEmpty) {
+        _showOnlyButtons([_bettingBtns[0]]);
+        _bettingBtns[0].isEnabled = currentBet > 0;
+        _bettingBtns[0].hidden = false;
+      } else {
+        _showOnlyButtons(const []);
+      }
+    } 
+    else if (gameState == GameState.playing) {
+      waitingStatusText?.removeFromParent();
+      if (!children.contains(turnIndicatorText!)) {
+        add(turnIndicatorText!);
+      }
+      if (isMyTurn) {
+        _showOnlyButtons(_playingBtns);
+      } else {
+        _showOnlyButtons(const []);
+      }
+    } 
+    else if (gameState == GameState.dealerTurn) {
+      _showOnlyButtons(const []);
+      if (!children.contains(turnIndicatorText!)) {
+        add(turnIndicatorText!);
+      }
+    } 
+    else if (gameState == GameState.gameOver) {
+      _showOnlyButtons(_gameOverBtns);
+      turnIndicatorText?.removeFromParent();
+      
+      if (_gameOverBtns.length >= 2) {
+        _gameOverBtns[0].hidden = !isHost;
+        _gameOverBtns[1].hidden = false;
+      }
+    }
+  }
+
+  void _showOnlyButtons(List<GameButton> needed) {
+    final all = _waitingBtns + _bettingBtns + _playingBtns + _gameOverBtns;
+    
+    for (final b in all) {
+      if (b.parent != null) {
+        b.removeFromParent();
+      }
+    }
+    
+    for (final b in needed) {
+      add(b);
+      b.hidden = false;
+      b.isEnabled = true;
+    }
+  }
+
+  void _updateTurnIndicator() {
+    if (gameState == GameState.waiting) {
+      turnIndicatorText?.text = '';
+      return;
+    }
+
+    if (gameState == GameState.betting) {
+      if (isMyTurn && currentBet == 0) {
+        turnIndicatorText?.text = '🎯 YOUR TURN TO BET';
+        turnIndicatorText?.textRenderer = TextPaint(
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: AppColors.primaryNavyLight,
+            fontSize: largeFontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      } else if (currentBet > 0) {
+        turnIndicatorText?.text = '✅ Bet placed - waiting for others';
+        turnIndicatorText?.textRenderer = TextPaint(
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: Colors.yellow,
+            fontSize: fontSize,
+            fontWeight: FontWeight.normal,
+          ),
+        );
+      } else if (currentTurnPlayerId.isNotEmpty) {
+        final currentPlayer = otherPlayers[currentTurnPlayerId];
+        if (currentPlayer != null) {
+          turnIndicatorText?.text = '⏳ ${currentPlayer.username} is betting';
+          turnIndicatorText?.textRenderer = TextPaint(
+            style: TextStyle(
+              fontFamily: 'Montserrat',
+              color: Colors.orangeAccent,
+              fontSize: fontSize,
+              fontWeight: FontWeight.normal,
+            ),
+          );
+        } else {
+          turnIndicatorText?.text = '';
+        }
+      }
+      return;
+    }
+
+    if (isMyTurn) {
+      turnIndicatorText?.text = '🎯 YOUR TURN';
+      turnIndicatorText?.textRenderer = TextPaint(
+        style: TextStyle(
+          fontFamily: 'Montserrat', 
+          color: AppColors.primaryNavyLight,
+          fontSize: largeFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else if (currentTurnPlayerId.isNotEmpty) {
+      final currentPlayer = otherPlayers[currentTurnPlayerId];
+      if (currentPlayer != null) {
+        turnIndicatorText?.text = '⏳ ${currentPlayer.username}\'s turn';
+        turnIndicatorText?.textRenderer = TextPaint(
+          style: TextStyle(
+            fontFamily: 'Montserrat',
+            color: Colors.orangeAccent,
+            fontSize: largeFontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      } else {
+        turnIndicatorText?.text = '';
+      }
+    } else if (gameState == GameState.dealerTurn) {
+      turnIndicatorText?.text = '🎰 Dealer\'s Turn';
+      turnIndicatorText?.textRenderer = TextPaint(
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          color: Colors.redAccent,
+          fontSize: largeFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else {
+      turnIndicatorText?.text = '';
+    }
+  }
+
+  void _updateGameResult(String result, {bool isWin = false}) {
+    gameResultText?.text = result;
+    
+    Color resultColor = AppColors.textPrimary;
+    if (result.toLowerCase().contains('win') || result.toLowerCase().contains('blackjack')) {
+      resultColor = AppColors.primaryNavyLight;
+    } else if (result.toLowerCase().contains('push')) {
+      resultColor = Colors.yellow;
+    } else if (result.toLowerCase().contains('dealer') || result.toLowerCase().contains('bust')) {
+      resultColor = Colors.red;
+    }
+
+    gameResultText?.textRenderer = TextPaint(
+      style: TextStyle(
+        fontFamily: 'Montserrat',
+        color: resultColor,
+        fontSize: fontSize,
+        fontWeight: FontWeight.normal,
+      ),
+    );
+  }
+
+  void _updateRoomInfo() {
+    roomInfoText?.text = '${roomId.substring(0, 8)}...';
+    playerCountText?.text = '$playerCount/$maxPlayers';
   }
 
   @override
@@ -180,8 +515,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     );
     debugPrint('✅ Bet sent to server');
 
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
     debugPrint('✅ confirmBetFromMenu completed');
   }
 
@@ -264,9 +599,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       // NOW set game state (callback will fire with correct isMyTurn)
       _setGameState(GameState.betting);
       
-      _updateHUDTexts();
-      hud.updateHudVisibility();
-      hud.updateTurnIndicator();
+      _updateTexts();
+      _updateButtonVisibility();
+      _updateTurnIndicator();
     });
 
     _gameStartingSub = socketService.onGameStarting.listen((data) {
@@ -287,9 +622,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       // NOW set the game state (callback will fire with correct isMyTurn value)
       _setGameState(GameState.betting);
       
-      hud.updateHudVisibility();
-      hud.updateTurnIndicator();
-      _updateHUDTexts();
+      _updateButtonVisibility();
+      _updateTurnIndicator();
+      _updateTexts();
     });
   }
 
@@ -370,8 +705,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     onGameStateChanged?.call(gameState);
     debugPrint('   Callback triggered for turn change');
     
-    hud.updateHudVisibility();
-    hud.updateTurnIndicator();
+    _updateButtonVisibility();
+    _updateTurnIndicator();
   }
 
   void _handleAllBetsPlaced(Map<String, dynamic> data) {
@@ -379,7 +714,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     allBetsPlaced = true;
     
     // Enable start button for host
-    hud.updateHudVisibility();
+    _updateButtonVisibility();
   }
 
   void _handleRoundStarted(Map<String, dynamic> data) {
@@ -457,9 +792,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
 
     _updateCardsPositions();
-    _updateHUDTexts();
-    hud.updateHudVisibility();
-    hud.updateTurnIndicator();
+    _updateTexts();
+    _updateButtonVisibility();
+    _updateTurnIndicator();
     
     debugPrint('🎮 Round started complete. Cards rendered: ${myCards.length + dealerCards.length}');
   }
@@ -477,7 +812,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
 
     _updateCardsPositions();
-    _updateHUDTexts();
+    _updateTexts();
   }
 
   void _addCardToMyHand(Map<String, dynamic> cardData, bool hidden) {
@@ -569,12 +904,12 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     
     if (userId == user.id) {
       gameResult = 'Busted!';
-      hud.updateGameResult(gameResult);
+      _updateGameResult(gameResult);
     } else if (otherPlayers.containsKey(userId)) {
       otherPlayers[userId]!.setStatus('Busted');
     }
     
-    _updateHUDTexts();
+    _updateTexts();
   }
 
   void _handlePlayerStood(Map<String, dynamic> data) {
@@ -603,9 +938,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       _setGameState(GameState.dealerTurn);
     }
     
-    hud.updateHudVisibility();
-    hud.updateTurnIndicator();
-    _updateHUDTexts();
+    _updateButtonVisibility();
+    _updateTurnIndicator();
+    _updateTexts();
   }
 
   void _handleDealerReveal(Map<String, dynamic> data) {
@@ -619,8 +954,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       }
     }
     
-    hud.updateTurnIndicator();
-    _updateHUDTexts();
+    _updateTurnIndicator();
+    _updateTexts();
   }
 
   void _handleDealerCard(Map<String, dynamic> data) {
@@ -630,7 +965,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     
     _addCardToDealerHand(cardData, false);
     _updateCardsPositions();
-    _updateHUDTexts();
+    _updateTexts();
   }
 
   void _handleRoundEnded(Map<String, dynamic> data) {
@@ -694,15 +1029,15 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       add(popup);
       
       // Also update the regular HUD text for consistency
-      //hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
+      //_updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
       
       _syncBankrollToDatabase();
     }
     
     currentBet = 0;
     _clearBetChips();
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
   }
 
   Future<void> _syncBankrollToDatabase() async {
@@ -746,7 +1081,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     
     if (userId == user.id) {
       gameResult = 'BLACKJACK!';
-      hud.updateGameResult(gameResult, isWin: true);
+      _updateGameResult(gameResult, isWin: true);
     } else if (otherPlayers.containsKey(userId)) {
       otherPlayers[userId]!.setStatus('Blackjack!');
     }
@@ -840,8 +1175,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     final target = _computeChipPosition(stagedChips.length - 1, stagedCenter);
     chip.position = target;
 
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
   }
 
   @override
@@ -863,8 +1198,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       stagedChips[i].position = _computeChipPosition(i, stagedCenter);
     }
 
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
   }
 
   Future<void> confirmStagedToPot() async {
@@ -893,8 +1228,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
 
     stagedBet = 0;
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
   }
 
   void cancelStaged() {
@@ -906,8 +1241,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     }
     stagedChips.clear();
     stagedBet = 0;
-    _updateHUDTexts();
-    hud.updateHudVisibility();
+    _updateTexts();
+    _updateButtonVisibility();
   }
 
   void _clearBetChips() {
@@ -1015,9 +1350,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       player.setStatus('Waiting');
     }
 
-    _updateHUDTexts();
-    hud.updateHudVisibility();
-    hud.updateTurnIndicator();
+    _updateTexts();
+    _updateButtonVisibility();
+    _updateTurnIndicator();
   }
 
   void leaveRoom() {
@@ -1091,25 +1426,25 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     return value;
   }
 
-  void _updateHUDTexts() {
+  void _updateTexts() {
     if (!_hudInit) return;
-
+    // Trigger screen update for bankroll in AppBar
     onGameStateChanged?.call(gameState);
 
-    hud.betText?.text = 'Bet: £${currentBet.toStringAsFixed(0)} | Staged: £${stagedBet.toStringAsFixed(0)}';
+    betText?.text = 'Bet: £${currentBet.toStringAsFixed(0)}';
     
-    hud.updateRoomInfo(roomId, playerCount, maxPlayers);
+    _updateRoomInfo();
 
     if (myHand.isNotEmpty) {
-      hud.myHandText?.text = 'Player Hand: ${_handValue(myHand)}';
+      myHandText?.text = 'Player Hand: ${_handValue(myHand)}';
     } else {
-      hud.myHandText?.text = 'Player Hand';
+      myHandText?.text = 'Player Hand';
     }
 
     if (dealerHand.isNotEmpty && gameState != GameState.playing) {
-      hud.dealerHandText?.text = 'Dealer Hand: ${_handValue(dealerHand)}';
+      dealerHandText?.text = 'Dealer Hand: ${_handValue(dealerHand)}';
     } else {
-      hud.dealerHandText?.text = 'Dealer Hand';
+      dealerHandText?.text = 'Dealer Hand';
     }
   }
 

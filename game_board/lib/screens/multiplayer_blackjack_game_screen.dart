@@ -161,7 +161,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
         }
 
         _game.playerCount = players.length;
-        _game.hud.updateRoomInfo(widget.roomId, players.length, _game.maxPlayers);
       }
     });
 
@@ -179,7 +178,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
 
           _game.removeOtherPlayer(data['userId']);
           _game.playerCount = players.length;
-          _game.hud.updateRoomInfo(widget.roomId, players.length, _game.maxPlayers);
         } else {
           _showMessage('Room was closed');
           _leaveRoom();
@@ -467,6 +465,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                     ),
                   ],
                 ),
+
               ),
             ],
           ),
