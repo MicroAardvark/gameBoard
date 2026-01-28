@@ -809,10 +809,10 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     // In multiplayer, we use the side menu for betting, so NEVER show chip palette
     // Keep chips hidden at all times
     for (final chip in paletteChips) {
-      if (chip.isMounted) {
-        chip.removeFromParent();
-      }
+    if (chip.isMounted) {
+      chip.removeFromParent();
     }
+  }
   }
 
   // ===========================================
@@ -1094,7 +1094,8 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   void _updateHUDTexts() {
     if (!_hudInit) return;
 
-    hud.bankrollText?.text = 'Bankroll: £${bankroll.toStringAsFixed(0)}';
+    onGameStateChanged?.call(gameState);
+
     hud.betText?.text = 'Bet: £${currentBet.toStringAsFixed(0)} | Staged: £${stagedBet.toStringAsFixed(0)}';
     
     hud.updateRoomInfo(roomId, playerCount, maxPlayers);
