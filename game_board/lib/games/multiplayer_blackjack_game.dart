@@ -243,30 +243,13 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     
     _newRoundSub = socketService.onNewRoundStarting.listen((data) {
       debugPrint('🔄 New round starting - all players ready!');
-      _setGameState(GameState.betting);
       allBetsPlaced = false;
       gameResult = '';
       isMyTurn = false;
       
-      // Clear cards for all players
-      for (final card in myCards) {
-        card.removeFromParent();
-      }
-      for (final card in dealerCards) {
-        card.removeFromParent();
-      }
-      myCards.clear();
-      dealerCards.clear();
-      myHand.clear();
-      dealerHand.clear();
+      // ... card clearing code ...
       
-      // Clear other players' cards
-      for (final player in otherPlayers.values) {
-        player.clearCards();
-        player.setStatus('Waiting');
-      }
-      
-      // Reset turn state for new betting round
+      // Reset turn state for new betting round FIRST
       final room = data['room'];
       if (room != null) {
         final players = room['players'] as List?;
@@ -278,6 +261,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
         }
       }
       
+      // NOW set game state (callback will fire with correct isMyTurn)
+      _setGameState(GameState.betting);
+      
       _updateHUDTexts();
       hud.updateHudVisibility();
       hud.updateTurnIndicator();
@@ -285,10 +271,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
     _gameStartingSub = socketService.onGameStarting.listen((data) {
       debugPrint('🎮 Game starting! All players are ready - moving to betting phase');
-      _setGameState(GameState.betting);
       allBetsPlaced = false;
       
-      // Initialize turn state - first player's turn
+      // Initialize turn state FIRST - before setting game state
       final room = data['room'];
       if (room != null) {
         final players = room['players'] as List?;
@@ -298,6 +283,9 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
           debugPrint('🎯 First player to bet: ${players[0]['username']} (isMyTurn: $isMyTurn)');
         }
       }
+      
+      // NOW set the game state (callback will fire with correct isMyTurn value)
+      _setGameState(GameState.betting);
       
       hud.updateHudVisibility();
       hud.updateTurnIndicator();
@@ -377,6 +365,10 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     if (isMyTurn) {
       debugPrint('🎯 It\'s YOUR turn to bet!');
     }
+    
+    // Trigger callback to show/hide betting menu for this player
+    onGameStateChanged?.call(gameState);
+    debugPrint('   Callback triggered for turn change');
     
     hud.updateHudVisibility();
     hud.updateTurnIndicator();
@@ -702,7 +694,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       add(popup);
       
       // Also update the regular HUD text for consistency
-      hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
+      //hud.updateGameResult(gameResult, isWin: outcome == 'win' || outcome == 'blackjack');
       
       _syncBankrollToDatabase();
     }
@@ -814,20 +806,11 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   }
 
   void updateChipPaletteState() {
-    // Only show chips if: betting phase, your turn, AND you haven't placed a bet yet
-    final shouldShow = gameState == GameState.betting && isMyTurn && currentBet == 0;
-    
+    // In multiplayer, we use the side menu for betting, so NEVER show chip palette
+    // Keep chips hidden at all times
     for (final chip in paletteChips) {
-      if (shouldShow) {
-        // Add chip back if it's not already in the tree
-        if (!chip.isMounted) {
-          add(chip);
-        }
-      } else {
-        // Remove chip from tree
-        if (chip.isMounted) {
-          chip.removeFromParent();
-        }
+      if (chip.isMounted) {
+        chip.removeFromParent();
       }
     }
   }

@@ -82,7 +82,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       }
     });
   }
-
+  
   void _initializeGame() {
     _game = MultiplayerBlackjackGame(
       user: widget.user,
@@ -386,6 +386,176 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
         return false;
       },
       child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 30,
+          backgroundColor: AppColors.primaryNavyDark,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back,
+              color: AppColors.textPrimary,
+              size: 20,
+            ),
+            onPressed: () async {
+              final shouldLeave = await _showLeaveConfirmation();
+              if (shouldLeave) {
+                _leaveRoom();
+              }
+            },
+          ),
+          title: Row(
+            children: [
+              // Connection indicator
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isConnected ? AppColors.success : Colors.red,
+                  boxShadow: [
+                    if (_isConnected)
+                      BoxShadow(
+                        color: AppColors.primaryNavyLight.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              // Status text
+              Expanded(
+                child: Text(
+                  _statusMessage,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: 8),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryNavyLight.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.amber.withValues(alpha: 0.6),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.amber,
+                      size: 14,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '£${_game.bankroll.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: AppColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // Player count badge
+            Container(
+              margin: EdgeInsets.only(right: 12),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.5),
+                  width: 2,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people,
+                    color: Colors.amber,
+                    size: 18,
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    '${_players.length}/${_game.maxPlayers}',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Chat button with unread badge
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.chat_bubble,
+                    color: AppColors.textPrimary,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _showChat = true;
+                      _unreadMessages = 0;
+                    });
+                  },
+                  tooltip: 'Open Chat',
+                ),
+                // Unread badge
+                if (_unreadMessages > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.textPrimary,
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        _unreadMessages > 9 ? '9+' : '$_unreadMessages',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: AppColors.textPrimary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
         body: Stack(
           children: [
             // Game widget
@@ -421,182 +591,6 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                   ),
                 ),
               ),
-
-            // Top bar with back button, status, and chat button
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: SafeArea(
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: leftPadding,
-                    vertical: topPadding,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryNavyDark,
-                  ),
-                  child: Row(
-                    children: [
-                      // Back button
-                      IconButton(
-                        icon: Icon(
-                          Icons.arrow_back,
-                          color: AppColors.textPrimary,
-                          size: buttonSize * 0.7,
-                        ),
-                        onPressed: () async {
-                          final shouldLeave = await _showLeaveConfirmation();
-                          if (shouldLeave) {
-                            _leaveRoom();
-                          }
-                        },
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.5),
-                          padding: EdgeInsets.all(buttonSize * 0.25),
-                        ),
-                      ),
-                      
-                      SizedBox(width: 12),
-                      
-                      // Connection indicator
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _isConnected ? AppColors.primaryNavyLight : Colors.red,
-                          boxShadow: [
-                            if (_isConnected)
-                              BoxShadow(
-                                color: AppColors.primaryNavyLight.withValues(alpha: 0.5),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                              ),
-                          ],
-                        ),
-                      ),
-                      
-                      SizedBox(width: 8),
-                      
-                      // Status text
-                      Expanded(
-                        child: Text(
-                          _statusMessage,
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            color: AppColors.textPrimary,
-                            fontSize: buttonSize * 0.35,
-                            fontWeight: FontWeight.w600,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 4,
-                                color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
-                              ),
-                            ],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      
-                      // Player count badge
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.amber.withValues(alpha: 0.5),
-                            width: 2,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.people,
-                              color: Colors.amber,
-                              size: buttonSize * 0.4,
-                            ),
-                            SizedBox(width: 6),
-                            Text(
-                              '${_players.length}/${_game.maxPlayers}',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                color: AppColors.textPrimary,
-                                fontSize: buttonSize * 0.35,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      
-                      SizedBox(width: 12),
-                      
-                      // Chat button with unread badge
-                      Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.chat_bubble,
-                              color: AppColors.textPrimary,
-                              size: buttonSize * 0.6,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _showChat = true;
-                                _unreadMessages = 0;
-                              });
-                            },
-                            style: IconButton.styleFrom(
-                              backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.5),
-                              padding: EdgeInsets.all(buttonSize * 0.25),
-                            ),
-                            tooltip: 'Open Chat',
-                          ),
-                          // Unread badge
-                          if (_unreadMessages > 0)
-                            Positioned(
-                              right: 6,
-                              top: 6,
-                              child: Container(
-                                padding: EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.textPrimary,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                constraints: BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Text(
-                                  _unreadMessages > 9 ? '9+' : '$_unreadMessages',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    color: AppColors.textPrimary,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
 
             // Connection lost overlay
             if (!_isConnected && !_initialConnectionCheck)
