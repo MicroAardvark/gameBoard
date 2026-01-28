@@ -338,7 +338,7 @@ class AuthService {
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/forgot-password'),
+        Uri.parse('$baseUrl/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email}),
       );
