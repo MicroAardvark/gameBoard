@@ -1,6 +1,6 @@
 // ====================================
 // lib/ui/multiplayer_hud.dart
-// HUD for multiplayer blackjack game - WITH TURN-BASED BETTING SUPPORT
+// HUD for multiplayer blackjack game - WITH BETTING SIDE MENU SUPPORT
 // ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
@@ -172,7 +172,7 @@ class MultiplayerHudManager {
           game.startRound();
         },
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
-      // Confirm button in middle (index 1)
+      // Confirm button in middle (index 1) - NOW HIDDEN, using side menu instead
       GameButton(
         position: Vector2(leftButtonX, startY + buttonSpacing),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -181,7 +181,7 @@ class MultiplayerHudManager {
           await game.confirmStagedToPot();
         },
       )..priority = MultiplayerBlackjackGame.layerHudPanel + 1,
-      // Cancel button at bottom (index 2)
+      // Cancel button at bottom (index 2) - NOW HIDDEN, using side menu instead
       GameButton(
         position: Vector2(leftButtonX, startY + buttonSpacing * 2),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -275,7 +275,7 @@ class MultiplayerHudManager {
   }
 
   // ===========================================
-  // Update HUD Visibility Based on Game State - WITH TURN-BASED BETTING
+  // Update HUD Visibility Based on Game State - WITH BETTING SIDE MENU
   // ===========================================
   void updateHudVisibility() {
     final g = game;
@@ -290,7 +290,7 @@ class MultiplayerHudManager {
       gameResultText?.text = '';
     } 
     else if (g.gameState == GameState.betting) {
-      _showOnlyButtons(_bettingBtns);
+      // UPDATED: Using side menu for betting, so only show Start button for host
       waitingStatusText?.removeFromParent();
       
       // Show turn indicator during betting phase
@@ -300,17 +300,13 @@ class MultiplayerHudManager {
       
       gameResultText?.text = '';
       
-      if (_bettingBtns.length >= 3) {
-        // Start button (index 0) - only for host, only when all bets placed
-        _bettingBtns[0].isEnabled = g.currentBet > 0 && g.isHost && g.allBetsPlaced;
-        _bettingBtns[0].hidden = !g.isHost;
-        
-        // 🔧 FIX: Confirm button (index 1) - ONLY when it's your turn AND you have staged chips
-        _bettingBtns[1].isEnabled = g.stagedBet > 0 && g.isMyTurn;
-  
-        // Cancel button (index 2)
-        _bettingBtns[2].isEnabled = g.stagedBet > 0;
-        _bettingBtns[2].hidden = g.stagedBet <= 0;
+      // Only show Start button when host and all bets are placed
+      if (g.isHost && g.allBetsPlaced && _bettingBtns.isNotEmpty) {
+        _showOnlyButtons([_bettingBtns[0]]); // Start button only
+        _bettingBtns[0].isEnabled = g.currentBet > 0;
+        _bettingBtns[0].hidden = false;
+      } else {
+        _showOnlyButtons(const []); // No buttons - use side menu
       }
     } 
     else if (g.gameState == GameState.playing) {

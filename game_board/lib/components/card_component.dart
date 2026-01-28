@@ -21,8 +21,9 @@ class CardComponent extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    // FIXED: Use Offset.zero because Anchor.center means (0,0) is at center
     final rect = Rect.fromCenter(
-      center: Offset(size.x / 2, size.y / 2),
+      center: Offset.zero,  // CHANGED from Offset(size.x / 2, size.y / 2)
       width: size.x,
       height: size.y,
     );
@@ -45,7 +46,7 @@ class CardComponent extends PositionComponent {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawCircle(
-        Offset(size.x / 2, size.y / 2),
+        Offset.zero,  // CHANGED from Offset(size.x / 2, size.y / 2)
         size.x * 0.3,
         patternPaint,
       );
@@ -61,18 +62,22 @@ class CardComponent extends PositionComponent {
       canvas.drawRRect(rrect, borderPaint);
 
       // Draw rank and suit
-      final textStyle = TextStyle(fontFamily: 'Inter', 
+      final textStyle = TextStyle(
+        fontFamily: 'Inter', 
         color: card.suitColor,
         fontSize: size.y * 0.25,
         fontWeight: FontWeight.bold,
       );
 
-      // Top left corner
+      // Top left corner - FIXED: Offset from center
       final topLeftPainter = TextPainter(
         text: TextSpan(text: card.display, style: textStyle),
         textDirection: TextDirection.ltr,
       )..layout();
-      topLeftPainter.paint(canvas, Offset(size.x * 0.1, size.y * 0.1));
+      topLeftPainter.paint(
+        canvas, 
+        Offset(-size.x * 0.4, -size.y * 0.4)  // CHANGED from Offset(size.x * 0.1, size.y * 0.1)
+      );
 
       // Center (larger)
       final centerStyle = textStyle.copyWith(fontSize: size.y * 0.35);
@@ -83,14 +88,14 @@ class CardComponent extends PositionComponent {
       centerPainter.paint(
         canvas,
         Offset(
-          size.x / 2 - centerPainter.width / 2,
-          size.y / 2 - centerPainter.height / 2,
+          -centerPainter.width / 2,   // CHANGED: Center relative to (0,0)
+          -centerPainter.height / 2,
         ),
       );
 
-      // Bottom right corner (rotated)
+      // Bottom right corner (rotated) - FIXED: Offset from center
       canvas.save();
-      canvas.translate(size.x * 0.9, size.y * 0.9);
+      canvas.translate(size.x * 0.4, size.y * 0.4);  // CHANGED from (size.x * 0.9, size.y * 0.9)
       canvas.rotate(3.14159); // 180 degrees
       final bottomRightPainter = TextPainter(
         text: TextSpan(text: card.display, style: textStyle),

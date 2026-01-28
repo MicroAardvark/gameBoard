@@ -1,6 +1,6 @@
 // ====================================
 // lib/screens/blackjack_screen.dart
-// Single-player Blackjack screen with betting side menu integration
+// Single-player Blackjack screen with betting side menu integration - FIXED
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +22,8 @@ class BlackjackScreen extends StatefulWidget {
 
 class _BlackjackScreenState extends State<BlackjackScreen> {
   late final BlackjackGame _game;
-  bool _showBettingMenu = false;
+  bool _showBettingMenu = false;  // CHANGED: Start false
+  bool _gameLoaded = false;       // NEW: Track if game is loaded
   GameState _gameState = GameState.betting;
 
   @override
@@ -33,16 +34,26 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
       onGameStateChanged: _handleGameStateChanged,
     );
     
-    // Show betting menu initially since we start in betting state
-    _showBettingMenu = true;
+    // NEW: Wait for game to load before showing betting menu
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _gameLoaded = true;
+          // Only show betting menu if we're still in betting state
+          if (_gameState == GameState.betting) {
+            _showBettingMenu = true;
+          }
+        });
+      }
+    });
   }
 
   void _handleGameStateChanged(GameState newState) {
     if (mounted) {
       setState(() {
         _gameState = newState;
-        // Show betting menu only during betting state
-        _showBettingMenu = (newState == GameState.betting);
+        // Show betting menu only during betting state AND if game is loaded
+        _showBettingMenu = (_gameLoaded && newState == GameState.betting);
       });
     }
   }
@@ -51,10 +62,8 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
     // Confirm the bet in the game
     _game.confirmBetAndStart(betAmount);
     
-    // Hide the betting menu
-    setState(() {
-      _showBettingMenu = false;
-    });
+    // REMOVED: Don't manually hide - let onGameStateChanged handle it via callback
+    // The game state change will trigger _handleGameStateChanged which will hide the menu
   }
 
   void _handleBettingMenuClosed() {
@@ -94,8 +103,8 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
                 },
                 child: BettingSideMenu(
                   currentBankroll: _game.bankroll,
-                  minimumBet: 10.0, // Optional: Set minimum bet
-                  maximumBet: 500.0, // Optional: Set maximum bet
+                  minimumBet: 10.0,
+                  maximumBet: 500.0,
                   onConfirm: _handleBetConfirmed,
                   onClose: _handleBettingMenuClosed,
                 ),

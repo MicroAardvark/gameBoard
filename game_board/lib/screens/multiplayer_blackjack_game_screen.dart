@@ -1,14 +1,16 @@
 // ====================================
 // lib/screens/multiplayer_blackjack_game_screen.dart
-// Multiplayer blackjack game screen - COMPLETE with ALL features + CHAT
+// Multiplayer blackjack game screen - WITH BETTING SIDE MENU
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../games/multiplayer_blackjack_game.dart';
 import '../models/user.dart';
+import '../models/enums.dart'; // NEW: For GameState
 import '../services/socket_service.dart';
-import '../widgets/chat_overlay.dart'; // NEW: Chat import
+import '../widgets/chat_overlay.dart';
+import '../widgets/betting_side_menu.dart'; // NEW: Betting menu import
 import '../theme/app_theme.dart';
 
 class MultiplayerBlackjackGameScreen extends StatefulWidget {
@@ -39,20 +41,22 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   StreamSubscription? _errorSub;
   StreamSubscription? _connectionSub;
   StreamSubscription? _insuranceOfferedSub;
-  StreamSubscription? _chatMessageSub; // NEW: Chat subscription
+  StreamSubscription? _chatMessageSub;
 
   // UI State
   bool _isConnected = false;
   String _statusMessage = 'Connecting...';
   List<Map<String, dynamic>> _players = [];
-  
-  // Connection dialog control flags
   bool _hasShownConnectionDialog = false;
   bool _initialConnectionCheck = true;
   
-  // NEW: Chat state
+  // Chat state
   bool _showChat = false;
   int _unreadMessages = 0;
+  
+  // NEW: Betting menu state
+  bool _showBettingMenu = false;
+  GameState _gameState = GameState.waiting;
 
   @override
   void initState() {
@@ -84,8 +88,37 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       user: widget.user,
       roomId: widget.roomId,
       socketService: _socketService,
+      onGameStateChanged: _handleGameStateChanged, // NEW: Add callback
     );
     _game.isHost = widget.isHost;
+  }
+
+  // NEW: Handle game state changes to show/hide betting menu
+  void _handleGameStateChanged(GameState newState) {
+    debugPrint('🎮 [SCREEN] Game state changed to: $newState');
+    debugPrint('   Is my turn: ${_game.isMyTurn}');
+    debugPrint('   Current bet: ${_game.currentBet}');
+    
+    if (mounted) {
+      setState(() {
+        _gameState = newState;
+        // Show betting menu during betting phase if it's player's turn AND they haven't bet yet
+        _showBettingMenu = (newState == GameState.betting && _game.isMyTurn && _game.currentBet == 0);
+      });
+      
+      debugPrint('   Show betting menu: $_showBettingMenu');
+    }
+  }
+
+  // NEW: Handle bet confirmation from side menu
+  void _handleBetConfirmed(double betAmount) {
+    debugPrint('💰 [SCREEN] Bet confirmed from side menu: £$betAmount');
+    _game.confirmBetFromMenu(betAmount);
+    
+    // Hide menu immediately
+    setState(() {
+      _showBettingMenu = false;
+    });
   }
 
   void _setupSocketListeners() {
@@ -193,7 +226,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
       }
     });
     
-    // NEW: Chat messages (for unread badge)
+    // Chat messages (for unread badge)
     _chatMessageSub = _socketService.onChatMessage.listen((data) {
       if (!_showChat && mounted) {
         setState(() {
@@ -221,7 +254,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
           children: [
             Text(
               'Dealer is showing an Ace.',
-              style: TextStyle(fontFamily: 'Inter',fontWeight: FontWeight.bold, fontSize: 16),
+              style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.bold, fontSize: 16),
             ),
             SizedBox(height: 12),
             Text('Would you like to take insurance?', style: Theme.of(context).textTheme.bodyMedium),
@@ -333,7 +366,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     _errorSub?.cancel();
     _connectionSub?.cancel();
     _insuranceOfferedSub?.cancel();
-    _chatMessageSub?.cancel(); // NEW: Cancel chat subscription
+    _chatMessageSub?.cancel();
     super.dispose();
   }
 
@@ -358,7 +391,38 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
             // Game widget
             GameWidget(game: _game),
 
-            // NEW: Top bar with back button, status, and CHAT BUTTON
+            // NEW: Betting side menu (slides in from left)
+            if (_showBettingMenu)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: -1.0, end: 0.0),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  builder: (context, value, child) {
+                    return Transform.translate(
+                      offset: Offset(value * (size.width * 0.35), 0),
+                      child: child,
+                    );
+                  },
+                  child: BettingSideMenu(
+                    currentBankroll: _game.bankroll,
+                    minimumBet: 10.0,
+                    maximumBet: 500.0,
+                    onConfirm: _handleBetConfirmed,
+                    onClose: () {
+                      // Optional: Allow closing without betting
+                      setState(() {
+                        _showBettingMenu = false;
+                      });
+                    },
+                  ),
+                ),
+              ),
+
+            // Top bar with back button, status, and chat button
             Positioned(
               top: 0,
               left: 0,
@@ -473,7 +537,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                       
                       SizedBox(width: 12),
                       
-                      // NEW: Chat button with unread badge
+                      // Chat button with unread badge
                       Stack(
                         alignment: Alignment.center,
                         children: [
@@ -590,7 +654,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                 ),
               ),
             
-            // NEW: Chat overlay (shown when chat button is pressed)
+            // Chat overlay (shown when chat button is pressed)
             if (_showChat)
               ChatOverlay(
                 roomId: widget.roomId,

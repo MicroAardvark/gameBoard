@@ -24,11 +24,13 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   final User user;
   final String roomId;
   final SocketService socketService;
+  final Function(GameState)? onGameStateChanged;
 
   MultiplayerBlackjackGame({
     required this.user,
     required this.roomId,
     required this.socketService,
+    this.onGameStateChanged,
   });
 
   // Layer priorities
@@ -136,6 +138,94 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     super.onRemove();
   }
 
+    // ===========================================
+  // GAME STATE MANAGEMENT WITH CALLBACK
+  // ===========================================
+  
+  void _setGameState(GameState newState) {
+    gameState = newState;
+    onGameStateChanged?.call(newState);
+  }
+
+  void confirmBetFromMenu(double betAmount) {
+    debugPrint('💰 [GAME] confirmBetFromMenu called');
+    debugPrint('   Bet amount: £$betAmount');
+    debugPrint('   Current bankroll: £$bankroll');
+    debugPrint('   Is my turn: $isMyTurn');
+    
+    if (!isMyTurn || gameState != GameState.betting) {
+      debugPrint('❌ Not your turn or not in betting phase');
+      return;
+    }
+    
+    if (betAmount <= 0 || betAmount > bankroll) {
+      debugPrint('❌ Invalid bet amount');
+      return;
+    }
+    
+    bankroll -= betAmount;
+    currentBet = betAmount;
+    
+    debugPrint('✅ Bet accepted');
+    debugPrint('   New bankroll: £$bankroll');
+    debugPrint('   Current bet: £$currentBet');
+
+    _createBetChipsVisual(betAmount);
+    debugPrint('✅ Chips created: ${betChips.length}');
+    
+    socketService.placeBet(
+      roomId: roomId,
+      userId: user.id,
+      betAmount: currentBet,
+    );
+    debugPrint('✅ Bet sent to server');
+
+    _updateHUDTexts();
+    hud.updateHudVisibility();
+    debugPrint('✅ confirmBetFromMenu completed');
+  }
+
+  void _createBetChipsVisual(double totalBet) {
+    _clearBetChips();
+
+    double remaining = totalBet;
+    final List<double> chipsToCreate = [];
+
+    for (int i = chipValues.length - 1; i >= 0; i--) {
+      final chipValue = chipValues[i];
+      while (remaining >= chipValue) {
+        chipsToCreate.add(chipValue);
+        remaining -= chipValue;
+      }
+    }
+
+    for (int i = 0; i < chipsToCreate.length; i++) {
+      final chipValue = chipsToCreate[i];
+      final chip = BetChip(
+        position: _computeChipPosition(i, bettingCenter),
+        value: chipValue,
+        color: _getChipColor(chipValue),
+      )..priority = layerChips;
+      
+      betChips.add(chip);
+      add(chip);
+    }
+  }
+
+  Color _getChipColor(double value) {
+    switch (value.toInt()) {
+      case 1: return const Color(0xFFE0E0E0);
+      case 5: return Colors.red;
+      case 10: return Colors.blue;
+      case 25: return AppColors.primaryNavyLight;
+      case 50: return Colors.purple;
+      case 100: return AppColors.primaryNavyDark;
+      default: return Colors.grey;
+    }
+  }
+  
+  
+  
   // ===========================================
   // SOCKET EVENT HANDLING
   // ===========================================
@@ -153,7 +243,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
     
     _newRoundSub = socketService.onNewRoundStarting.listen((data) {
       debugPrint('🔄 New round starting - all players ready!');
-      gameState = GameState.betting;
+      _setGameState(GameState.betting);
       allBetsPlaced = false;
       gameResult = '';
       isMyTurn = false;
@@ -195,7 +285,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
 
     _gameStartingSub = socketService.onGameStarting.listen((data) {
       debugPrint('🎮 Game starting! All players are ready - moving to betting phase');
-      gameState = GameState.betting;
+      _setGameState(GameState.betting);
       allBetsPlaced = false;
       
       // Initialize turn state - first player's turn
@@ -303,7 +393,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   void _handleRoundStarted(Map<String, dynamic> data) {
     debugPrint('🎲 Round started!');
     
-    gameState = GameState.playing;
+    _setGameState(GameState.playing);
     allBetsPlaced = false;
     final room = data['room'];
     final gameData = room['gameState']['data'];
@@ -518,7 +608,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       debugPrint('➡️ Next turn: ${players[currentIndex]['username']}');
     } else {
       isMyTurn = false;
-      gameState = GameState.dealerTurn;
+      _setGameState(GameState.dealerTurn);
     }
     
     hud.updateHudVisibility();
@@ -529,7 +619,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   void _handleDealerReveal(Map<String, dynamic> data) {
     debugPrint('👁️ Dealer reveals hidden card');
     
-    gameState = GameState.dealerTurn;
+    _setGameState(GameState.dealerTurn);
     
     for (final cardComp in dealerCards) {
       if (cardComp.isHidden) {
@@ -554,7 +644,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
   void _handleRoundEnded(Map<String, dynamic> data) {
     debugPrint('🏁 Round ended!');
     
-    gameState = GameState.gameOver;
+    _setGameState(GameState.gameOver);
     final results = data['results'];
     
     if (results.containsKey(user.id)) {
@@ -921,7 +1011,7 @@ class MultiplayerBlackjackGame extends FlameGame implements ChipGameInterface {
       userId: user.id,
     );
     
-    gameState = GameState.betting;
+    _setGameState(GameState.betting);
     gameResult = '';
     isMyTurn = false;
     allBetsPlaced = false;

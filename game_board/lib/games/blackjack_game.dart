@@ -1,6 +1,6 @@
 // ====================================
 // lib/games/blackjack_game.dart
-// Single-player blackjack game with betting side menu support - UPDATED
+// Single-player blackjack game with betting side menu support - UPDATED WITH DEBUG LOGGING
 // ====================================
 import 'dart:math';
 import 'package:flame/game.dart';
@@ -92,32 +92,64 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   Future<void> onLoad() async {
     await super.onLoad();
 
+    debugPrint('🎮 [BLACKJACK] onLoad() started');
+    
     deck = CardDeck();
+    debugPrint('🎮 [BLACKJACK] Deck created');
+    
     hud = HudManager(this);
     await hud.setupHUD();
+    debugPrint('🎮 [BLACKJACK] HUD setup complete');
 
     _setupChips();
+    debugPrint('🎮 [BLACKJACK] Chips setup complete');
+    
     _buildCachedPaintsAndShaders();
+    debugPrint('🎮 [BLACKJACK] Paints/shaders built');
+    
     _updateHUDTexts();
     _hudInit = true;
+    
+    debugPrint('🎮 [BLACKJACK] onLoad() completed - Game ready!');
   }
 
   // NEW: Method to confirm bet directly from side menu and start game
   void confirmBetAndStart(double betAmount) {
-    if (betAmount <= 0 || betAmount > bankroll) return;
+    // ADD DEBUG LOGGING
+    debugPrint('🎰 confirmBetAndStart called');
+    debugPrint('   Bet amount: £$betAmount');
+    debugPrint('   Current bankroll: £$bankroll');
+    debugPrint('   Current bet: £$currentBet');
+    debugPrint('   HUD initialized: $_hudInit');
+    debugPrint('   Player cards count: ${playerCards.length}');
+    debugPrint('   Dealer cards count: ${dealerCards.length}');
+    
+    if (betAmount <= 0 || betAmount > bankroll) {
+      debugPrint('❌ Bet validation failed');
+      debugPrint('   betAmount <= 0: ${betAmount <= 0}');
+      debugPrint('   betAmount > bankroll: ${betAmount > bankroll}');
+      return;
+    }
     
     // Deduct from bankroll and set current bet
     bankroll -= betAmount;
     currentBet = betAmount;
+    
+    debugPrint('✅ Bet accepted');
+    debugPrint('   New bankroll: £$bankroll');
+    debugPrint('   Current bet: £$currentBet');
 
     // Create visual chips for the bet
     _createBetChipsVisual(betAmount);
+    debugPrint('✅ Chips created: ${betChips.length}');
 
     // Update HUD
     _updateHUDTexts();
     hud.updateHudVisibility();
+    debugPrint('✅ HUD updated');
 
     // Start the game
+    debugPrint('🎲 Calling startGame()...');
     startGame();
   }
 
@@ -299,26 +331,54 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
 
   // Game flow
   void startGame() {
-    if (currentBet <= 0) return;
+    debugPrint('🎲 startGame() called');
+    debugPrint('   Current bet: £$currentBet');
+    debugPrint('   Game state: $gameState');
     
+    if (currentBet <= 0) {
+      debugPrint('❌ Cannot start - no bet placed');
+      return;
+    }
+    
+    debugPrint('✅ Starting new round');
     gameState = GameState.playing;
     playerHand.clear();
     dealerHand.clear();
     gameResult = '';
 
+    debugPrint('🃏 Dealing initial cards...');
+    
     // Deal initial cards
     _dealCard(isPlayer: true);
+    debugPrint('   Player card 1 dealt');
+    
     _dealCard(isPlayer: false);
+    debugPrint('   Dealer card 1 dealt');
+    
     _dealCard(isPlayer: true);
+    debugPrint('   Player card 2 dealt');
+    
     _dealCard(isPlayer: false, hidden: true);
+    debugPrint('   Dealer card 2 dealt (hidden)');
+
+    debugPrint('✅ Cards dealt:');
+    debugPrint('   Player cards: ${playerCards.length}');
+    debugPrint('   Dealer cards: ${dealerCards.length}');
+    debugPrint('   Player hand: ${playerHand.map((c) => '${c.rank}${c.suit}').join(', ')}');
+    debugPrint('   Player hand value: ${_handValue(playerHand)}');
 
     _updateHUDTexts();
     hud.updateHudVisibility();
+    debugPrint('✅ HUD updated after deal');
+    
     _checkForBlackjack();
+    debugPrint('✅ startGame() completed');
   }
 
   void _dealCard({required bool isPlayer, bool hidden = false}) {
     final card = deck.drawCard();
+    
+    debugPrint('   Drawing card: ${card.rank}${card.suit} (hidden: $hidden, player: $isPlayer)');
     
     if (isPlayer) {
       playerHand.add(card);
@@ -330,6 +390,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
       )..priority = layerCards;
       playerCards.add(cardComp);
       add(cardComp);
+      debugPrint('   ✅ Player card component added to game');
     } else {
       dealerHand.add(card);
       final cardComp = CardComponent(
@@ -340,6 +401,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
       )..priority = layerCards;
       dealerCards.add(cardComp);
       add(cardComp);
+      debugPrint('   ✅ Dealer card component added to game');
     }
 
     _updateCardsPositions();
@@ -347,6 +409,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
 
   void _checkForBlackjack() {
     if (_handValue(playerHand) == 21 && playerHand.length == 2) {
+      debugPrint('🎉 BLACKJACK!');
       _endRound(RoundOutcome.playerBlackjack);
     }
   }
@@ -522,12 +585,16 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
 
     for (int i = 0; i < playerCards.length; i++) {
       final offset = (i - (playerCards.length - 1) / 2) * spacing;
-      playerCards[i].position = Vector2(screenWidth / 2 + offset, playerCardY);
+      final newPos = Vector2(screenWidth / 2 + offset, playerCardY);
+      playerCards[i].position = newPos;
+      debugPrint('   Player card $i positioned at: (${newPos.x}, ${newPos.y})');
     }
 
     for (int i = 0; i < dealerCards.length; i++) {
       final offset = (i - (dealerCards.length - 1) / 2) * spacing;
-      dealerCards[i].position = Vector2(screenWidth / 2 + offset, dealerCardY);
+      final newPos = Vector2(screenWidth / 2 + offset, dealerCardY);
+      dealerCards[i].position = newPos;
+      debugPrint('   Dealer card $i positioned at: (${newPos.x}, ${newPos.y})');
     }
   }
 
@@ -558,8 +625,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
-
+    // FIXED: Draw background FIRST, then render components on top
     canvas.drawRect(
       Rect.fromLTWH(0, 0, screenWidth, screenHeight),
       outerPaint,
@@ -568,6 +634,10 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     canvas.drawCircle(bettingCenter.toOffset(), potRadius, potFillPaint);
     canvas.drawCircle(bettingCenter.toOffset(), potRadius, innerBorderPaint);
 
+    // Now render all components (cards, chips, etc.) ON TOP of background
+    super.render(canvas);
+
+    // Finally draw HUD panel on top of everything
     if (hudGradientShader == null) {
       final rect = Rect.fromLTWH(
         0,
