@@ -5,8 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String baseUrl = 'https://microaardvark.co.uk/api/auth';
-  
-  // Sign Up
+
+  // =============================
+  // SIGN UP
+  // =============================
   static Future<Map<String, dynamic>> signUp({
     required String username,
     required String email,
@@ -25,11 +27,10 @@ class AuthService {
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        // Don't save token - user needs to verify email first
         return {
           'success': true,
           'message': data['message'],
-          'email': data['email']
+          'email': data['email'],
         };
       } else {
         final error = jsonDecode(response.body);
@@ -40,13 +41,14 @@ class AuthService {
     }
   }
 
-  // Log In
+  // =============================
+  // LOG IN
+  // =============================
   static Future<Map<String, dynamic>> logIn({
     required String email,
     required String password,
   }) async {
     try {
-      print("Attempting login for $email");
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
@@ -66,7 +68,7 @@ class AuthService {
           'success': false,
           'error': error['error'],
           'emailNotVerified': error['emailNotVerified'] ?? false,
-          'email': error['email']
+          'email': error['email'],
         };
       }
     } catch (e) {
@@ -74,6 +76,9 @@ class AuthService {
     }
   }
 
+  // =============================
+  // RESEND VERIFICATION EMAIL
+  // =============================
   static Future<Map<String, dynamic>> resendVerificationEmail({
     required String email,
   }) async {
@@ -84,29 +89,28 @@ class AuthService {
         body: jsonEncode({'email': email}),
       );
 
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         return {
           'success': true,
           'message': data['message'],
-          'email': data['email']
+          'email': data['email'],
         };
       } else {
-        final error = jsonDecode(response.body);
         return {
           'success': false,
-          'error': error['error'] ?? 'Failed to resend verification email'
+          'error': data['error'] ?? 'Failed to resend verification email',
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Network error: $e'
-      };
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
-  // Verify Token (Auto-login)
+  // =============================
+  // VERIFY TOKEN (AUTO LOGIN)
+  // =============================
   static Future<Map<String, dynamic>> verifyToken() async {
     try {
       final token = await getToken();
@@ -134,8 +138,9 @@ class AuthService {
     }
   }
 
-  // Get User Profile (Fetch fresh user data)
-  // This is a dedicated method for refreshing user data from the server
+  // =============================
+  // GET USER PROFILE
+  // =============================
   static Future<Map<String, dynamic>> getUserProfile() async {
     try {
       final token = await getToken();
@@ -162,7 +167,9 @@ class AuthService {
     }
   }
 
-  // Update Stats
+  // =============================
+  // UPDATE STATS
+  // =============================
   static Future<bool> updateStats({
     required double bankroll,
     required int playerWins,
@@ -187,12 +194,13 @@ class AuthService {
 
       return response.statusCode == 200;
     } catch (e) {
-      print('Update stats error: $e');
       return false;
     }
   }
 
-  // Update Username
+  // =============================
+  // UPDATE USERNAME
+  // =============================
   static Future<Map<String, dynamic>> updateUsername(String newUsername) async {
     try {
       final token = await getToken();
@@ -209,29 +217,28 @@ class AuthService {
         body: jsonEncode({'username': newUsername}),
       );
 
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         return {
           'success': true,
           'user': data['user'],
           'message': data['message'],
         };
       } else {
-        final error = jsonDecode(response.body);
         return {
           'success': false,
-          'error': error['error'] ?? 'Failed to update username',
+          'error': data['error'] ?? 'Failed to update username',
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Network error: $e',
-      };
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
-  // Change Password
+  // =============================
+  // CHANGE PASSWORD (LOGGED IN)
+  // =============================
   static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -254,49 +261,28 @@ class AuthService {
         }),
       );
 
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         return {
           'success': true,
           'user': data['user'],
           'message': data['message'],
         };
       } else {
-        final error = jsonDecode(response.body);
         return {
           'success': false,
-          'error': error['error'] ?? 'Failed to change password',
+          'error': data['error'] ?? 'Failed to change password',
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Network error: $e',
-      };
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
-  // Token Management
-  static Future<void> _saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-  }
-
-  static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
-  }
-
-  static Future<void> clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-  }
-
-  // Sign Out
-  static Future<void> signOut() async {
-    await clearToken();
-  }
-
+  // =============================
+  // DELETE ACCOUNT
+  // =============================
   static Future<Map<String, dynamic>> deleteAccount() async {
     try {
       final token = await getToken();
@@ -313,7 +299,7 @@ class AuthService {
       );
 
       if (response.statusCode == 200) {
-        await signOut(); // Clear local data
+        await signOut();
         return {'success': true};
       } else {
         final error = jsonDecode(response.body);
@@ -323,16 +309,13 @@ class AuthService {
         };
       }
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Network error: $e',
-      };
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 
-  // ============================================
-  // FORGOT PASSWORD
-  // ============================================
+  // =============================
+  // FORGOT PASSWORD (SEND CODE)
+  // =============================
   static Future<Map<String, dynamic>> forgotPassword({
     required String email,
   }) async {
@@ -340,25 +323,20 @@ class AuthService {
       final response = await http.post(
         Uri.parse('$baseUrl/forgot-password'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email}),
+        body: jsonEncode({'email': email}),
       );
 
-      final data = json.decode(response.body);
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': data['message'],
-          'email': data['email'],
-        };
+        return {'success': true};
       } else {
         return {
           'success': false,
-          'error': data['error'] ?? 'Failed to send reset email',
+          'error': data['error'] ?? 'Failed to send verification code',
         };
       }
     } catch (e) {
-      print('❌ Forgot password error: $e');
       return {
         'success': false,
         'error': 'Network error. Please check your connection.',
@@ -366,38 +344,36 @@ class AuthService {
     }
   }
 
-  // ============================================
-  // RESET PASSWORD
-  // ============================================
-  static Future<Map<String, dynamic>> resetPassword({
-    required String token,
+  // =============================
+  // RESET PASSWORD WITH CODE
+  // =============================
+  static Future<Map<String, dynamic>> resetPasswordWithCode({
+    required String email,
+    required String code,
     required String newPassword,
   }) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/reset-password'),
+        Uri.parse('$baseUrl/reset-password'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'token': token,
+        body: jsonEncode({
+          'email': email,
+          'code': code,
           'newPassword': newPassword,
         }),
       );
 
-      final data = json.decode(response.body);
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': data['message'],
-        };
+        return {'success': true};
       } else {
         return {
           'success': false,
-          'error': data['error'] ?? 'Failed to reset password',
+          'error': data['error'] ?? 'Invalid or expired code',
         };
       }
     } catch (e) {
-      print('❌ Reset password error: $e');
       return {
         'success': false,
         'error': 'Network error. Please check your connection.',
@@ -405,41 +381,25 @@ class AuthService {
     }
   }
 
-  // ============================================
-  // VERIFY RESET TOKEN (Optional)
-  // ============================================
-  static Future<Map<String, dynamic>> verifyResetToken({
-    required String token,
-  }) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/auth/verify-reset-token?token=$token'),
-        headers: {'Content-Type': 'application/json'},
-      );
+  // =============================
+  // TOKEN MANAGEMENT
+  // =============================
+  static Future<void> _saveToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('auth_token', token);
+  }
 
-      final data = json.decode(response.body);
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
 
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'valid': data['valid'] ?? false,
-          'email': data['email'],
-        };
-      } else {
-        return {
-          'success': false,
-          'valid': false,
-          'error': data['error'] ?? 'Invalid token',
-        };
-      }
-    } catch (e) {
-      print('❌ Verify reset token error: $e');
-      return {
-        'success': false,
-        'valid': false,
-        'error': 'Network error. Please check your connection.',
-      };
-    }
+  static Future<void> clearToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+  }
+
+  static Future<void> signOut() async {
+    await clearToken();
   }
 }
-
