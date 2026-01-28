@@ -1,7 +1,12 @@
+// ====================================
+// lib/screens/blackjack_screen.dart
+// Single-player Blackjack screen with betting side menu integration
+// ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../games/blackjack_game.dart';
 import '../models/user.dart';
+import '../models/enums.dart';
 import '../theme/app_theme.dart';
 import '../widgets/game_rules_popup.dart';
 import '../widgets/betting_side_menu.dart';
@@ -17,11 +22,44 @@ class BlackjackScreen extends StatefulWidget {
 
 class _BlackjackScreenState extends State<BlackjackScreen> {
   late final BlackjackGame _game;
+  bool _showBettingMenu = false;
+  GameState _gameState = GameState.betting;
 
   @override
   void initState() {
     super.initState();
-    _game = BlackjackGame(user: widget.user);
+    _game = BlackjackGame(
+      user: widget.user,
+      onGameStateChanged: _handleGameStateChanged,
+    );
+    
+    // Show betting menu initially since we start in betting state
+    _showBettingMenu = true;
+  }
+
+  void _handleGameStateChanged(GameState newState) {
+    if (mounted) {
+      setState(() {
+        _gameState = newState;
+        // Show betting menu only during betting state
+        _showBettingMenu = (newState == GameState.betting);
+      });
+    }
+  }
+
+  void _handleBetConfirmed(double betAmount) {
+    // Confirm the bet in the game
+    _game.confirmBetAndStart(betAmount);
+    
+    // Hide the betting menu
+    setState(() {
+      _showBettingMenu = false;
+    });
+  }
+
+  void _handleBettingMenuClosed() {
+    // Optional: Handle when user closes the menu without placing a bet
+    // For now, we just keep the menu open during betting state
   }
 
   @override
@@ -35,8 +73,34 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
       backgroundColor: AppColors.primaryNavyDark,
       body: Stack(
         children: [
+          // Game widget
           GameWidget(game: _game),
           
+          // Betting side menu (slides in from left)
+          if (_showBettingMenu)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: -1.0, end: 0.0),
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(value * (size.width * 0.35), 0),
+                    child: child,
+                  );
+                },
+                child: BettingSideMenu(
+                  currentBankroll: _game.bankroll,
+                  minimumBet: 10.0, // Optional: Set minimum bet
+                  maximumBet: 500.0, // Optional: Set maximum bet
+                  onConfirm: _handleBetConfirmed,
+                  onClose: _handleBettingMenuClosed,
+                ),
+              ),
+            ),
           
           // Back button overlay
           Positioned(
@@ -53,30 +117,36 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
                   Navigator.pop(context);
                 },
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.primaryNavyDark.withValues(alpha: (0.5)),
+                  backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.5),
                   padding: EdgeInsets.all(buttonSize * 0.25),
                 ),
               ),
             ),
           ),
+          
+          // Info button (rules)
           Positioned(
-              top: 16,
-              right: 16,
-              child: IconButton(
-                icon: const Icon(Icons.info_outline, color: AppColors.textPrimary, size: 28),
-                onPressed: () {
-                  GameRulesPopup.show(
-                    context: context,
-                    gameType: 'blackjack',
-                    isMultiplayer: false,
-                  );
-                },
-              ),
+            top: 16,
+            right: 16,
+            child: IconButton(
+              icon: const Icon(Icons.info_outline, color: AppColors.textPrimary, size: 28),
+              onPressed: () {
+                GameRulesPopup.show(
+                  context: context,
+                  gameType: 'blackjack',
+                  isMultiplayer: false,
+                );
+              },
             ),
-
-            
+          ),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _game.onDispose();
+    super.dispose();
   }
 }

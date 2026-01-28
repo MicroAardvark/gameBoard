@@ -1,3 +1,7 @@
+// ====================================
+// lib/ui/hud.dart
+// HUD for single-player blackjack - UPDATED to work with betting side menu
+// ====================================
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
@@ -21,23 +25,18 @@ class HudManager {
   InfoTextComponent? playerHandText;
   InfoTextComponent? dealerHandText;
 
-  late List<GameButton> _bettingBtns;
+  late List<GameButton> _bettingBtns; // Hidden when using side menu
   late List<GameButton> _playingBtns;
   late List<GameButton> _gameOverBtns;
 
   bool _hudPanelShown = false;
+  bool _useSideMenuForBetting = true; // NEW: Flag to use side menu instead of buttons
 
-  // ---------------------------
-  // The method blackjack_game.dart expects
-  // ---------------------------
   Future<void> setupHUD() async {
     removeHUD();
     await createHUD();
   }
 
-  // ---------------------------
-  // Create / Remove HUD
-  // ---------------------------
   Future<void> createHUD() async {
     if (_hudPanelShown) return;
 
@@ -85,7 +84,7 @@ class HudManager {
       dealerHandText!,
     ]);
 
-    // --- Buttons ---
+    // Betting buttons - These are now hidden since we use the side menu
     _bettingBtns = [
       GameButton(
         position: Vector2(game.screenWidth * 0.25, game.screenHeight - 70),
@@ -108,6 +107,7 @@ class HudManager {
       ),
     ];
 
+    // Playing buttons
     _playingBtns = [
       GameButton(
         position: Vector2(game.screenWidth * 0.35, game.screenHeight - 70),
@@ -129,6 +129,7 @@ class HudManager {
       ),
     ];
 
+    // Game over buttons
     _gameOverBtns = [
       GameButton(
         position: Vector2(game.screenWidth * 0.5, game.screenHeight - 70),
@@ -138,6 +139,7 @@ class HudManager {
       ),
     ];
 
+    // Add all buttons to the HUD panel but hide them initially
     hudPanel!.addAll(_bettingBtns + _playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
@@ -150,9 +152,6 @@ class HudManager {
     _hudPanelShown = false;
   }
 
-  // ---------------------------
-  // Visibility & state wiring
-  // ---------------------------
   void _showOnlyButtons(List<GameButton> needed) {
     final all = _bettingBtns + _playingBtns + _gameOverBtns;
     for (final b in all) {
@@ -169,23 +168,12 @@ class HudManager {
     final g = game;
 
     if (g.gameState == GameState.betting) {
-      final canCancel = g.stagedBet > 0;
-      final canConfirm = g.stagedBet > 0 || g.currentBet > 0;
-
-      for (final b in _bettingBtns) {
-        b.hidden = false;
-      }
-      _bettingBtns[0].isEnabled = canCancel;
-      _bettingBtns[0].hidden = !canCancel; // hide Cancel if not usable
-      _bettingBtns[1].isEnabled = canConfirm;
-
-      for (final b in _playingBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
-      }
-      for (final b in _gameOverBtns) {
-        b.hidden = true;
-        b.isEnabled = false;
+      // IMPORTANT: Hide betting buttons since we're using the side menu
+      if (_useSideMenuForBetting) {
+        _showOnlyButtons(const []);
+      } else {
+        // If not using side menu, show betting buttons
+        _showOnlyButtons(_bettingBtns);
       }
     } else if (g.gameState == GameState.playing) {
       _showOnlyButtons(_playingBtns);
@@ -195,13 +183,37 @@ class HudManager {
       _showOnlyButtons(_gameOverBtns);
     }
   }
+
+  void updateGameResult(String result, {bool isWin = false}) {
+    gameResultText?.text = result;
+    if (isWin) {
+      gameResultText?.textRenderer = TextPaint(
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          color: AppColors.primaryNavyLight,
+          fontSize: game.largeFontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    } else {
+      gameResultText?.textRenderer = TextPaint(
+        style: TextStyle(
+          fontFamily: 'Montserrat',
+          color: AppColors.textPrimary,
+          fontSize: game.fontSize,
+          fontWeight: FontWeight.normal,
+        ),
+      );
+    }
+  }
 }
 
-// -----------------------------
-// HudPanel: semi-transparent background strip
-// -----------------------------
+// ===========================================
+// HUD Panel Background Component
+// ===========================================
 class HudPanel extends PositionComponent {
   final BlackjackGame game;
+  
   HudPanel({required this.game});
 
   @override
@@ -212,9 +224,11 @@ class HudPanel extends PositionComponent {
       game.screenWidth,
       game.hudPanelHeight,
     );
+    
     final paint = Paint()
-      ..color = AppColors.primaryNavyDark.withValues(alpha:(0.4))
+      ..color = AppColors.primaryNavyDark.withValues(alpha: 0.4)
       ..style = PaintingStyle.fill;
+    
     canvas.drawRect(rect, paint);
   }
 }

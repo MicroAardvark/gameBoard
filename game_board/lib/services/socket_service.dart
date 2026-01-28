@@ -113,17 +113,14 @@ class SocketService {
     print('🔌 Connecting to: $baseUrl');
     print('   User ID: $userId');
 
-    _socket = io.io(baseUrl, <String, dynamic>{
-      'transports': ['websocket'],
-      'auth': {
-        'userId': userId,
-        'username': username,
-      },
-      'autoConnect': true,
-      'reconnection': true,
-      'reconnectionAttempts': 5,
-      'reconnectionDelay': 1000,
-    });
+    _socket = io.io(baseUrl, io.OptionBuilder()
+      .setTransports(['websocket']) // REQUIRED for Cloudflare + mobile
+      .enableAutoConnect()
+      .enableReconnection()
+      .setReconnectionAttempts(10)
+      .setReconnectionDelay(1000)
+      .build()
+    );
 
     _socket!.onConnect((_) {
       print('✅ Connected to server');
@@ -139,6 +136,19 @@ class SocketService {
         );
       }
     });
+
+    _socket!.onConnectError((err) {
+      print('❌ onConnectError: $err');
+    });
+
+    _socket!.onError((err) {
+      print('❌ onError: $err');
+    });
+
+    _socket!.onDisconnect((reason) {
+      print('🔌 disconnected: $reason');
+    });
+
 
     _socket!.onDisconnect((_) {
       print('❌ Disconnected from server');

@@ -46,6 +46,7 @@ class AuthService {
     required String password,
   }) async {
     try {
+      print("Attempting login for $email");
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
