@@ -165,8 +165,15 @@ class HomeScreen extends StatelessWidget {
                         _GameButton(
                           title: '🎲 Checkers',
                           icon: Icons.grid_on,
-                          onPressed: null,
-                          enabled: false,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CrazyEightsScreen(user: user),
+                              ),
+                            );
+                          },
+                          enabled: true,
                           width: buttonWidth,
                           height: buttonHeight,
                         ),
