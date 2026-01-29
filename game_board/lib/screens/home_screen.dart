@@ -8,6 +8,7 @@ import 'profile_screen.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../components/slide_in_panel.dart';
+import 'checkers_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -169,7 +170,7 @@ class HomeScreen extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => CrazyEightsScreen(user: user),
+                                builder: (context) => CheckersScreen(user: user),
                               ),
                             );
                           },
