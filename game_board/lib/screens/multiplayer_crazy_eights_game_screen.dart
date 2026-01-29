@@ -2,12 +2,14 @@
 // UPDATED: Added optimistic UI event handlers
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:game_board/widgets/voice_indicator.dart';
 import 'dart:async';
 import '../games/multiplayer_crazy_eights_game.dart';
 import '../models/user.dart';
 import '../services/socket_service.dart';
 import '../widgets/chat_overlay.dart';
 import '../theme/app_theme.dart';
+import '../services/voice_chat_service.dart';
 
 class MultiplayerCrazyEightsGameScreen extends StatefulWidget {
   final User user;
@@ -28,6 +30,7 @@ class MultiplayerCrazyEightsGameScreen extends StatefulWidget {
 class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEightsGameScreen> {
   late final MultiplayerCrazyEightsGame _game;
   final SocketService _socketService = SocketService();
+  late final VoiceChatService _voiceService;
 
   // Socket event subscriptions (UPDATED WITH NEW HANDLERS)
   StreamSubscription? _playerJoinedSub;
@@ -78,6 +81,7 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
     print('   Socket connected: ${_socketService.isConnected}');
     print('   Current room ID: ${_socketService.currentRoomId}');
     
+    _voiceService = VoiceChatService(_socketService);
     _isConnected = _socketService.isConnected;
     _statusMessage = _isConnected ? 'Connected' : 'Connecting...';
     
@@ -529,6 +533,7 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
     _errorSub?.cancel();
     _connectionSub?.cancel();
     _chatMessageSub?.cancel();
+    _voiceService.dispose();
     super.dispose();
   }
 
@@ -798,8 +803,15 @@ class _MultiplayerCrazyEightsGameScreenState extends State<MultiplayerCrazyEight
               userId: widget.user.id,
               username: widget.user.username,
               socketService: _socketService,
+              voiceService: _voiceService,
               onClose: _toggleChat,
             ),
+          
+          if(!_showChat)
+            VoiceIndicator(
+              voiceService: _voiceService,
+              onTap: () => setState(() => _showChat = true),
+            )
         ],
       ),
     );

@@ -1,8 +1,9 @@
 // lib/widgets/chat_overlay.dart
-// UPDATED: Added clickable usernames with block/report/friend request options
+// COMPLETE: Voice chat controls + Social features (block/report/friend)
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
+import '../services/voice_chat_service.dart';
 import '../services/social_service.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
@@ -12,6 +13,7 @@ class ChatOverlay extends StatefulWidget {
   final String userId;
   final String username;
   final SocketService socketService;
+  final VoiceChatService voiceService;  // NEW: Voice service
   final VoidCallback onClose;
 
   const ChatOverlay({
@@ -20,6 +22,7 @@ class ChatOverlay extends StatefulWidget {
     required this.userId,
     required this.username,
     required this.socketService,
+    required this.voiceService,  // NEW
     required this.onClose,
   });
 
@@ -41,6 +44,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
   late StreamSubscription _chatMessageSub;
   late StreamSubscription _chatHistorySub;
   late StreamSubscription _typingSub;
+  StreamSubscription? _voiceParticipantsSub;  // NEW
 
   @override
   void initState() {
@@ -98,6 +102,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
           }
         });
       }
+    });
+
+    // NEW: Voice participants listener
+    _voiceParticipantsSub = widget.voiceService.participantsStream.listen((_) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -165,15 +174,34 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     widget.onClose();
   }
 
-  // NEW: Show user action modal
+  // NEW: Voice chat controls
+  Future<void> _toggleVoice() async {
+    if (widget.voiceService.inVoiceChat) {
+      await widget.voiceService.leaveVoiceChat();
+    } else {
+      await widget.voiceService.joinVoiceChat(
+        roomId: widget.roomId,
+        userId: widget.userId,
+        username: widget.username,
+      );
+    }
+    setState(() {});
+  }
+
+  Future<void> _toggleMute() async {
+    if (!widget.voiceService.inVoiceChat) return;
+    await widget.voiceService.toggleMute();
+    setState(() {});
+  }
+
+  // Show user action modal
   void _showUserActionModal(String messageUserId, String messageUsername) {
-    // Don't show modal for own messages
     if (messageUserId == widget.userId) return;
     
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => _UserActionModal(
@@ -192,6 +220,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     _chatMessageSub.cancel();
     _chatHistorySub.cancel();
     _typingSub.cancel();
+    _voiceParticipantsSub?.cancel();  // NEW
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
@@ -212,7 +241,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
         color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
         child: Center(
           child: GestureDetector(
-            onTap: () {}, // Prevent tap from closing when tapping inside
+            onTap: () {},
             child: SlideTransition(
               position: _slideAnimation,
               child: Container(
@@ -232,7 +261,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                 ),
                 child: Column(
                   children: [
-                    // Header
+                    // Header with Voice Controls
                     Container(
                       padding: EdgeInsets.all(isSmall ? 12 : 16),
                       decoration: BoxDecoration(
@@ -242,40 +271,153 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                           topRight: Radius.circular(16),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Icon(
-                            Icons.chat,
-                            color: Colors.blue,
-                            size: isSmall ? 20 : 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Game Chat',
-                              style: TextStyle(
-                                fontFamily: 'Montserrat',
+                          // Title row
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.chat,
+                                color: Colors.blue,
+                                size: isSmall ? 20 : 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Game Chat',
+                                  style: TextStyle(
+                                    fontFamily: 'Montserrat',
+                                    color: AppColors.textPrimary,
+                                    fontSize: isSmall ? 16 : 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${_messages.length}',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  color: Colors.grey[400],
+                                  fontSize: isSmall ? 12 : 14,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: _close,
                                 color: AppColors.textPrimary,
-                                fontSize: isSmall ? 16 : 18,
-                                fontWeight: FontWeight.bold,
+                                iconSize: isSmall ? 20 : 24,
+                              ),
+                            ],
+                          ),
+                          
+                          // NEW: Voice controls row
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              // Voice join/leave button
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _toggleVoice,
+                                  icon: Icon(
+                                    widget.voiceService.inVoiceChat 
+                                        ? Icons.mic 
+                                        : Icons.mic_none,
+                                    size: isSmall ? 14 : 16,
+                                  ),
+                                  label: Text(
+                                    widget.voiceService.inVoiceChat 
+                                        ? 'Leave Voice' 
+                                        : 'Join Voice',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: isSmall ? 11 : 12,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: widget.voiceService.inVoiceChat 
+                                        ? Colors.green 
+                                        : Colors.purple,
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: isSmall ? 8 : 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              
+                              // Mute button (only when in voice)
+                              if (widget.voiceService.inVoiceChat) ...[
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: _toggleMute,
+                                    icon: Icon(
+                                      widget.voiceService.isMuted 
+                                          ? Icons.mic_off 
+                                          : Icons.volume_up,
+                                      size: isSmall ? 14 : 16,
+                                    ),
+                                    label: Text(
+                                      widget.voiceService.isMuted 
+                                          ? 'Unmute' 
+                                          : 'Mute',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: isSmall ? 11 : 12,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: widget.voiceService.isMuted 
+                                          ? Colors.red 
+                                          : Colors.grey[700],
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: isSmall ? 8 : 10,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          
+                          // NEW: Voice participants indicator
+                          if (widget.voiceService.inVoiceChat && 
+                              widget.voiceService.participants.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: Colors.green,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.people,
+                                    color: Colors.green,
+                                    size: isSmall ? 12 : 14,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${widget.voiceService.participants.length} in voice',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: Colors.green,
+                                      fontSize: isSmall ? 10 : 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          Text(
-                            '${_messages.length}',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              color: Colors.grey[400],
-                              fontSize: isSmall ? 12 : 14,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _close,
-                            color: AppColors.textPrimary,
-                            iconSize: isSmall ? 20 : 24,
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -463,7 +605,6 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isOwnMessage) ...[
-            // Make avatar clickable
             GestureDetector(
               onTap: () => _showUserActionModal(message.userId!, message.username),
               child: CircleAvatar(
@@ -488,7 +629,6 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                   : CrossAxisAlignment.start,
               children: [
                 if (!isOwnMessage)
-                  // Make username clickable
                   GestureDetector(
                     onTap: () => _showUserActionModal(message.userId!, message.username),
                     child: Padding(
@@ -500,7 +640,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                         message.username,
                         style: TextStyle(
                           fontFamily: 'Montserrat',
-                          color: Colors.blue[300], // Make it blue to show it's clickable
+                          color: Colors.blue[300],
                           fontSize: isSmall ? 10 : 12,
                           fontWeight: FontWeight.w500,
                           decoration: TextDecoration.underline,
@@ -587,7 +727,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
   }
 }
 
-// NEW: User Action Modal
+// User Action Modal with Friend Request, Block, and Report
 class _UserActionModal extends StatefulWidget {
   final String userId;
   final String username;
@@ -632,14 +772,14 @@ class _UserActionModalState extends State<_UserActionModal> {
         backgroundColor: Colors.grey[900],
         title: Text(
           'Block ${widget.username}?',
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Montserrat',
             color: AppColors.textPrimary,
           ),
         ),
         content: Text(
           'Blocking ${widget.username} will prevent them from sending you messages or friend requests.',
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textSecondary,
           ),
@@ -647,14 +787,14 @@ class _UserActionModalState extends State<_UserActionModal> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade700,
             ),
-            child: Text('Block'),
+            child: const Text('Block'),
           ),
         ],
       ),
@@ -679,19 +819,18 @@ class _UserActionModalState extends State<_UserActionModal> {
   }
 
   Future<void> _handleReport() async {
-    // Show report reason selection
-    final reportData = await showDialog<Map<String, String>>(  // Changed return type
+    final reportData = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => _ReportReasonDialog(username: widget.username),
     );
 
-    if (reportData != null && reportData['reason'] != null) {  // Check for both
+    if (reportData != null && reportData['reason'] != null) {
       setState(() => _isLoading = true);
       
       final result = await FriendsService.reportUser(
         userId: widget.userId,
-        reason: reportData['reason']!,  // FIXED: Use non-null assertion
-        message: reportData['message'],  // Add optional message
+        reason: reportData['reason']!,
+        message: reportData['message'],
       );
       
       if (mounted) {
@@ -715,10 +854,10 @@ class _UserActionModalState extends State<_UserActionModal> {
       SnackBar(
         content: Text(
           message,
-          style: TextStyle(fontFamily: 'Inter'),
+          style: const TextStyle(fontFamily: 'Inter'),
         ),
         backgroundColor: color,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -726,13 +865,13 @@ class _UserActionModalState extends State<_UserActionModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Header
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
                 CircleAvatar(
@@ -740,7 +879,7 @@ class _UserActionModalState extends State<_UserActionModal> {
                   backgroundColor: Colors.blue,
                   child: Text(
                     widget.username[0].toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Montserrat',
                       color: AppColors.textPrimary,
                       fontSize: 18,
@@ -748,11 +887,11 @@ class _UserActionModalState extends State<_UserActionModal> {
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     widget.username,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: 'Montserrat',
                       color: AppColors.textPrimary,
                       fontSize: 18,
@@ -767,15 +906,15 @@ class _UserActionModalState extends State<_UserActionModal> {
           Divider(color: Colors.grey[800]),
           
           if (_isLoading)
-            Padding(
+            const Padding(
               padding: EdgeInsets.all(20),
               child: CircularProgressIndicator(),
             )
           else ...[
             // Send Friend Request
             ListTile(
-              leading: Icon(Icons.person_add, color: Colors.green),
-              title: Text(
+              leading: const Icon(Icons.person_add, color: Colors.green),
+              title: const Text(
                 'Send Friend Request',
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -787,8 +926,8 @@ class _UserActionModalState extends State<_UserActionModal> {
             
             // Block User
             ListTile(
-              leading: Icon(Icons.block, color: Colors.orange),
-              title: Text(
+              leading: const Icon(Icons.block, color: Colors.orange),
+              title: const Text(
                 'Block User',
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -800,8 +939,8 @@ class _UserActionModalState extends State<_UserActionModal> {
             
             // Report User
             ListTile(
-              leading: Icon(Icons.flag, color: Colors.red),
-              title: Text(
+              leading: const Icon(Icons.flag, color: Colors.red),
+              title: const Text(
                 'Report User',
                 style: TextStyle(
                   fontFamily: 'Inter',
@@ -811,7 +950,7 @@ class _UserActionModalState extends State<_UserActionModal> {
               onTap: _handleReport,
             ),
             
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
           ],
         ],
       ),
@@ -819,7 +958,7 @@ class _UserActionModalState extends State<_UserActionModal> {
   }
 }
 
-// NEW: Report Reason Dialog
+// Report Reason Dialog
 class _ReportReasonDialog extends StatefulWidget {
   final String username;
 
@@ -854,7 +993,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
       backgroundColor: Colors.grey[900],
       title: Text(
         'Report ${widget.username}',
-        style: TextStyle(
+        style: const TextStyle(
           fontFamily: 'Montserrat',
           color: AppColors.textPrimary,
         ),
@@ -864,7 +1003,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Please select a reason for reporting this user:',
               style: TextStyle(
                 fontFamily: 'Inter',
@@ -872,13 +1011,13 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
                 fontSize: 14,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             ..._reasons.map((reason) => RadioListTile<String>(
               value: reason['value']!,
               groupValue: _selectedReason,
               title: Text(
                 reason['label']!,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'Inter',
                   color: AppColors.textPrimary,
                   fontSize: 14,
@@ -890,8 +1029,8 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
               activeColor: Colors.red,
               contentPadding: EdgeInsets.zero,
             )),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'Additional details (optional):',
               style: TextStyle(
                 fontFamily: 'Inter',
@@ -899,10 +1038,10 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
                 fontSize: 14,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             TextField(
               controller: _messageController,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Inter',
                 color: AppColors.textPrimary,
                 fontSize: 14,
@@ -919,7 +1058,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: EdgeInsets.all(12),
+                contentPadding: const EdgeInsets.all(12),
               ),
               maxLines: 3,
               maxLength: 500,
@@ -930,7 +1069,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text(
+          child: const Text(
             'Cancel',
             style: TextStyle(
               fontFamily: 'Inter',
@@ -943,7 +1082,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
               ? null
               : () {
                   final message = _messageController.text.trim();
-                  Navigator.pop(context, {  // FIXED: Return a Map
+                  Navigator.pop(context, {
                     'reason': _selectedReason!,
                     'message': message.isEmpty ? null : message,
                   });
@@ -951,7 +1090,7 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red.shade700,
           ),
-          child: Text(
+          child: const Text(
             'Report',
             style: TextStyle(fontFamily: 'Inter'),
           ),

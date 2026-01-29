@@ -4,6 +4,8 @@
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:game_board/services/voice_chat_service.dart';
+import 'package:game_board/widgets/voice_indicator.dart';
 import 'dart:async';
 import '../games/multiplayer_blackjack_game.dart';
 import '../models/user.dart';
@@ -32,6 +34,7 @@ class MultiplayerBlackjackGameScreen extends StatefulWidget {
 class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGameScreen> {
   late final MultiplayerBlackjackGame _game;
   final SocketService _socketService = SocketService();
+  late final VoiceChatService _voiceService;
 
   // Socket event subscriptions
   StreamSubscription? _playerJoinedSub;
@@ -58,6 +61,9 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
   bool _showBettingMenu = false;
   GameState _gameState = GameState.waiting;
 
+  
+
+
   @override
   void initState() {
     super.initState();
@@ -70,7 +76,8 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     
     _isConnected = _socketService.isConnected;
     _statusMessage = _isConnected ? 'Connected' : 'Connecting...';
-    
+    _voiceService = VoiceChatService(_socketService);
+
     _initializeGame();
     _setupSocketListeners();
     
@@ -365,6 +372,7 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
     _connectionSub?.cancel();
     _insuranceOfferedSub?.cancel();
     _chatMessageSub?.cancel();
+    _voiceService.dispose();
     super.dispose();
   }
 
@@ -654,12 +662,19 @@ class _MultiplayerBlackjackGameScreenState extends State<MultiplayerBlackjackGam
                 userId: widget.user.id,
                 username: widget.user.username,
                 socketService: _socketService,
+                voiceService: _voiceService,
                 onClose: () {
                   setState(() {
                     _showChat = false;
                   });
                 },
               ),
+
+            if(!_showChat)
+              VoiceIndicator(
+                voiceService: _voiceService,
+                onTap: () => setState(() => _showChat = true),
+              )
           ],
         ),
       ),
