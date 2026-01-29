@@ -2,14 +2,18 @@
 // UK English spelling in comments and strings, US spelling for Flutter APIs
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flame/game.dart';
 import '../games/checkers_game.dart';
+import '../models/user.dart';
 
 class CheckersScreen extends StatefulWidget {
+  final User user;
   final String difficulty; // 'easy', 'medium', 'hard'
 
   const CheckersScreen({
     super.key,
+    required this.user,
     this.difficulty = 'medium',
   });
 
@@ -25,8 +29,24 @@ class _CheckersScreenState extends State<CheckersScreen> {
   @override
   void initState() {
     super.initState();
+    // Lock to portrait mode for checkers
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    
     game = CheckersGame();
     game.onGameOver = _handleGameOver;
+  }
+
+  @override
+  void dispose() {
+    // Restore landscape mode when leaving checkers
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    super.dispose();
   }
 
   void _handleGameOver(String winnerColour) {
@@ -218,32 +238,44 @@ class _CheckersScreenState extends State<CheckersScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              // Game info panel
+              // Game info panel (top)
               _buildGameInfoPanel(),
               
-              // Game board
+              // Game board (center)
               Expanded(
                 child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 1.0,
-                    child: Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            spreadRadius: 5,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Use width as limiting factor in portrait
+                      final maxSize = constraints.maxWidth * 0.95;
+                      
+                      return Container(
+                        width: maxSize,
+                        height: maxSize,
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                              spreadRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: SizedBox(
+                            width: 360, // 8 tiles × 45px
+                            height: 360,
+                            child: GameWidget(game: game),
                           ),
-                        ],
-                      ),
-                      child: GameWidget(game: game),
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
               
-              // Action buttons
+              // Action buttons (bottom)
               _buildActionButtons(),
             ],
           ),
@@ -254,8 +286,8 @@ class _CheckersScreenState extends State<CheckersScreen> {
 
   Widget _buildGameInfoPanel() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -275,18 +307,18 @@ class _CheckersScreenState extends State<CheckersScreen> {
           
           Column(
             children: [
-              Text(
+              const Text(
                 'Difficulty',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                  fontSize: 11,
+                  color: Colors.grey,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 widget.difficulty.toUpperCase(),
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF769656),
                 ),
@@ -305,8 +337,8 @@ class _CheckersScreenState extends State<CheckersScreen> {
     return Column(
       children: [
         Container(
-          width: 40,
-          height: 40,
+          width: 45,
+          height: 45,
           decoration: BoxDecoration(
             color: pieceColor,
             shape: BoxShape.circle,
@@ -323,11 +355,11 @@ class _CheckersScreenState extends State<CheckersScreen> {
             ] : [],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           label,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             color: isActive ? Colors.black : Colors.grey[600],
           ),
@@ -338,167 +370,42 @@ class _CheckersScreenState extends State<CheckersScreen> {
 
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          ElevatedButton.icon(
-            onPressed: _showResignDialog,
-            icon: const Icon(Icons.flag),
-            label: const Text('Resign'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[700],
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _showResignDialog,
+              icon: const Icon(Icons.flag, size: 18),
+              label: const Text('Resign'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[700],
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: _showHelpDialog,
-            icon: const Icon(Icons.info_outline),
-            label: const Text('Rules'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF769656),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _showHelpDialog,
+              icon: const Icon(Icons.info_outline, size: 18),
+              label: const Text('Rules'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF769656),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// Difficulty selection screen
-class CheckersDifficultyScreen extends StatelessWidget {
-  const CheckersDifficultyScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Difficulty'),
-        backgroundColor: const Color(0xFF769656),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surfaceContainerHighest,
-            ],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Choose Your Challenge',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 40),
-              
-              _buildDifficultyButton(
-                context,
-                'Easy',
-                'Perfect for beginners',
-                Colors.green,
-                Icons.sentiment_satisfied,
-              ),
-              const SizedBox(height: 20),
-              
-              _buildDifficultyButton(
-                context,
-                'Medium',
-                'A balanced challenge',
-                Colors.orange,
-                Icons.sentiment_neutral,
-              ),
-              const SizedBox(height: 20),
-              
-              _buildDifficultyButton(
-                context,
-                'Hard',
-                'For experienced players',
-                Colors.red,
-                Icons.sentiment_very_dissatisfied,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDifficultyButton(
-    BuildContext context,
-    String difficulty,
-    String description,
-    Color buttonColor,
-    IconData icon,
-  ) {
-    return SizedBox(
-      width: 280,
-      height: 80,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CheckersScreen(
-                difficulty: difficulty.toLowerCase(),
-              ),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32),
-            const SizedBox(width: 16),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  difficulty,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -262,12 +262,16 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     final Color suitColor;
     switch (chosenSuit) {
       case CardSuit.hearts:
-      case CardSuit.diamonds:
         suitColor = const Color(0xFFE53935);
         break;
+      case CardSuit.diamonds:
+        suitColor = AppColors.accentElectricBlue;
+        break;
       case CardSuit.clubs:
-      case CardSuit.spades:
         suitColor = AppColors.primaryNavyDark;
+        break;
+      case CardSuit.spades:
+        suitColor = AppColors.secondaryAmber;
         break;
     }
     
@@ -385,9 +389,9 @@ class CrazyEightsCardComponent extends PositionComponent with TapCallbacks {
     
     final suits = [
       {'symbol': '♥', 'color': const Color(0xFFE53935)},
-      {'symbol': '♦', 'color': const Color(0xFFE53935)},
+      {'symbol': '♦', 'color': AppColors.accentElectricBlue},
       {'symbol': '♣', 'color': AppColors.primaryNavyDark},
-      {'symbol': '♠', 'color': AppColors.primaryNavyDark},
+      {'symbol': '♠', 'color': AppColors.secondaryAmber},
     ];
     
     // Positions for 2x2 grid (centered)

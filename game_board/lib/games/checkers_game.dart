@@ -10,33 +10,52 @@ import 'dart:math' as math;
 
 // Board configuration
 const double boardSize = 8;
-const double tileSize = 60.0;
+const double tileSize = 45.0; // Reduced from 60 to fit screen better
 const Color lightSquareColour = Color(0xFFEEEED2);
 const Color darkSquareColour = Color(0xFF769656);
 const Color selectedColour = Color(0xFFFFFF00);
 const Color validMoveColour = Color(0x8800FF00);
 
 class CheckersGame extends FlameGame with TapDetector {
-  late CheckersBoard board;
+  CheckersBoard? board;
   late GameStateManager stateManager;
   Function(String)? onGameOver;
+  
+  CheckersGame() {
+    stateManager = GameStateManager();
+  }
   
   @override
   Future<void> onLoad() async {
     await super.onLoad();
     
-    stateManager = GameStateManager();
     board = CheckersBoard(stateManager);
-    board.game = this;
+    board!.game = this;
     
-    add(board);
+    add(board!);
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+
+    if (board == null) return; // ✅ guard
+
+    final boardSizePixels = boardSize * tileSize;
+    final scale = (size.x < size.y ? size.x : size.y) / boardSizePixels;
+    board!.scale = Vector2.all(scale);
+    board!.position = Vector2(
+      (size.x - boardSizePixels * scale) / 2,
+      (size.y - boardSizePixels * scale) / 2,
+    );
   }
 
   @override
   void onTapDown(TapDownInfo info) {
-    // Get tap position in game coordinates
+    // Convert screen tap to board local coordinates
     final tapPosition = info.eventPosition.global;
-    board.handleTap(tapPosition);
+    final localTap = board!.absoluteToLocal(tapPosition);
+    board!.handleTap(localTap);
   }
 }
 
@@ -277,7 +296,9 @@ class CheckersBoard extends PositionComponent with TapCallbacks {
   late CheckersGame game;
 
   CheckersBoard(this.stateManager) : super(
+    position: Vector2.zero(), // Ensure board starts at origin
     size: Vector2.all(boardSize * tileSize),
+    anchor: Anchor.topLeft, // Anchor at top-left corner
   );
 
   @override
@@ -475,6 +496,7 @@ class SquareComponent extends PositionComponent {
   }) : super(
     position: Vector2(col * tileSize, row * tileSize),
     size: Vector2.all(tileSize),
+    anchor: Anchor.topLeft, // Explicit anchor
   );
 
   @override
@@ -511,7 +533,7 @@ class SquareComponent extends PositionComponent {
 
       canvas.drawCircle(
         Offset(size.x / 2, size.y / 2),
-        tileSize / 6,
+        tileSize / 8, // Reduced from tileSize / 6
         circlePaint,
       );
     }
@@ -537,7 +559,7 @@ class PieceComponent extends PositionComponent {
       col * tileSize + tileSize / 2,
       row * tileSize + tileSize / 2,
     ),
-    size: Vector2.all(tileSize * 0.8),
+    size: Vector2.all(tileSize * 0.7), // Reduced from 0.8 for better spacing
     anchor: Anchor.center,
   );
 
@@ -545,7 +567,7 @@ class PieceComponent extends PositionComponent {
   void render(Canvas canvas) {
     super.render(canvas);
 
-    final radius = tileSize * 0.35;
+    final radius = tileSize * 0.32; // Reduced from 0.35 for better fit
     final centre = Offset(0, 0);
 
     // Shadow
