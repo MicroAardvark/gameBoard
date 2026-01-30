@@ -68,7 +68,6 @@ class _CheckersScreenState extends State<CheckersScreen> {
           winner == 'red' 
             ? 'Congratulations! You won!' 
             : 'AI wins! Better luck next time!',
-          style: const TextStyle(fontSize: 18),
         ),
         actions: [
           TextButton(
@@ -81,9 +80,9 @@ class _CheckersScreenState extends State<CheckersScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(); // Return to menu
+              Navigator.of(context).pop(); // Go back to difficulty screen
             },
-            child: const Text('Return to Menu'),
+            child: const Text('Main Menu'),
           ),
         ],
       ),
@@ -92,10 +91,10 @@ class _CheckersScreenState extends State<CheckersScreen> {
 
   void _resetGame() {
     setState(() {
-      game = CheckersGame();
-      game.onGameOver = _handleGameOver;
       isGameOver = false;
       winner = null;
+      game = CheckersGame();
+      game.onGameOver = _handleGameOver;
     });
   }
 
@@ -103,46 +102,43 @@ class _CheckersScreenState extends State<CheckersScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('How to Play Checkers'),
-        content: const SingleChildScrollView(
+        title: const Text('How to Play'),
+        content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: [
+            children: const [
               Text(
-                'Objective',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Objective:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
-              Text('Capture all opponent pieces or block them from making valid moves.'),
-              SizedBox(height: 16),
-              
+              SizedBox(height: 4),
+              Text('Capture all opponent pieces or block them from moving.'),
+              SizedBox(height: 12),
               Text(
-                'Movement',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Movement:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
-              Text('• Regular pieces move diagonally forward one square'),
-              Text('• Kings (crowned pieces) can move diagonally in any direction'),
-              SizedBox(height: 16),
-              
+              SizedBox(height: 4),
+              Text('• Regular pieces move diagonally forward'),
+              Text('• Kings can move diagonally in any direction'),
+              SizedBox(height: 12),
               Text(
-                'Capturing',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Capturing:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 4),
               Text('• Jump over opponent pieces to capture them'),
-              Text('• Chain captures are mandatory if available'),
-              Text('• Capturing is compulsory when possible'),
-              SizedBox(height: 16),
-              
+              Text('• Multiple captures in one turn are allowed'),
+              Text('• Captures are mandatory when available'),
+              SizedBox(height: 12),
               Text(
-                'Promotion',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                'Kings:',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
-              Text('• Reach the opposite end to become a King'),
-              Text('• Kings gain the ability to move backwards'),
+              SizedBox(height: 4),
+              Text('• Reach the opposite end to become a king'),
+              Text('• Kings are marked with a crown'),
             ],
           ),
         ),
@@ -241,33 +237,30 @@ class _CheckersScreenState extends State<CheckersScreen> {
               // Game info panel (top)
               _buildGameInfoPanel(),
               
-              // Game board (center)
+              // Game board (centre)
               Expanded(
                 child: Center(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      // Use width as limiting factor in portrait
-                      final maxSize = constraints.maxWidth * 0.95;
+                      // Calculate square size for perfect centring
+                      final size = constraints.maxWidth < constraints.maxHeight
+                          ? constraints.maxWidth * 0.95
+                          : constraints.maxHeight * 0.95;
                       
-                      return Container(
-                        width: maxSize,
-                        height: maxSize,
-                        decoration: BoxDecoration(
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: SizedBox(
-                            width: 360, // 8 tiles × 45px
-                            height: 360,
-                            child: GameWidget(game: game),
+                      return SizedBox(
+                        width: size,
+                        height: size,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                spreadRadius: 5,
+                              ),
+                            ],
                           ),
+                          child: GameWidget(game: game),
                         ),
                       );
                     },

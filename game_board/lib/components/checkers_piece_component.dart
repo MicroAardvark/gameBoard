@@ -111,7 +111,7 @@ class SquareComponent extends PositionComponent {
   SquareComponent(this.row, this.col)
       : isLight = (row + col) % 2 == 0,
         super(
-          // Position at center of square (relative to board's top-left)
+          // Position at centre of square (relative to board's top-left)
           position: Vector2(
             col.toDouble() * TILE_SIZE + TILE_SIZE / 2,
             row.toDouble() * TILE_SIZE + TILE_SIZE / 2,
@@ -119,15 +119,6 @@ class SquareComponent extends PositionComponent {
           size: Vector2.all(TILE_SIZE),
           anchor: Anchor.center,
         );
-
-  @override
-  void onMount() {
-    super.onMount();
-    if (row == 0 || row == 7) {
-      // Only log first and last rows to reduce spam
-      print('Square ($row,$col) ${isLight ? "LIGHT" : "DARK"} mounted at CENTER position: $position');
-    }
-  }
 
   @override
   void render(Canvas canvas) {
@@ -160,26 +151,6 @@ class SquareComponent extends PositionComponent {
         ..strokeWidth = 0.5,
     );
 
-    // DEBUG: Draw coordinate text in corner of square
-    final textStyle = TextStyle(
-      color: isLight ? Colors.black54 : Colors.white54,
-      fontSize: 8,
-      fontWeight: FontWeight.normal,
-    );
-    
-    final textSpan = TextSpan(
-      text: '$row,$col',
-      style: textStyle,
-    );
-    
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    // Position in top-left corner (relative to center)
-    textPainter.paint(canvas, Offset(-TILE_SIZE / 2 + 2, -TILE_SIZE / 2 + 2));
-
     // Valid move indicator
     if (isValidMove) {
       canvas.drawCircle(
@@ -202,7 +173,7 @@ class PieceComponent extends PositionComponent {
 
   PieceComponent(this.piece)
       : super(
-          // Position at center of square - SAME formula as SquareComponent
+          // Position at centre of square - SAME formula as SquareComponent
           position: Vector2(
             piece.col.toDouble() * TILE_SIZE + TILE_SIZE / 2,
             piece.row.toDouble() * TILE_SIZE + TILE_SIZE / 2,
@@ -212,32 +183,11 @@ class PieceComponent extends PositionComponent {
         );
 
   @override
-  void onMount() {
-    super.onMount();
-    print('Piece ${piece.colour} (${piece.row},${piece.col}) mounted at CENTER position: $position, absolutePosition: $absolutePosition');
-  }
-
-  @override
   void render(Canvas canvas) {
     super.render(canvas);
 
     final radius = TILE_SIZE * 0.35;
     const center = Offset(0, 0);
-
-    // DEBUG: Draw crosshair at center to verify anchor point
-    final crosshairPaint = Paint()
-      ..color = Colors.cyan
-      ..strokeWidth = 2;
-    canvas.drawLine(
-      Offset(-10, 0),
-      Offset(10, 0),
-      crosshairPaint,
-    );
-    canvas.drawLine(
-      Offset(0, -10),
-      Offset(0, 10),
-      crosshairPaint,
-    );
 
     // Shadow
     canvas.drawCircle(
@@ -267,61 +217,29 @@ class PieceComponent extends PositionComponent {
         ..strokeWidth = 2,
     );
 
-    // DEBUG: Draw position text on piece with HIGH VISIBILITY
-    final textStyle = TextStyle(
-      color: piece.colour == 'red' ? Colors.white : Colors.yellow,
-      fontSize: 12,
-      fontWeight: FontWeight.bold,
-      shadows: [
-        Shadow(
-          color: Colors.black,
-          offset: Offset(1, 1),
-          blurRadius: 2,
-        ),
-      ],
-    );
-    
-    final textSpan = TextSpan(
-      text: '${piece.row},${piece.col}',
-      style: textStyle,
-    );
-    
-    final textPainter = TextPainter(
-      text: textSpan,
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(-textPainter.width / 2, -textPainter.height / 2),
-    );
-
-    // King crown
+    // King crown indicator
     if (piece.isKing) {
-      _renderKingCrown(canvas, radius);
+      final crownPaint = Paint()
+        ..color = Colors.amber
+        ..style = PaintingStyle.fill;
+      
+      // Simple crown shape (triangle)
+      final path = Path();
+      path.moveTo(-radius * 0.3, 0);
+      path.lineTo(0, -radius * 0.4);
+      path.lineTo(radius * 0.3, 0);
+      path.close();
+      
+      canvas.drawPath(path, crownPaint);
+      
+      // Crown border
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.amber[800]!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
     }
-  }
-
-  void _renderKingCrown(Canvas canvas, double radius) {
-    final crownSize = radius * 0.5;
-    final path = Path()
-      ..moveTo(-crownSize, crownSize * 0.2)
-      ..lineTo(-crownSize * 0.6, -crownSize * 0.3)
-      ..lineTo(0, -crownSize * 0.5)
-      ..lineTo(crownSize * 0.6, -crownSize * 0.3)
-      ..lineTo(crownSize, crownSize * 0.2)
-      ..close();
-
-    // Crown fill
-    canvas.drawPath(path, Paint()..color = const Color(0xFFFFD700));
-    
-    // Crown outline
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFFB8860B)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
   }
 }
