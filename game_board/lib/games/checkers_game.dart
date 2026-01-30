@@ -1,4 +1,4 @@
-// checkers_game.dart - Single-player Checkers using Flutter and Flame
+// checkers_game.dart - Single-player Checkers game logic and state management
 // UK English spelling throughout
 
 import 'package:flame/components.dart';
@@ -6,17 +6,13 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:math' as math;
 
-// Board configuration
-const double boardSize = 8;
-const double tileSize = 45.0; // Reduced from 60 to fit screen better
-const Color lightSquareColour = Color(0xFFEEEED2);
-const Color darkSquareColour = Color(0xFF769656);
-const Color selectedColour = Color(0xFFFFFF00);
-const Color validMoveColour = Color(0x8800FF00);
+// Import components, models, and board
+import '../components/checkers_piece_component.dart';
+import '../components/checkers_board_component.dart';
 
-class CheckersGame extends FlameGame with TapDetector {
+/// Main game class that manages the checkers game
+class CheckersGame extends FlameGame {
   CheckersBoard? board;
   late GameStateManager stateManager;
   Function(String)? onGameOver;
@@ -31,80 +27,105 @@ class CheckersGame extends FlameGame with TapDetector {
     
     board = CheckersBoard(stateManager);
     board!.game = this;
-    
-    add(board!);
+    await add(board!);
   }
 
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
 
-    if (board == null) return; // ✅ guard
+    if (board == null) return; // Guard clause - board not loaded yet
 
-    final boardSizePixels = boardSize * tileSize;
-    final scale = (size.x < size.y ? size.x : size.y) / boardSizePixels;
+    // Center and scale the board to fit the screen
+    final smallerDimension = size.x < size.y ? size.x : size.y;
+    final scale = smallerDimension / BOARD_PIXELS * 0.95; // 95% to add padding
+    
     board!.scale = Vector2.all(scale);
     board!.position = Vector2(
-      (size.x - boardSizePixels * scale) / 2,
-      (size.y - boardSizePixels * scale) / 2,
+      (size.x - BOARD_PIXELS * scale) / 2,
+      (size.y - BOARD_PIXELS * scale) / 2,
     );
   }
 
   @override
   void onTapDown(TapDownInfo info) {
-    // Convert screen tap to board local coordinates
-    final tapPosition = info.eventPosition.global;
-    final localTap = board!.absoluteToLocal(tapPosition);
-    board!.handleTap(localTap);
+    if (board == null) return; // Guard clause
+    
+    final tapPos = info.eventPosition.global;
+    final localPos = board!.absoluteToLocal(tapPos);
+    board!.handleTap(localPos);
   }
 }
 
+/// Manages the game state and logic
 class GameStateManager {
-  List<List<CheckersPiece?>> boardState = List.generate(
-    8, 
-    (row) => List.generate(8, (col) => null)
+  // Board state: [row][col] -> piece or null
+  final List<List<CheckersPiece?>> boardState = List.generate(
+    BOARD_SIZE,
+    (_) => List.filled(BOARD_SIZE, null),
   );
   
   String currentPlayer = 'red';
-  Position? selectedPosition;
-  List<Position> validMoves = [];
+  GridPosition? selectedPosition;
+  List<GridPosition> validMoves = [];
   String gameState = 'active';
   String? winner;
-  bool mustContinue = false;
-  Position? continueFrom;
   
   GameStateManager() {
-    initialiseBoard();
+    _initializeBoard();
   }
 
-  void initialiseBoard() {
-    // Place black pieces (AI) on rows 0-2
+  /// Initialize the board with pieces in starting positions
+  void _initializeBoard() {
+    print('=== INITIALIZING CHECKERS BOARD ===');
+    
+    // Black pieces (AI) on rows 0-2, dark squares only
+    int blackCount = 0;
     for (int row = 0; row < 3; row++) {
-      for (int col = 0; col < 8; col++) {
-        if ((row + col) % 2 == 1) {
+      for (int col = 0; col < BOARD_SIZE; col++) {
+        if (_isDarkSquare(row, col)) {
           boardState[row][col] = CheckersPiece(
             colour: 'black',
-            isKing: false,
-            position: Position(row, col)
+            row: row,
+            col: col,
           );
+          blackCount++;
+          print('Black piece at ($row, $col) - isDark: ${_isDarkSquare(row, col)}');
         }
       }
     }
+    print('Total black pieces: $blackCount (should be 12)');
     
-    // Place red pieces (player) on rows 5-7
-    for (int row = 5; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        if ((row + col) % 2 == 1) {
+    // Red pieces (Player) on rows 5-7, dark squares only
+    int redCount = 0;
+    for (int row = 5; row < BOARD_SIZE; row++) {
+      for (int col = 0; col < BOARD_SIZE; col++) {
+        if (_isDarkSquare(row, col)) {
           boardState[row][col] = CheckersPiece(
             colour: 'red',
-            isKing: false,
-            position: Position(row, col)
+            row: row,
+            col: col,
           );
+          redCount++;
+          print('Red piece at ($row, $col) - isDark: ${_isDarkSquare(row, col)}');
         }
       }
     }
+    print('Total red pieces: $redCount (should be 12)');
+    print('=== BOARD INITIALIZATION COMPLETE ===');
   }
 
+  /// Check if a square is a dark square (where pieces can be placed)
+  bool _isDarkSquare(int row, int col) {
+    return (row + col) % 2 == 1;
+  }
+
+  /// Check if a position is valid on the board
+  bool isValidPosition(int row, int col) {
+    return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
+  }
+
+  /// Get all valid moves for a piece at the given position
   List<MoveOption> getValidMoves(int row, int col) {
     final piece = boardState[row][col];
     if (piece == null || piece.colour != currentPlayer) {
@@ -114,36 +135,34 @@ class GameStateManager {
     List<MoveOption> moves = [];
     List<MoveOption> captures = [];
 
-    // Direction vectors
-    List<List<int>> directions = piece.isKing 
-      ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-      : piece.colour == 'red'
-        ? [[-1, -1], [-1, 1]]
-        : [[1, -1], [1, 1]];
+    // Movement directions based on piece type
+    final directions = piece.isKing
+        ? [[-1, -1], [-1, 1], [1, -1], [1, 1]] // Kings: all directions
+        : piece.colour == 'red'
+            ? [[-1, -1], [-1, 1]] // Red: moves up
+            : [[1, -1], [1, 1]]; // Black: moves down
 
-    // Check for captures first
-    for (var dir in directions) {
-      final capture = checkCapture(row, col, dir[0], dir[1], piece.isKing);
-      if (capture != null) {
-        captures.add(capture);
-      }
+    // Check captures first (mandatory in checkers)
+    for (final dir in directions) {
+      final capture = _checkCapture(row, col, dir[0], dir[1]);
+      if (capture != null) captures.add(capture);
     }
 
-    // If captures available, only return captures (mandatory)
-    if (captures.isNotEmpty) {
-      return captures;
-    }
+    // If captures are available, only return captures (mandatory)
+    if (captures.isNotEmpty) return captures;
 
-    // Check regular moves
-    for (var dir in directions) {
+    // Check regular moves (only if no captures available)
+    for (final dir in directions) {
       final newRow = row + dir[0];
       final newCol = col + dir[1];
-
+      
       if (isValidPosition(newRow, newCol) && boardState[newRow][newCol] == null) {
         moves.add(MoveOption(
-          from: Position(row, col),
-          to: Position(newRow, newCol),
-          isCapture: false
+          fromRow: row,
+          fromCol: col,
+          toRow: newRow,
+          toCol: newCol,
+          isCapture: false,
         ));
       }
     }
@@ -151,36 +170,37 @@ class GameStateManager {
     return moves;
   }
 
-  MoveOption? checkCapture(int row, int col, int dRow, int dCol, bool isKing) {
+  /// Check if a capture is possible in a given direction
+  MoveOption? _checkCapture(int row, int col, int dRow, int dCol) {
     final jumpRow = row + dRow;
     final jumpCol = col + dCol;
-    final landRow = row + (dRow * 2);
-    final landCol = col + (dCol * 2);
+    final landRow = row + dRow * 2;
+    final landCol = col + dCol * 2;
 
     if (!isValidPosition(landRow, landCol)) return null;
 
-    final jumpPiece = boardState[jumpRow][jumpCol];
-    final landSpace = boardState[landRow][landCol];
+    final jumpedPiece = boardState[jumpRow][jumpCol];
+    final landSquare = boardState[landRow][landCol];
 
-    if (jumpPiece != null &&
-        jumpPiece.colour != currentPlayer &&
-        landSpace == null) {
+    if (jumpedPiece != null && 
+        jumpedPiece.colour != currentPlayer && 
+        landSquare == null) {
       return MoveOption(
-        from: Position(row, col),
-        to: Position(landRow, landCol),
-        captured: Position(jumpRow, jumpCol),
-        isCapture: true
+        fromRow: row,
+        fromCol: col,
+        toRow: landRow,
+        toCol: landCol,
+        isCapture: true,
+        capturedRow: jumpRow,
+        capturedCol: jumpCol,
       );
     }
 
     return null;
   }
 
-  bool isValidPosition(int row, int col) {
-    return row >= 0 && row < 8 && col >= 0 && col < 8;
-  }
-
-  MoveResult makeMove(Position from, Position to) {
+  /// Execute a move from one position to another
+  MoveResult makeMove(GridPosition from, GridPosition to) {
     final piece = boardState[from.row][from.col];
     if (piece == null) {
       return MoveResult(success: false, error: 'No piece at position');
@@ -188,9 +208,10 @@ class GameStateManager {
 
     // Validate move
     final validMovesList = getValidMoves(from.row, from.col);
-    final move = validMovesList.where((m) => 
-      m.to.row == to.row && m.to.col == to.col
-    ).firstOrNull;
+    final move = validMovesList.cast<MoveOption?>().firstWhere(
+      (m) => m!.toRow == to.row && m.toCol == to.col,
+      orElse: () => null,
+    );
 
     if (move == null) {
       return MoveResult(success: false, error: 'Invalid move');
@@ -199,35 +220,19 @@ class GameStateManager {
     // Execute move
     boardState[to.row][to.col] = piece;
     boardState[from.row][from.col] = null;
-    piece.position = to;
-
-    CheckersPiece? capturedPiece;
+    piece.row = to.row;
+    piece.col = to.col;
 
     // Handle capture
-    if (move.isCapture && move.captured != null) {
-      capturedPiece = boardState[move.captured!.row][move.captured!.col];
-      boardState[move.captured!.row][move.captured!.col] = null;
-
-      // Check for chain captures
-      final furtherCaptures = getValidMoves(to.row, to.col)
-          .where((m) => m.isCapture).toList();
-
-      if (furtherCaptures.isNotEmpty) {
-        return MoveResult(
-          success: true,
-          capturedPiece: capturedPiece,
-          mustContinue: true,
-          continueFrom: to,
-          possibleMoves: furtherCaptures
-        );
-      }
+    if (move.isCapture) {
+      boardState[move.capturedRow!][move.capturedCol!] = null;
     }
 
-    // Check for promotion
+    // Check for promotion to king
     bool promoted = false;
     if (!piece.isKing) {
       if ((piece.colour == 'red' && to.row == 0) ||
-          (piece.colour == 'black' && to.row == 7)) {
+          (piece.colour == 'black' && to.row == BOARD_SIZE - 1)) {
         piece.isKing = true;
         promoted = true;
       }
@@ -236,8 +241,8 @@ class GameStateManager {
     // Switch player
     currentPlayer = currentPlayer == 'red' ? 'black' : 'red';
 
-    // Check winner
-    final winnerColour = checkWinner();
+    // Check for winner
+    final winnerColour = _checkWinner();
     if (winnerColour != null) {
       gameState = 'finished';
       winner = winnerColour;
@@ -245,29 +250,21 @@ class GameStateManager {
 
     return MoveResult(
       success: true,
-      capturedPiece: capturedPiece,
       promoted: promoted,
-      winner: winnerColour
+      winner: winnerColour,
     );
   }
 
-  String? checkWinner() {
+  /// Check if there's a winner
+  String? _checkWinner() {
     int redCount = 0;
     int blackCount = 0;
-    List<Position> redPieces = [];
-    List<Position> blackPieces = [];
-
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        final piece = boardState[row][col];
+    
+    for (final row in boardState) {
+      for (final piece in row) {
         if (piece != null) {
-          if (piece.colour == 'red') {
-            redCount++;
-            redPieces.add(Position(row, col));
-          } else {
-            blackCount++;
-            blackPieces.add(Position(row, col));
-          }
+          if (piece.colour == 'red') redCount++;
+          if (piece.colour == 'black') blackCount++;
         }
       }
     }
@@ -276,10 +273,19 @@ class GameStateManager {
     if (blackCount == 0) return 'red';
 
     // Check if current player has valid moves
-    final currentPieces = currentPlayer == 'red' ? redPieces : blackPieces;
-    final hasValidMoves = currentPieces.any((pos) => 
-      getValidMoves(pos.row, pos.col).isNotEmpty
-    );
+    bool hasValidMoves = false;
+    for (int row = 0; row < BOARD_SIZE; row++) {
+      for (int col = 0; col < BOARD_SIZE; col++) {
+        final piece = boardState[row][col];
+        if (piece != null && piece.colour == currentPlayer) {
+          if (getValidMoves(row, col).isNotEmpty) {
+            hasValidMoves = true;
+            break;
+          }
+        }
+      }
+      if (hasValidMoves) break;
+    }
 
     if (!hasValidMoves) {
       return currentPlayer == 'red' ? 'black' : 'red';
@@ -287,399 +293,4 @@ class GameStateManager {
 
     return null;
   }
-}
-
-class CheckersBoard extends PositionComponent with TapCallbacks {
-  final GameStateManager stateManager;
-  final List<List<SquareComponent>> squares = [];
-  final List<PieceComponent> pieces = [];
-  late CheckersGame game;
-
-  CheckersBoard(this.stateManager) : super(
-    position: Vector2.zero(), // Ensure board starts at origin
-    size: Vector2.all(boardSize * tileSize),
-    anchor: Anchor.topLeft, // Anchor at top-left corner
-  );
-
-  @override
-  Future<void> onLoad() async {
-    await super.onLoad();
-    
-    // Create board squares
-    for (int row = 0; row < 8; row++) {
-      squares.add([]);
-      for (int col = 0; col < 8; col++) {
-        final square = SquareComponent(
-          row: row,
-          col: col,
-          isLight: (row + col) % 2 == 0,
-        );
-        squares[row].add(square);
-        add(square);
-      }
-    }
-
-    // Create pieces
-    updatePieces();
-  }
-
-  void updatePieces() {
-    // Remove existing pieces
-    for (final piece in pieces) {
-      remove(piece);
-    }
-    pieces.clear();
-
-    // Add current pieces
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        final piece = stateManager.boardState[row][col];
-        if (piece != null) {
-          final pieceComponent = PieceComponent(
-            piece: piece,
-            row: row,
-            col: col,
-          );
-          pieces.add(pieceComponent);
-          add(pieceComponent);
-        }
-      }
-    }
-  }
-
-  void handleTap(Vector2 position) {
-    // Convert position to board coordinates
-    final col = (position.x / tileSize).floor();
-    final row = (position.y / tileSize).floor();
-
-    if (!stateManager.isValidPosition(row, col)) return;
-
-    // If it's AI's turn, ignore taps
-    if (stateManager.currentPlayer == 'black') return;
-
-    final tappedPiece = stateManager.boardState[row][col];
-
-    // If a piece is already selected
-    if (stateManager.selectedPosition != null) {
-      final selectedPos = stateManager.selectedPosition!;
-      
-      // Check if tapped position is a valid move
-      final isValidMove = stateManager.validMoves.any((move) =>
-        move.row == row && move.col == col
-      );
-
-      if (isValidMove) {
-        // Make the move
-        final result = stateManager.makeMove(selectedPos, Position(row, col));
-        
-        if (result.success) {
-          updatePieces();
-          clearSelection();
-
-          // Handle chain captures
-          if (result.mustContinue && result.continueFrom != null) {
-            selectPiece(result.continueFrom!.row, result.continueFrom!.col);
-            return;
-          }
-
-          // Check for game over
-          if (result.winner != null) {
-            handleGameOver(result.winner!);
-            return;
-          }
-
-          // Trigger AI move
-          if (stateManager.currentPlayer == 'black') {
-            Future.delayed(Duration(milliseconds: 500), makeAIMove);
-          }
-        }
-      } else if (tappedPiece != null && tappedPiece.colour == 'red') {
-        // Select different piece
-        selectPiece(row, col);
-      } else {
-        clearSelection();
-      }
-    } else {
-      // Select a piece
-      if (tappedPiece != null && tappedPiece.colour == 'red') {
-        selectPiece(row, col);
-      }
-    }
-
-    updateHighlights();
-  }
-
-  void selectPiece(int row, int col) {
-    stateManager.selectedPosition = Position(row, col);
-    final moves = stateManager.getValidMoves(row, col);
-    stateManager.validMoves = moves.map((m) => m.to).toList();
-  }
-
-  void clearSelection() {
-    stateManager.selectedPosition = null;
-    stateManager.validMoves = [];
-  }
-
-  void updateHighlights() {
-    // Update square highlights
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        final square = squares[row][col];
-        final isSelected = stateManager.selectedPosition != null &&
-            stateManager.selectedPosition!.row == row &&
-            stateManager.selectedPosition!.col == col;
-        final isValidMove = stateManager.validMoves.any((pos) =>
-          pos.row == row && pos.col == col
-        );
-        
-        square.updateHighlight(isSelected, isValidMove);
-      }
-    }
-  }
-
-  void makeAIMove() {
-    // Simple AI: choose random valid move with preference for captures
-    final allMoves = <MoveOption>[];
-    
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        final piece = stateManager.boardState[row][col];
-        if (piece != null && piece.colour == 'black') {
-          allMoves.addAll(stateManager.getValidMoves(row, col));
-        }
-      }
-    }
-
-    if (allMoves.isEmpty) {
-      handleGameOver('red');
-      return;
-    }
-
-    // Prefer captures
-    final captures = allMoves.where((m) => m.isCapture).toList();
-    final move = captures.isNotEmpty 
-        ? captures[math.Random().nextInt(captures.length)]
-        : allMoves[math.Random().nextInt(allMoves.length)];
-
-    final result = stateManager.makeMove(move.from, move.to);
-    
-    if (result.success) {
-      updatePieces();
-      
-      if (result.winner != null) {
-        handleGameOver(result.winner!);
-      }
-    }
-  }
-
-  void handleGameOver(String winner) {
-    stateManager.gameState = 'finished';
-    stateManager.winner = winner;
-    // Notify parent via game instance callback
-    if (game.onGameOver != null) {
-      game.onGameOver!(winner);
-    }
-  }
-}
-
-class SquareComponent extends PositionComponent {
-  final int row;
-  final int col;
-  final bool isLight;
-  bool isSelected = false;
-  bool isValidMove = false;
-
-  SquareComponent({
-    required this.row,
-    required this.col,
-    required this.isLight,
-  }) : super(
-    position: Vector2(col * tileSize, row * tileSize),
-    size: Vector2.all(tileSize),
-    anchor: Anchor.topLeft, // Explicit anchor
-  );
-
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
-    
-    Color colour = isLight ? lightSquareColour : darkSquareColour;
-    
-    if (isSelected) {
-      colour = selectedColour;
-    } else if (isValidMove) {
-      colour = validMoveColour;
-    }
-
-    final paint = Paint()
-      ..color = colour
-      ..style = PaintingStyle.fill;
-
-    canvas.drawRect(size.toRect(), paint);
-
-    // Draw border
-    final borderPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    canvas.drawRect(size.toRect(), borderPaint);
-
-    // Draw valid move indicator
-    if (isValidMove) {
-      final circlePaint = Paint()
-        ..color = Colors.green.withValues(alpha: 0.5)
-        ..style = PaintingStyle.fill;
-
-      canvas.drawCircle(
-        Offset(size.x / 2, size.y / 2),
-        tileSize / 8, // Reduced from tileSize / 6
-        circlePaint,
-      );
-    }
-  }
-
-  void updateHighlight(bool selected, bool validMove) {
-    isSelected = selected;
-    isValidMove = validMove;
-  }
-}
-
-class PieceComponent extends PositionComponent {
-  final CheckersPiece piece;
-  final int row;
-  final int col;
-
-  PieceComponent({
-    required this.piece,
-    required this.row,
-    required this.col,
-  }) : super(
-    position: Vector2(
-      col * tileSize + tileSize / 2,
-      row * tileSize + tileSize / 2,
-    ),
-    size: Vector2.all(tileSize * 0.7), // Reduced from 0.8 for better spacing
-    anchor: Anchor.center,
-  );
-
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
-
-    final radius = tileSize * 0.32; // Reduced from 0.35 for better fit
-    final centre = Offset(0, 0);
-
-    // Shadow
-    final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-
-    canvas.drawCircle(centre + const Offset(2, 2), radius, shadowPaint);
-
-    // Piece colour
-    final piecePaint = Paint()
-      ..color = piece.colour == 'red' ? Colors.red : Colors.black
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(centre, radius, piecePaint);
-
-    // Border
-    final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-
-    canvas.drawCircle(centre, radius, borderPaint);
-
-    // King crown
-    if (piece.isKing) {
-      final crownPaint = Paint()
-        ..color = Colors.amber
-        ..style = PaintingStyle.fill;
-
-      final crownPath = Path();
-      final crownSize = radius * 0.6;
-      
-      crownPath.moveTo(-crownSize / 2, crownSize / 4);
-      crownPath.lineTo(-crownSize / 4, -crownSize / 4);
-      crownPath.lineTo(0, crownSize / 4);
-      crownPath.lineTo(crownSize / 4, -crownSize / 4);
-      crownPath.lineTo(crownSize / 2, crownSize / 4);
-      crownPath.close();
-
-      canvas.drawPath(crownPath, crownPaint);
-
-      // Crown border
-      final crownBorderPaint = Paint()
-        ..color = Colors.orange
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1;
-
-      canvas.drawPath(crownPath, crownBorderPaint);
-    }
-  }
-}
-
-// Data classes
-class CheckersPiece {
-  String colour;
-  bool isKing;
-  Position position;
-
-  CheckersPiece({
-    required this.colour,
-    required this.isKing,
-    required this.position,
-  });
-}
-
-class Position {
-  final int row;
-  final int col;
-
-  Position(this.row, this.col);
-
-  @override
-  bool operator ==(Object other) =>
-      other is Position && other.row == row && other.col == col;
-
-  @override
-  int get hashCode => row.hashCode ^ col.hashCode;
-}
-
-class MoveOption {
-  final Position from;
-  final Position to;
-  final Position? captured;
-  final bool isCapture;
-
-  MoveOption({
-    required this.from,
-    required this.to,
-    this.captured,
-    required this.isCapture,
-  });
-}
-
-class MoveResult {
-  final bool success;
-  final String? error;
-  final CheckersPiece? capturedPiece;
-  final bool mustContinue;
-  final Position? continueFrom;
-  final List<MoveOption>? possibleMoves;
-  final bool promoted;
-  final String? winner;
-
-  MoveResult({
-    required this.success,
-    this.error,
-    this.capturedPiece,
-    this.mustContinue = false,
-    this.continueFrom,
-    this.possibleMoves,
-    this.promoted = false,
-    this.winner,
-  });
 }
