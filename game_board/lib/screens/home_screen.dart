@@ -8,7 +8,7 @@ import 'profile_screen.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../components/slide_in_panel.dart';
-import 'checkers_difficulty_screen.dart';
+//import 'checkers_difficulty_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -167,14 +167,14 @@ class HomeScreen extends StatelessWidget {
                           title: '🎲 Checkers',
                           icon: Icons.grid_on,
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => CheckersDifficultyScreen(user: user),
-                              ),
-                            );
+                            // Navigator.push(
+                            //   context,
+                            //   MaterialPageRoute(
+                            //     builder: (context) => CheckersDifficultyScreen(user: user),
+                            //   ),
+                            // );
                           },
-                          enabled: true,
+                          enabled: false,
                           width: buttonWidth,
                           height: buttonHeight,
                         ),
