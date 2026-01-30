@@ -111,12 +111,13 @@ class SquareComponent extends PositionComponent {
   SquareComponent(this.row, this.col)
       : isLight = (row + col) % 2 == 0,
         super(
+          // Position at center of square (relative to board's top-left)
           position: Vector2(
-            col.toDouble() * TILE_SIZE,
-            row.toDouble() * TILE_SIZE,
+            col.toDouble() * TILE_SIZE + TILE_SIZE / 2,
+            row.toDouble() * TILE_SIZE + TILE_SIZE / 2,
           ),
           size: Vector2.all(TILE_SIZE),
-          anchor: Anchor.topLeft,
+          anchor: Anchor.center,
         );
 
   @override
@@ -124,7 +125,7 @@ class SquareComponent extends PositionComponent {
     super.onMount();
     if (row == 0 || row == 7) {
       // Only log first and last rows to reduce spam
-      print('Square ($row,$col) ${isLight ? "LIGHT" : "DARK"} mounted at position: $position');
+      print('Square ($row,$col) ${isLight ? "LIGHT" : "DARK"} mounted at CENTER position: $position');
     }
   }
 
@@ -136,14 +137,23 @@ class SquareComponent extends PositionComponent {
     if (isSelected) colour = SELECTED_COLOUR;
     if (isValidMove) colour = VALID_MOVE_COLOUR;
 
+    // Draw square (centered on origin since anchor is center)
     canvas.drawRect(
-      size.toRect(),
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: TILE_SIZE,
+        height: TILE_SIZE,
+      ),
       Paint()..color = colour,
     );
 
     // Border
     canvas.drawRect(
-      size.toRect(),
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: TILE_SIZE,
+        height: TILE_SIZE,
+      ),
       Paint()
         ..color = Colors.black.withValues(alpha: 0.1)
         ..style = PaintingStyle.stroke
@@ -167,12 +177,13 @@ class SquareComponent extends PositionComponent {
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    textPainter.paint(canvas, Offset(2, 2));
+    // Position in top-left corner (relative to center)
+    textPainter.paint(canvas, Offset(-TILE_SIZE / 2 + 2, -TILE_SIZE / 2 + 2));
 
     // Valid move indicator
     if (isValidMove) {
       canvas.drawCircle(
-        Offset(TILE_SIZE / 2, TILE_SIZE / 2),
+        Offset.zero, // Center since anchor is center
         TILE_SIZE / 8,
         Paint()..color = Colors.green.withValues(alpha: 0.6),
       );
@@ -191,7 +202,7 @@ class PieceComponent extends PositionComponent {
 
   PieceComponent(this.piece)
       : super(
-          // Position at the CENTER of the piece's square
+          // Position at center of square - SAME formula as SquareComponent
           position: Vector2(
             piece.col.toDouble() * TILE_SIZE + TILE_SIZE / 2,
             piece.row.toDouble() * TILE_SIZE + TILE_SIZE / 2,
@@ -203,7 +214,7 @@ class PieceComponent extends PositionComponent {
   @override
   void onMount() {
     super.onMount();
-    print('Piece ${piece.colour} (${piece.row},${piece.col}) mounted at position: $position, absolutePosition: $absolutePosition');
+    print('Piece ${piece.colour} (${piece.row},${piece.col}) mounted at CENTER position: $position, absolutePosition: $absolutePosition');
   }
 
   @override

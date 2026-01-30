@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 // Import components, models, and board
-import '../components/checkers_piece_component.dart';
 import '../components/checkers_board_component.dart';
+import '../components/checkers_piece_component.dart';
 
 /// Main game class that manages the checkers game
 class CheckersGame extends FlameGame {
@@ -41,6 +41,7 @@ class CheckersGame extends FlameGame {
     final scale = smallerDimension / BOARD_PIXELS * 0.95; // 95% to add padding
     
     board!.scale = Vector2.all(scale);
+    // Position board's top-left corner to center the board on screen
     board!.position = Vector2(
       (size.x - BOARD_PIXELS * scale) / 2,
       (size.y - BOARD_PIXELS * scale) / 2,

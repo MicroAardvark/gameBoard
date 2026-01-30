@@ -21,7 +21,7 @@ class CheckersBoard extends PositionComponent with TapCallbacks {
   CheckersBoard(this.stateManager) : super(
     position: Vector2.zero(),
     size: Vector2.all(BOARD_PIXELS),
-    anchor: Anchor.topLeft,
+    anchor: Anchor.topLeft,  // Keep topLeft for simpler positioning
   );
 
   @override
