@@ -196,6 +196,9 @@ class _MultiplayerCheckersGameScreenState
             _statusMessage = 'Game started!';
           });
           break;
+        case 'piece_selected':  // ✅ ADD THIS
+          _game.handlePieceSelected(data);
+          break;
         case 'move_made':
           _game.handleMoveMade(data);
           break;
