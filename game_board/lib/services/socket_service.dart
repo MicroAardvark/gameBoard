@@ -462,6 +462,14 @@ class SocketService {
     });
 
     // ===========================================
+    // CHECKERS EVENTS
+    // ===========================================
+    _socket!.on('game_action', (data) {
+      print('🎮 Game action received: ${data['action']}');
+      _gameActionController.add(data);
+    });
+
+    // ===========================================
     // VOICE CHAT EVENTS
     // ===========================================
     _socket!.on('voice_participants_updated', (data) {
