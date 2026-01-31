@@ -35,6 +35,7 @@ class _MultiplayerCheckersLobbyScreenState extends State<MultiplayerCheckersLobb
   StreamSubscription? _roomCreatedSub;
   StreamSubscription? _connectionSub;
   StreamSubscription? _errorSub;
+  bool _hasNavigated = false;
 
   @override
   void initState() {
@@ -54,10 +55,10 @@ class _MultiplayerCheckersLobbyScreenState extends State<MultiplayerCheckersLobb
 
   void _setupSocketListeners() {
     _roomCreatedSub = _socketService.onRoomCreated.listen((data) {
-      if (mounted) {
+      if (mounted && !_hasNavigated){
         final roomId = data['roomId'];
         final room = data['room'];
-        
+        _hasNavigated = true;
         setState(() {
           _currentRoomId = roomId;
         });
@@ -153,7 +154,8 @@ class _MultiplayerCheckersLobbyScreenState extends State<MultiplayerCheckersLobb
     setState(() {
       _currentRoomId = roomId;
     });
-    
+    if(_hasNavigated) return;
+    _hasNavigated = true;
     Navigator.push(
       context,
       MaterialPageRoute(
