@@ -1,6 +1,6 @@
 // ====================================
 // lib/screens/multiplayer_checkers_game_screen.dart
-// Multiplayer Checkers screen – visually identical to single player
+// Multiplayer Checkers screen with lobby, ready button, and proper socket integration
 // ====================================
 
 import 'dart:async';
@@ -40,11 +40,19 @@ class _MultiplayerCheckersGameScreenState
   bool _isMyTurn = false;
   bool _gameStarted = false;
   bool _isChatOpen = false;
+  bool _isReady = false;
   int _playerCount = 0;
   int _unreadMessages = 0;
 
+  List<Map<String, dynamic>> _players = [];
+
   StreamSubscription? _gameActionSub;
   StreamSubscription? _chatMessageSub;
+  StreamSubscription? _playerJoinedSub;
+  StreamSubscription? _playerLeftSub;
+  StreamSubscription? _playerReadySub;
+  StreamSubscription? _gameStartingSub;
+  StreamSubscription? _connectionSub;
 
   @override
   void initState() {
@@ -52,6 +60,7 @@ class _MultiplayerCheckersGameScreenState
 
     _voiceService = VoiceChatService(_socketService);
     _playerCount = widget.players.length;
+    _players = widget.players;
 
     _game = MultiplayerCheckersGame(
       user: widget.user,
@@ -82,12 +91,18 @@ class _MultiplayerCheckersGameScreenState
   void dispose() {
     _gameActionSub?.cancel();
     _chatMessageSub?.cancel();
+    _playerJoinedSub?.cancel();
+    _playerLeftSub?.cancel();
+    _playerReadySub?.cancel();
+    _gameStartingSub?.cancel();
+    _connectionSub?.cancel();
 
     _socketService.leaveRoom(
       roomId: widget.roomId,
       userId: widget.user.id,
     );
 
+    _voiceService.dispose();
     super.dispose();
   }
 
@@ -100,6 +115,76 @@ class _MultiplayerCheckersGameScreenState
   }
 
   void _setupSocketListeners() {
+    // Connection status
+    _connectionSub = _socketService.onConnectionChange.listen((connected) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = connected ? 'Connected' : 'Disconnected';
+        });
+      }
+    });
+
+    // Player joined
+    _playerJoinedSub = _socketService.onPlayerJoined.listen((data) {
+      if (mounted) {
+        final room = data['room'];
+        final players = room['players'] as List;
+        
+        setState(() {
+          _players = players.cast<Map<String, dynamic>>();
+          _playerCount = players.length;
+          _statusMessage = '${data['player']['username']} joined';
+        });
+      }
+    });
+
+    // Player left
+    _playerLeftSub = _socketService.onPlayerLeft.listen((data) {
+      if (mounted) {
+        final room = data['room'];
+        if (room != null) {
+          final players = room['players'] as List;
+          
+          setState(() {
+            _players = players.cast<Map<String, dynamic>>();
+            _playerCount = players.length;
+            _statusMessage = '${data['username']} left';
+          });
+        } else {
+          _showMessage('Room was closed');
+          Navigator.of(context).pop();
+        }
+      }
+    });
+
+    // Player ready update
+    _playerReadySub = _socketService.onPlayerReady.listen((data) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = '${data['username']} is ready';
+          
+          // Update ready status in players list
+          final room = data['room'];
+          if (room != null) {
+            final players = room['players'] as List;
+            _players = players.cast<Map<String, dynamic>>();
+          }
+        });
+      }
+    });
+
+    // Game starting notification
+    _gameStartingSub = _socketService.onGameStarting.listen((data) {
+      if (mounted) {
+        setState(() {
+          _statusMessage = 'Game starting!';
+        });
+        
+        _showMessage('Game starting!');
+      }
+    });
+
+    // Game actions (board updates, moves, etc.)
     _gameActionSub = _socketService.onGameAction.listen((data) {
       if (data['gameType'] != 'checkers') return;
 
@@ -108,7 +193,7 @@ class _MultiplayerCheckersGameScreenState
           _game.syncBoardFromServer(data);
           setState(() {
             _gameStarted = true;
-            _statusMessage = 'Game started';
+            _statusMessage = 'Game started!';
           });
           break;
         case 'move_made':
@@ -123,34 +208,94 @@ class _MultiplayerCheckersGameScreenState
       }
     });
 
-    _chatMessageSub = _socketService.onChatMessage.listen((_) {
+    // Chat messages
+    _chatMessageSub = _socketService.onChatMessage.listen((message) {
       if (!_isChatOpen && mounted) {
         setState(() => _unreadMessages++);
       }
     });
   }
 
+  void _toggleReady() {
+    setState(() {
+      _isReady = !_isReady;
+    });
+
+    if (_isReady) {
+      _socketService.playerReady(
+        roomId: widget.roomId,
+        userId: widget.user.id,
+      );
+    } else {
+      _socketService.playerUnready(
+        roomId: widget.roomId,
+        userId: widget.user.id,
+      );
+    }
+  }
+
+  void _showMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFF1A2332),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _showGameOverDialog(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
+      builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A2332),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Color(0xFFFFA500), width: 2),
+        ),
         title: const Text(
           'Game Over',
-          style: TextStyle(color: Color(0xFFFFD700)),
+          style: TextStyle(
+            color: Color(0xFFFFD700),
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
         ),
         content: Text(
           message,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+          ),
+          textAlign: TextAlign.center,
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.of(context).pop(); // Close dialog
+              Navigator.of(context).pop(); // Return to lobby
             },
-            child: const Text('Back to Lobby'),
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFFFA500),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Text(
+                'Back to Lobby',
+                style: TextStyle(
+                  color: Color(0xFF1A2332),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -162,120 +307,305 @@ class _MultiplayerCheckersGameScreenState
     return Scaffold(
       backgroundColor: const Color(0xFF0A1628),
       body: SafeArea(
-        child: Row(
+        child: Stack(
           children: [
-            // LEFT PANEL — MATCHES SINGLE PLAYER
-            Container(
-              width: 80,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A2332),
-                border: Border(
-                  right: BorderSide(
-                    color: Color(0xFFFFA500),
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Color(0xFFFFA500),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Checkers',
-                    style: TextStyle(
-                      color: Color(0xFFFFD700),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildTurnIndicator('You', _isMyTurn),
-                        const SizedBox(height: 24),
-                        _buildTurnIndicator(
-                          'Opponent',
-                          !_isMyTurn && _gameStarted,
-                        ),
-                        const SizedBox(height: 32),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: RotatedBox(
-                            quarterTurns: 3,
-                            child: Text(
-                              _statusMessage,
-                              style: const TextStyle(
-                                color: Color(0xFFFFD700),
-                                fontSize: 10,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.chat,
-                      color: Color(0xFFFFA500),
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isChatOpen = !_isChatOpen;
-                        _unreadMessages = 0;
-                      });
-                    },
-                  ),
-                  if (_unreadMessages > 0)
-                    Text(
-                      '$_unreadMessages',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+            // Main game layout
+            Row(
+              children: [
+                // Left side panel
+                Container(
+                  width: 80,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1A2332),
+                    border: Border(
+                      right: BorderSide(
+                        color: Color(0xFFFFA500),
+                        width: 1,
                       ),
                     ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
+                  ),
+                  child: Column(
+                    children: [
+                      // Back button at top
+                      const SizedBox(height: 8),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back,
+                            color: Color(0xFFFFA500), size: 24),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
 
-            // GAME AREA — IDENTICAL SIZE & CONSTRAINTS
-            Expanded(
-              child: Stack(
-                children: [
-                  GameWidget(game: _game),
-                  if (_isChatOpen)
-                    Positioned.fill(
-                      child: ChatOverlay(
-                        roomId: widget.roomId,
-                        userId: widget.user.id,
-                        username: widget.user.username,
-                        socketService: _socketService,
-                        voiceService: _voiceService,
-                        onClose: () {
+                      const SizedBox(height: 16),
+
+                      // Title
+                      const RotatedBox(
+                        quarterTurns: 0,
+                        child: Text(
+                          'Checkers',
+                          style: TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Status and turn indicators in the middle
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Player turn indicator
+                            _buildTurnIndicator('You', _isMyTurn),
+                            const SizedBox(height: 24),
+                            _buildTurnIndicator('Opponent', !_isMyTurn),
+                          ],
+                        ),
+                      ),
+
+                      // Chat button at bottom
+                      IconButton(
+                        icon: Stack(
+                          children: [
+                            const Icon(Icons.chat,
+                                color: Color(0xFFFFA500), size: 24),
+                            if (_unreadMessages > 0)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '$_unreadMessages',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        onPressed: () {
                           setState(() {
-                            _isChatOpen = false;
+                            _isChatOpen = !_isChatOpen;
                             _unreadMessages = 0;
                           });
                         },
                       ),
-                    ),
-                ],
-              ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+
+                // GAME AREA
+                Expanded(
+                  child: Stack(
+                    children: [
+                      GameWidget(game: _game),
+                      
+                      // Chat overlay
+                      if (_isChatOpen)
+                        Positioned.fill(
+                          child: ChatOverlay(
+                            roomId: widget.roomId,
+                            userId: widget.user.id,
+                            username: widget.user.username,
+                            socketService: _socketService,
+                            voiceService: _voiceService,
+                            onClose: () {
+                              setState(() {
+                                _isChatOpen = false;
+                                _unreadMessages = 0;
+                              });
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+
+            // LOBBY OVERLAY - Shows before game starts
+            if (!_gameStarted)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.9),
+                  child: Center(
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 500),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.8),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Title
+                          const Text(
+                            'Checkers',
+                            style: TextStyle(
+                              fontFamily: 'Montserrat',
+                              color: Color(0xFFFFD700),
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Waiting for players…',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Player list
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A2332)
+                                  .withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFFFA500),
+                                width: 1,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                const Text(
+                                  'Players',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    color: Color(0xFFFFD700),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ..._players.map((player) {
+                                  final isReady = player['isReady'] == true;
+                                  final isMe =
+                                      player['userId'] == widget.user.id;
+
+                                  return Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          isReady
+                                              ? Icons.check_circle
+                                              : Icons.circle_outlined,
+                                          color:
+                                              isReady ? Colors.green : Colors.grey,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            '${player['username']}${isMe ? ' (You)' : ''}',
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: isMe
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Ready button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _toggleReady,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    _isReady ? Colors.orange : Colors.green,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                _isReady ? 'Not Ready' : 'Ready',
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Status message
+                          if (_playerCount < 2)
+                            Text(
+                              'Waiting for 1 more player…',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 14,
+                              ),
+                            )
+                          else if (_players.every((p) => p['isReady'] == true))
+                            const Text(
+                              'Starting game…',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Colors.green,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Waiting for all players to ready up…',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Colors.white.withValues(alpha: 0.6),
+                                fontSize: 14,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
