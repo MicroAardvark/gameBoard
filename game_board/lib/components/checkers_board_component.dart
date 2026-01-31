@@ -31,6 +31,7 @@ class CheckersBoard extends PositionComponent {
           isDark: isDark,
         );
         
+        // Position squares relative to board's top-left (0,0)
         square.position = Vector2(
           col * CheckersConstants.squareSize,
           row * CheckersConstants.squareSize,
@@ -89,25 +90,48 @@ class CheckersBoard extends PositionComponent {
   
   /// Convert screen coordinates to board position
   Position? screenToBoard(Vector2 screenPosition) {
-    // Board is center-anchored, so we need to offset from center
-    final boardHalfSize = size.x / 2;
-    final localPosition = screenPosition - (position - Vector2.all(boardHalfSize));
+    // Since board uses Anchor.center:
+    // - 'position' is where the CENTER of the board is
+    // - 'size' is the full board size
+    // - Top-left corner is at: position - (size / 2)
     
-    final col = (localPosition.x / CheckersConstants.squareSize).floor();
-    final row = (localPosition.y / CheckersConstants.squareSize).floor();
+    final halfSize = size / 2;
+    final boardTopLeft = position - halfSize;
+    final boardBottomRight = position + halfSize;
+    
+    // Check if tap is within board bounds
+    if (screenPosition.x < boardTopLeft.x || screenPosition.x > boardBottomRight.x ||
+        screenPosition.y < boardTopLeft.y || screenPosition.y > boardBottomRight.y) {
+      return null;
+    }
+    
+    // Convert to board-local coordinates (0,0 is top-left of board)
+    final localX = screenPosition.x - boardTopLeft.x;
+    final localY = screenPosition.y - boardTopLeft.y;
+    
+    // Convert to grid position
+    final col = (localX / CheckersConstants.squareSize).floor();
+    final row = (localY / CheckersConstants.squareSize).floor();
     
     final pos = Position(row, col);
-    return pos.isValid() ? pos : null;
+    
+    if (!pos.isValid()) {
+      return null;
+    }
+    
+    return pos;
   }
   
-  /// Convert board position to screen coordinates (centre of square)
+  /// Convert board position to screen coordinates (center of square)
   Vector2 boardToScreen(Position pos) {
-    // Board is center-anchored, so we need to offset from center
-    final boardHalfSize = size.x / 2;
+    // Board's top-left corner in game coordinates
+    final halfSize = size / 2;
+    final boardTopLeft = position - halfSize;
     
-    return Vector2(
-      position.x - boardHalfSize + (pos.col * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
-      position.y - boardHalfSize + (pos.row * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
+    // Center of the square in game coordinates
+    return boardTopLeft + Vector2(
+      (pos.col * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
+      (pos.row * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
     );
   }
 }

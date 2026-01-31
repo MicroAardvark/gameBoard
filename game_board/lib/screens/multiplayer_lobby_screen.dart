@@ -7,6 +7,7 @@ import '../models/user.dart';
 import 'multiplayer_blackjack_lobby_screen.dart';
 import '../theme/app_theme.dart';
 import 'multiplayer_crazy_eights_lobby_screen.dart';
+import 'multiplayer_checkers_lobby_screen.dart';
 
 class MultiplayerLobbyScreen extends StatelessWidget {
   final User user;
@@ -189,8 +190,15 @@ class MultiplayerLobbyScreen extends StatelessWidget {
                         description: 'Strategic board game classic',
                         icon: Icons.grid_on,
                         color: Colors.blue,
-                        isAvailable: false,
-                        onTap: null,
+                        isAvailable: true,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MultiplayerCheckersLobbyScreen(user: user),
+                            ),
+                          );
+                        },
                         width: cardWidth,
                         height: cardHeight,
                       ),

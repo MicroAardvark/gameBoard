@@ -13,9 +13,9 @@ import '../components/checkers_piece_component.dart';
 class CheckersConstants {
   // Board dimensions
   static const int boardSize = 8;
-  static const double squareSize = 48.0;  // Increased from 40.0
-  static const double pieceSize = 36.0;   // Increased from 30.0
-  static const double crownSize = 18.0;   // Increased from 15.0
+  static const double squareSize = 48.0;
+  static const double pieceSize = 36.0;
+  static const double crownSize = 18.0;
   
   // Colours matching Microvark theme
   static const Color darkSquare = Color(0xFF000000); // Black
@@ -182,6 +182,20 @@ class CheckersGameState {
     return captures.isNotEmpty ? captures : moves;
   }
   
+  bool _checkPromotion(Position pos, bool isPlayer) {
+    if (isPlayer) {
+      return pos.row == 0;
+    } else {
+      return pos.row == CheckersConstants.boardSize - 1;
+    }
+  }
+  
+  bool _isOpponentPiece(int piece1, int piece2) {
+    final isPlayer1 = piece1 == CheckersConstants.playerPiece || piece1 == CheckersConstants.playerKing;
+    final isPlayer2 = piece2 == CheckersConstants.playerPiece || piece2 == CheckersConstants.playerKing;
+    return isPlayer1 != isPlayer2;
+  }
+  
   List<CheckersMove> getAllValidMoves(bool forPlayer) {
     List<CheckersMove> allMoves = [];
     List<CheckersMove> allCaptures = [];
@@ -224,59 +238,50 @@ class CheckersGameState {
     }
     
     if (move.promotesToKing) {
-      if (piece == CheckersConstants.playerPiece) {
-        board[move.to.row][move.to.col] = CheckersConstants.playerKing;
-      } else if (piece == CheckersConstants.aiPiece) {
-        board[move.to.row][move.to.col] = CheckersConstants.aiKing;
-      }
+      final isPlayer = piece == CheckersConstants.playerPiece || piece == CheckersConstants.playerKing;
+      board[move.to.row][move.to.col] = isPlayer ? CheckersConstants.playerKing : CheckersConstants.aiKing;
     }
     
     moveHistory.add(move);
-    selectedPiece = null;
-    validMoves = [];
-    
-    if (move.isCapture && !move.promotesToKing) {
-      final furtherCaptures = getValidMovesForPiece(move.to).where((m) => m.isCapture).toList();
-      if (furtherCaptures.isNotEmpty) {
-        return false;
-      }
-    }
-    
-    isPlayerTurn = !isPlayerTurn;
-    _checkGameOver();
     return true;
   }
   
-  bool _checkPromotion(Position pos, bool isPlayer) {
-    if (isPlayer && pos.row == 0) return true;
-    if (!isPlayer && pos.row == CheckersConstants.boardSize - 1) return true;
-    return false;
+  int countPieces(bool forPlayer) {
+    int count = 0;
+    for (int row = 0; row < CheckersConstants.boardSize; row++) {
+      for (int col = 0; col < CheckersConstants.boardSize; col++) {
+        final piece = board[row][col];
+        final isPlayerPiece = piece == CheckersConstants.playerPiece || piece == CheckersConstants.playerKing;
+        if (forPlayer && isPlayerPiece || !forPlayer && !isPlayerPiece && piece != CheckersConstants.emptySquare) {
+          count++;
+        }
+      }
+    }
+    return count;
   }
   
-  bool _isOpponentPiece(int piece1, int piece2) {
-    final isPlayer1 = piece1 == CheckersConstants.playerPiece || piece1 == CheckersConstants.playerKing;
-    final isPlayer2 = piece2 == CheckersConstants.playerPiece || piece2 == CheckersConstants.playerKing;
+  void checkGameOver() {
+    final playerPieces = countPieces(true);
+    final aiPieces = countPieces(false);
     
-    if (piece2 == CheckersConstants.emptySquare) return false;
-    return isPlayer1 != isPlayer2;
-  }
-  
-  void _checkGameOver() {
-    final playerMoves = getAllValidMoves(true);
-    final aiMoves = getAllValidMoves(false);
-    
-    if (playerMoves.isEmpty) {
+    if (playerPieces == 0) {
       gameOver = true;
       winner = 'AI';
-    } else if (aiMoves.isEmpty) {
+    } else if (aiPieces == 0) {
       gameOver = true;
       winner = 'Player';
+    } else if (getAllValidMoves(isPlayerTurn).isEmpty) {
+      gameOver = true;
+      winner = isPlayerTurn ? 'AI' : 'Player';
     }
   }
   
   CheckersGameState copy() {
     final newState = CheckersGameState();
-    newState.board = board.map((row) => List<int>.from(row)).toList();
+    newState.board = List.generate(
+      CheckersConstants.boardSize,
+      (row) => List.from(board[row]),
+    );
     newState.isPlayerTurn = isPlayerTurn;
     newState.selectedPiece = selectedPiece;
     newState.validMoves = List.from(validMoves);
@@ -286,28 +291,13 @@ class CheckersGameState {
     newState.mustCapture = mustCapture;
     return newState;
   }
-  
-  int countPieces(bool forPlayer) {
-    int count = 0;
-    for (var row in board) {
-      for (var piece in row) {
-        if (forPlayer) {
-          if (piece == CheckersConstants.playerPiece || piece == CheckersConstants.playerKing) count++;
-        } else {
-          if (piece == CheckersConstants.aiPiece || piece == CheckersConstants.aiKing) count++;
-        }
-      }
-    }
-    return count;
-  }
 }
 
 // ============================================================================
-// AI OPPONENT
+// AI
 // ============================================================================
 
 class CheckersAI {
-  final Random _random = Random();
   int difficultyDepth;
   
   CheckersAI({this.difficultyDepth = 4});
@@ -316,22 +306,13 @@ class CheckersAI {
     final validMoves = state.getAllValidMoves(false);
     if (validMoves.isEmpty) return null;
     
-    // Easy mode: random with capture preference
-    if (difficultyDepth == 2) {
-      final captures = validMoves.where((m) => m.isCapture).toList();
-      if (captures.isNotEmpty && _random.nextDouble() > 0.3) {
-        return captures[_random.nextInt(captures.length)];
-      }
-      return validMoves[_random.nextInt(validMoves.length)];
-    }
-    
-    // Minimax for medium/hard
     CheckersMove? bestMove;
     double bestScore = double.negativeInfinity;
     
     for (var move in validMoves) {
       final newState = state.copy();
       newState.makeMove(move);
+      
       final score = _minimax(newState, difficultyDepth - 1, double.negativeInfinity, double.infinity, false);
       
       if (score > bestScore) {
@@ -349,7 +330,6 @@ class CheckersAI {
     }
     
     final validMoves = state.getAllValidMoves(!maximizingPlayer);
-    
     if (validMoves.isEmpty) {
       return maximizingPlayer ? -1000.0 : 1000.0;
     }
@@ -473,9 +453,12 @@ class CheckersGame extends FlameGame with TapDetector {
     board = CheckersBoard();
     add(board!);
     
-    // Wait for next frame to ensure board is positioned
-    await Future.delayed(Duration.zero);
+    // Wait for game to be properly sized
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    // Center the board
     board!.position = Vector2(size.x / 2, size.y / 2);
+    
     _createPieces();
     
     onTurnChanged?.call(gameState.isPlayerTurn);
@@ -530,8 +513,12 @@ class CheckersGame extends FlameGame with TapDetector {
       return;
     }
     
-    final boardPos = board!.screenToBoard(info.eventPosition.global);
-    if (boardPos == null) return;
+    final tapPosition = info.eventPosition.widget;
+    final boardPos = board!.screenToBoard(tapPosition);
+    
+    if (boardPos == null) {
+      return;
+    }
     
     _handleTap(boardPos);
   }
@@ -560,62 +547,79 @@ class CheckersGame extends FlameGame with TapDetector {
       piece.isSelected = piece.boardPosition == pos;
     }
     
-    final validTargets = gameState.validMoves.map((m) => m.to).toList();
-    board!.highlightSquares(validTargets);
+    board!.highlightSquares(gameState.validMoves.map((m) => m.to).toList());
     
     _updateStatus();
   }
   
-  void _attemptMove(Position targetPos) {
+  void _attemptMove(Position pos) {
     if (gameState.selectedPiece == null) return;
     
-    final move = gameState.validMoves.firstWhere(
-      (m) => m.to == targetPos,
+    final validMove = gameState.validMoves.firstWhere(
+      (move) => move.to == pos,
       orElse: () => CheckersMove(from: Position(-1, -1), to: Position(-1, -1)),
     );
     
-    if (move.from.row == -1) {
-      _deselectPiece();
+    if (validMove.from.row == -1) {
+      board!.deselectSquare();
+      board!.clearHighlights();
+      gameState.selectedPiece = null;
+      _updateStatus();
       return;
     }
     
-    _executeMove(move);
+    _makeMove(validMove);
   }
   
-  Future<void> _executeMove(CheckersMove move) async {
+  Future<void> _makeMove(CheckersMove move) async {
     if (board == null) return;
     
     isProcessing = true;
     
-    final movingPiece = pieces.firstWhere((p) => p.boardPosition == move.from);
-    final targetScreenPos = board!.boardToScreen(move.to);
-    movingPiece.animateTo(targetScreenPos);
+    final movingPiece = pieces.firstWhere(
+      (p) => p.boardPosition == move.from,
+    );
+    
+    for (var capturedPos in move.capturedPieces) {
+      final capturedPiece = pieces.firstWhere(
+        (p) => p.boardPosition == capturedPos,
+      );
+      capturedPiece.removeFromParent();
+      pieces.remove(capturedPiece);
+    }
+    
+    final newScreenPos = board!.boardToScreen(move.to);
+    movingPiece.animateTo(newScreenPos);
     
     await Future.delayed(CheckersConstants.moveAnimationDuration);
     
-    final switchedTurn = gameState.makeMove(move);
-    _createPieces();
+    gameState.makeMove(move);
+    gameState.checkGameOver();
     
     board!.deselectSquare();
     board!.clearHighlights();
+    gameState.selectedPiece = null;
+    
+    _createPieces();
     
     if (gameState.gameOver) {
-      onGameOver?.call(gameState.winner ?? 'Draw');
       _updateStatus();
+      onGameOver?.call(gameState.winner!);
       isProcessing = false;
       return;
     }
     
-    if (switchedTurn) {
-      onTurnChanged?.call(gameState.isPlayerTurn);
-    }
-    
-    _updateStatus();
-    isProcessing = false;
+    gameState.isPlayerTurn = !gameState.isPlayerTurn;
+    onTurnChanged?.call(gameState.isPlayerTurn);
     
     if (!gameState.isPlayerTurn) {
-      _makeAIMove();
+      _updateStatus();
+      await _makeAIMove();
+    } else {
+      _updateStatus();
     }
+    
+    isProcessing = false;
   }
   
   Future<void> _makeAIMove() async {
@@ -624,61 +628,44 @@ class CheckersGame extends FlameGame with TapDetector {
     await Future.delayed(CheckersConstants.aiThinkingDelay);
     
     final aiMove = ai.getBestMove(gameState);
-    
-    if (aiMove != null) {
-      await _executeMove(aiMove);
-    }
-    
-    isProcessing = false;
-  }
-  
-  void _deselectPiece() {
-    if (board == null) return;
-    
-    gameState.selectedPiece = null;
-    gameState.validMoves = [];
-    
-    board!.deselectSquare();
-    board!.clearHighlights();
-    
-    for (var piece in pieces) {
-      piece.isSelected = false;
-    }
-    
-    _updateStatus();
-  }
-  
-  void _updateStatus() {
-    if (gameState.gameOver) {
-      onStatusUpdate?.call('Game Over! ${gameState.winner} wins!');
+    if (aiMove == null) {
+      gameState.gameOver = true;
+      gameState.winner = 'Player';
+      _updateStatus();
+      onGameOver?.call('Player');
+      isProcessing = false;
       return;
     }
     
-    if (gameState.isPlayerTurn) {
-      if (gameState.mustCapture) {
-        onStatusUpdate?.call('Your turn - You must capture!');
-      } else if (gameState.selectedPiece != null) {
-        onStatusUpdate?.call('Selected - Choose where to move');
-      } else {
-        onStatusUpdate?.call('Your turn - Select a piece');
-      }
+    await _makeMove(aiMove);
+  }
+  
+  void _updateStatus() {
+    String message;
+    
+    if (gameState.gameOver) {
+      message = 'Game Over! ${gameState.winner} wins!';
+    } else if (!gameState.isPlayerTurn) {
+      message = 'AI is thinking...';
+    } else if (gameState.selectedPiece != null) {
+      message = gameState.mustCapture 
+          ? 'You must capture!'
+          : 'Select where to move';
     } else {
-      onStatusUpdate?.call('AI is thinking...');
+      message = gameState.mustCapture
+          ? 'Your turn - You must capture!'
+          : 'Your turn - Select a piece';
     }
+    
+    onStatusUpdate?.call(message);
   }
   
   void resetGame() {
-    if (board == null) return;
-    
     gameState = CheckersGameState();
     isProcessing = false;
-    
-    board!.deselectSquare();
-    board!.clearHighlights();
-    
+    board?.deselectSquare();
+    board?.clearHighlights();
     _createPieces();
-    
-    onTurnChanged?.call(gameState.isPlayerTurn);
     _updateStatus();
   }
   

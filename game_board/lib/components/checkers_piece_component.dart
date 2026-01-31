@@ -19,6 +19,17 @@ class CheckersPiece extends PositionComponent {
     anchor: Anchor.center,
   );
   
+  // 🔧 FIX: Override to only respond to taps on the circular piece
+  // This prevents the piece's rectangular hitbox from blocking board taps
+  @override
+  bool containsLocalPoint(Vector2 point) {
+    // Only respond to taps within the circular piece area
+    final pieceCenter = size / 2;
+    final pieceRadius = size.x / 2;
+    final distance = point.distanceTo(pieceCenter);
+    return distance <= pieceRadius;
+  }
+  
   @override
   void render(Canvas canvas) {
     super.render(canvas);
@@ -27,7 +38,9 @@ class CheckersPiece extends PositionComponent {
     final isPlayer = pieceType == CheckersConstants.playerPiece || pieceType == CheckersConstants.playerKing;
     
     // Determine piece colour
-    final Color pieceColour = isPlayer ? CheckersConstants.playerPieceColour : CheckersConstants.aiPieceColour;
+    final Color pieceColour = isPlayer 
+        ? CheckersConstants.playerPieceColour 
+        : CheckersConstants.aiPieceColour;
     
     // Draw outer circle (border) if selected
     if (isSelected) {

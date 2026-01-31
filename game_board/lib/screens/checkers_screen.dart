@@ -206,7 +206,6 @@ class _CheckersScreenState extends State<CheckersScreen> {
             ),
           ),
         ],
-        actionsAlignment: MainAxisAlignment.center,
       ),
     );
   }
@@ -232,32 +231,52 @@ class _CheckersScreenState extends State<CheckersScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildDifficultyButton('Easy'),
+            _buildDifficultyOption('Easy'),
             const SizedBox(height: 10),
-            _buildDifficultyButton('Medium'),
+            _buildDifficultyOption('Medium'),
             const SizedBox(height: 10),
-            _buildDifficultyButton('Hard'),
+            _buildDifficultyOption('Hard'),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFF2D3E50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
   
-  Widget _buildDifficultyButton(String difficulty) {
+  Widget _buildDifficultyOption(String difficulty) {
     final isSelected = selectedDifficulty == difficulty;
-    
-    return InkWell(
+    return GestureDetector(
       onTap: () {
         setState(() {
           selectedDifficulty = difficulty;
           game.setDifficulty(difficulty);
         });
         Navigator.of(context).pop();
-        _resetGame();
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 15),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFFFA500) : const Color(0xFF2D3E50),
           borderRadius: BorderRadius.circular(10),
@@ -430,12 +449,10 @@ class _CheckersScreenState extends State<CheckersScreen> {
               ),
             ),
             
-            // Game board on the right
+            // Game board on the right - NO PADDING!
+            // 🔧 FIX: Removed Padding wrapper that was causing coordinate offset
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GameWidget(game: game),
-              ),
+              child: GameWidget(game: game),
             ),
           ],
         ),
