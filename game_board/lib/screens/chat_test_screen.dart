@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
-import '../services/voice_chat_service.dart';
+import '../services/mobile_voice_service.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 

@@ -132,7 +132,11 @@ class SocketService {
     print('   User ID: $userId');
 
     _socket = io.io(baseUrl, io.OptionBuilder()
-      .setTransports(['websocket']) // REQUIRED for Cloudflare + mobile
+      .setTransports(['websocket'])
+      .setAuth({
+        'userId': userId,        // ✅ CRITICAL: Server needs this
+        'username': username,    // ✅ CRITICAL: Server needs this
+      })
       .enableAutoConnect()
       .enableReconnection()
       .setReconnectionAttempts(10)
