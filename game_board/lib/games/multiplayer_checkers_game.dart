@@ -1,7 +1,8 @@
 // ====================================
 // lib/games/multiplayer_checkers_game.dart
-// Multiplayer checkers game - uses same board components as single player
-// Players control their assigned colour (red or black)
+// Multiplayer checkers game with proper perspective for each player
+// Player 1 (red): Sees red at bottom, plays upward
+// Player 2 (black): Sees black at bottom (rotated view), plays upward
 // ====================================
 
 import 'package:flame/events.dart';
@@ -11,7 +12,7 @@ import '../components/checkers_board_component.dart';
 import '../components/checkers_piece_component.dart';
 import '../models/user.dart';
 import '../services/socket_service.dart';
-import 'checkers_game.dart' show Position; // Only import Position class
+import 'checkers_game.dart' show Position;
 
 // ====================================
 // MULTIPLAYER CHECKERS CONSTANTS
@@ -27,17 +28,18 @@ class CheckersConstants {
   static const Color lightSquare = Color(0xFFF5F5DC);
   static const Color selectedColour = Color(0xFFFFD700);
   static const Color validMoveColour = Color(0xFF4169E1);
-  static const Color playerPieceColour = Color(0xFFDC143C); // Red
-  static const Color opponentPieceColour = Color(0xFF1C1C1C); // Black
+  static const Color redPieceColour = Color(0xFFDC143C); // Red pieces
+  static const Color blackPieceColour = Color(0xFF1C1C1C); // Black pieces
   static const Color kingBorderColour = Color(0xFFFFD700);
   
   static const Duration moveAnimationDuration = Duration(milliseconds: 300);
   
+  // Piece types representing actual colours
   static const int emptySquare = 0;
-  static const int myPiece = 1;
-  static const int myKing = 2;
-  static const int opponentPiece = 3;
-  static const int opponentKing = 4;
+  static const int redPiece = 1;
+  static const int redKing = 2;
+  static const int blackPiece = 3;
+  static const int blackKing = 4;
 }
 
 // ====================================
@@ -54,6 +56,7 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
 
   late CheckersBoard board;
   String myColour = '';  // 'red' or 'black'
+  bool shouldRotateBoard = false;  // true for Player 2 (black)
   List<Position> validMoves = [];
   Position? selectedPiece;
   bool isMyTurn = false;
@@ -74,9 +77,9 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
   Future<void> onLoad() async {
     super.onLoad();
 
-    // Create board (8x8 checkers board, center anchored)
+    // Create board (8x8 checkers board, centre anchored)
     board = CheckersBoard()
-      ..position = size / 2;  // Center of screen
+      ..position = size / 2;  // Centre of screen
     await add(board);
 
     print('🎮 Multiplayer checkers game loaded');
@@ -92,7 +95,10 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     // Determine my colour
     myColour = playerColours[user.id] ?? 'red';
     
-    print('My colour: $myColour');
+    // Player 2 (black) gets rotated view
+    shouldRotateBoard = (myColour == 'black');
+    
+    print('My colour: $myColour, Rotate board: $shouldRotateBoard');
     
     // Clear existing pieces
     for (var piece in pieces) {
@@ -104,18 +110,22 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     for (int row = 0; row < 8; row++) {
       final rowData = boardState[row] as List;
       for (int col = 0; col < 8; col++) {
-        final pieceType = rowData[col];
+        final pieceData = rowData[col];
         
-        if (pieceType != null) {  // ✅ Fixed from 'empty'
-          final int mappedType = _mapServerPieceToLocal(pieceType);
+        if (pieceData != null) {
+          final int pieceType = _mapServerPieceToLocal(pieceData);
           
-          if (mappedType != CheckersConstants.emptySquare) {
-            final pos = Position(row, col);
-            final screenPos = board.boardToScreen(pos);
+          if (pieceType != CheckersConstants.emptySquare) {
+            // Transform position for rotated view
+            final displayPos = shouldRotateBoard 
+              ? Position(7 - row, 7 - col)  // Rotate 180°
+              : Position(row, col);
+            
+            final screenPos = board.boardToScreen(displayPos);
             
             final piece = CheckersPiece(
-              pieceType: mappedType,
-              boardPosition: pos,
+              pieceType: pieceType,
+              boardPosition: Position(row, col),  // Store actual server position
               position: screenPos,
             );
             
@@ -126,7 +136,7 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
       }
     }
     
-    // ✅ ADD THIS: Check whose turn it is
+    // Check whose turn it is
     final currentPlayer = data['currentPlayer'] as String?;
     if (currentPlayer != null) {
       isMyTurn = (currentPlayer == user.id);
@@ -137,29 +147,19 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     gameStarted = true;
   }
 
-  /// Map server piece type ('red', 'black', 'redKing', 'blackKing') to local constants
+  /// Map server piece type to local constants - now using actual colours
   int _mapServerPieceToLocal(dynamic serverPiece) {
-    // Handle null or empty squares
     if (serverPiece == null) return CheckersConstants.emptySquare;
     
-    // Server sends objects like { colour: 'red', isKing: false }
     final pieceMap = serverPiece as Map<String, dynamic>;
     final colour = pieceMap['colour'] as String;
     final isKing = pieceMap['isKing'] as bool;
     
-    if (myColour == 'red') {
-      // I'm red (player 1) - I see my pieces at bottom as red
-      if (colour == 'red' && !isKing) return CheckersConstants.myPiece;
-      if (colour == 'red' && isKing) return CheckersConstants.myKing;
-      if (colour == 'black' && !isKing) return CheckersConstants.opponentPiece;
-      if (colour == 'black' && isKing) return CheckersConstants.opponentKing;
-    } else {
-      // I'm black (player 2) - I see my pieces at top as my colour
-      if (colour == 'black' && !isKing) return CheckersConstants.myPiece;
-      if (colour == 'black' && isKing) return CheckersConstants.myKing;
-      if (colour == 'red' && !isKing) return CheckersConstants.opponentPiece;
-      if (colour == 'red' && isKing) return CheckersConstants.opponentKing;
-    }
+    // Map to actual colours (no player/opponent abstraction)
+    if (colour == 'red' && !isKing) return CheckersConstants.redPiece;
+    if (colour == 'red' && isKing) return CheckersConstants.redKing;
+    if (colour == 'black' && !isKing) return CheckersConstants.blackPiece;
+    if (colour == 'black' && isKing) return CheckersConstants.blackKing;
     
     return CheckersConstants.emptySquare;
   }
@@ -173,120 +173,129 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
       return;
     }
     
-    final tapPosition = info.eventPosition.widget;
-    final boardPos = board.screenToBoard(tapPosition);
+    final tapPos = info.eventPosition.global;
+    final boardPos = board.screenToBoard(tapPos);
     
-    if (boardPos == null) {
-      print('❌ Tapped outside board');
+    if (boardPos == null || !boardPos.isValid()) {
+      print('❌ Invalid board position');
       return;
     }
     
-    print('📍 Tapped: $boardPos');
+    // Transform coordinates if board is rotated
+    final serverPos = shouldRotateBoard
+      ? Position(7 - boardPos.row, 7 - boardPos.col)  // Rotate back to server coordinates
+      : boardPos;
     
-    // Check if selecting own piece
+    print('🖱️ Tapped: Display($boardPos) -> Server($serverPos)');
+    
+    // Check if tapping a valid move
+    if (selectedPiece != null) {
+      final validMove = validMoves.where((move) {
+        return move.row == serverPos.row && move.col == serverPos.col;
+      }).firstOrNull;
+      
+      if (validMove != null) {
+        // Make the move
+        _makeMove(selectedPiece!, serverPos);
+        return;
+      }
+    }
+    
+    // Check if selecting a piece
     final tappedPiece = pieces.where((p) {
-      final pos = p.boardPosition;
-      return pos.row == boardPos.row && pos.col == boardPos.col;
+      return p.boardPosition.row == serverPos.row && 
+             p.boardPosition.col == serverPos.col;
     }).firstOrNull;
     
-    if (tappedPiece != null && _isMyPiece(tappedPiece.pieceType)) {
-      print('✅ Selected own piece at $boardPos');
-      _selectPiece(boardPos);
-      return;
-    }
-    
-    // Check if tapped on valid move square
-    if (selectedPiece != null) {
-      final validMove = validMoves.any((m) => 
-        m.row == boardPos.row && m.col == boardPos.col
-      );
+    if (tappedPiece != null) {
+      // Check if it's my piece
+      final bool isMyPiece = (myColour == 'red' && 
+          (tappedPiece.pieceType == CheckersConstants.redPiece || 
+           tappedPiece.pieceType == CheckersConstants.redKing)) ||
+         (myColour == 'black' && 
+          (tappedPiece.pieceType == CheckersConstants.blackPiece || 
+           tappedPiece.pieceType == CheckersConstants.blackKing));
       
-      if (validMove) {
-        print('✅ Valid move to $boardPos');
-        _attemptMove(selectedPiece!, boardPos);
-      } else {
-        print('❌ Invalid move');
-        board.clearHighlights();
-        board.deselectSquare();
-        selectedPiece = null;
-        validMoves.clear();
+      if (isMyPiece) {
+        _selectPiece(serverPos);
       }
     }
   }
 
-  bool _isMyPiece(int pieceType) {
-    return pieceType == CheckersConstants.myPiece || 
-           pieceType == CheckersConstants.myKing;
-  }
-
-  /// Request valid moves from server for selected piece
   void _selectPiece(Position pos) {
-    print('🔍 Requesting valid moves for $pos');
+    print('🎯 Selecting piece at $pos');
     
+    selectedPiece = pos;
+    
+    // Request valid moves from server
     socketService.sendGameAction(
       roomId: roomId,
       action: 'select_piece',
       payload: {
-        'userId': user.id,
         'gameType': 'checkers',
+        'userId': user.id,
         'row': pos.row,
         'col': pos.col,
       },
     );
   }
 
-  /// Attempt to make a move (client-side validation already done)
-  void _attemptMove(Position from, Position to) {
-    print('🎯 Attempting move from $from to $to');
+  void _makeMove(Position from, Position to) {
+    print('🎯 Making move: $from -> $to');
     
     socketService.sendGameAction(
       roomId: roomId,
       action: 'make_move',
       payload: {
-        'userId': user.id,
         'gameType': 'checkers',
+        'userId': user.id,
         'from': {'row': from.row, 'col': from.col},
         'to': {'row': to.row, 'col': to.col},
       },
     );
-  }
-
-  // ====================================
-  // SOCKET EVENT HANDLERS
-  // ====================================
-
-  /// Handle piece selected (valid moves returned from server)
-  void handlePieceSelected(Map<String, dynamic> data) {
-    print('🟢 Piece selected response received');
     
-    final validMovesData = data['validMoves'] as List;
-    final from = data['position'] as Map<String, dynamic>;
-    
-    selectedPiece = Position(from['row'] as int, from['col'] as int);
+    // Clear selection
+    selectedPiece = null;
     validMoves.clear();
-    
-    for (var move in validMovesData) {
-      final to = move['to'] as Map<String, dynamic>;  // ✅ Get the 'to' object
-      validMoves.add(Position(
-        to['row'] as int,  // ✅ Access row from 'to'
-        to['col'] as int,  // ✅ Access col from 'to'
-      ));
-    }
-    
-    // Highlight valid moves on board
-    board.highlightSquares(validMoves);
-    board.selectSquare(selectedPiece!);
-    
-    onStatusUpdate('Selected piece - choose a move');
+    board.clearHighlights();
+    board.deselectSquare();
   }
 
-  /// Handle move made (animate and update board)
+  /// Handle valid moves from server
+  void handlePieceSelected(Map<String, dynamic> data) {
+    print('📍 Valid moves received');
+    
+    final moves = data['validMoves'] as List;
+    validMoves = moves.map((move) {
+      final to = move['to'] as Map<String, dynamic>;
+      return Position(to['row'] as int, to['col'] as int);
+    }).toList();
+    
+    // Highlight valid moves on board (transform for display)
+    final displayMoves = validMoves.map((serverPos) {
+      return shouldRotateBoard
+        ? Position(7 - serverPos.row, 7 - serverPos.col)
+        : serverPos;
+    }).toList();
+    
+    board.highlightSquares(displayMoves);
+    
+    // Highlight selected piece (transform for display)
+    if (selectedPiece != null) {
+      final displayPos = shouldRotateBoard
+        ? Position(7 - selectedPiece!.row, 7 - selectedPiece!.col)
+        : selectedPiece!;
+      board.selectSquare(displayPos);
+    }
+  }
+
+  /// Handle move made by any player
   void handleMoveMade(Map<String, dynamic> data) {
-    print('🏃 Move made event received');
+    print('♟️ Move made');
     
     final from = data['from'] as Map<String, dynamic>;
     final to = data['to'] as Map<String, dynamic>;
-    final capturedPiece = data['capturedPiece'];  // ✅ Get single object
+    final capturedPiece = data['capturedPiece'] as Map<String, dynamic>?;
     final promoted = data['promoted'] as bool?;
     
     final fromPos = Position(from['row'] as int, from['col'] as int);
@@ -299,18 +308,25 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     }).firstOrNull;
     
     if (movingPiece != null) {
-      // Create new piece at new position
+      // Update piece type if promoted
       int newPieceType = movingPiece.pieceType;
       if (promoted == true) {
-        newPieceType = newPieceType == CheckersConstants.myPiece 
-          ? CheckersConstants.myKing 
-          : CheckersConstants.opponentKing;
+        newPieceType = newPieceType == CheckersConstants.redPiece 
+          ? CheckersConstants.redKing 
+          : CheckersConstants.blackKing;
       }
       
-      final newScreenPos = board.boardToScreen(toPos);
+      // Calculate new display position
+      final displayPos = shouldRotateBoard
+        ? Position(7 - toPos.row, 7 - toPos.col)
+        : toPos;
+      
+      final newScreenPos = board.boardToScreen(displayPos);
+      
+      // Create new piece at new position
       final newPiece = CheckersPiece(
         pieceType: newPieceType,
-        boardPosition: toPos,
+        boardPosition: toPos,  // Store server position
         position: newScreenPos,
       );
       
@@ -320,9 +336,8 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
       pieces.add(newPiece);
       add(newPiece);
       
-      // ✅ Handle captured piece - calculate position from move
+      // Handle captured piece
       if (capturedPiece != null) {
-        // In checkers, captured piece is between from and to
         final capturedRow = (fromPos.row + toPos.row) ~/ 2;
         final capturedCol = (fromPos.col + toPos.col) ~/ 2;
         final capPos = Position(capturedRow, capturedCol);
@@ -356,8 +371,8 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
   void handleTurnChanged(Map<String, dynamic> data) {
     print('🔄 Turn changed');
     
-    final currentPlayer = data['currentPlayer'] as String;  // ✅ Get userId
-    isMyTurn = (currentPlayer == user.id);  // ✅ Compare with user.id
+    final currentPlayer = data['currentPlayer'] as String;
+    isMyTurn = (currentPlayer == user.id);
     
     onTurnChanged(isMyTurn);
     onStatusUpdate(isMyTurn ? 'Your turn!' : 'Opponent\'s turn');

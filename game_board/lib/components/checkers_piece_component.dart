@@ -1,9 +1,16 @@
+// ====================================
+// lib/components/checkers_piece_component.dart
+// Checkers piece component that renders actual colours (red/black)
+// Used by both single-player and multiplayer checkers games
+// ====================================
+
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flame/effects.dart';
 import '../games/checkers_game.dart';
 
 /// Represents a single checkers piece on the board
+/// Renders actual colours (red/black) based on piece type
 class CheckersPiece extends PositionComponent {
   final int pieceType;
   final Position boardPosition;
@@ -15,15 +22,14 @@ class CheckersPiece extends PositionComponent {
     required Vector2 position,
   }) : super(
     position: position,
-    size: Vector2.all(CheckersConstants.pieceSize),
+    size: Vector2.all(36.0), // CheckersConstants.pieceSize
     anchor: Anchor.center,
   );
   
-  // 🔧 FIX: Override to only respond to taps on the circular piece
+  // Override to only respond to taps on the circular piece
   // This prevents the piece's rectangular hitbox from blocking board taps
   @override
   bool containsLocalPoint(Vector2 point) {
-    // Only respond to taps within the circular piece area
     final pieceCenter = size / 2;
     final pieceRadius = size.x / 2;
     final distance = point.distanceTo(pieceCenter);
@@ -34,18 +40,36 @@ class CheckersPiece extends PositionComponent {
   void render(Canvas canvas) {
     super.render(canvas);
     
-    final isKing = pieceType == CheckersConstants.playerKing || pieceType == CheckersConstants.aiKing;
-    final isPlayer = pieceType == CheckersConstants.playerPiece || pieceType == CheckersConstants.playerKing;
+    // Piece type constants (matches both single-player and multiplayer)
+    const int redPiece = 1;
+    const int redKing = 2;
+    const int blackPiece = 3;
+    const int blackKing = 4;
     
-    // Determine piece colour
-    final Color pieceColour = isPlayer 
-        ? CheckersConstants.playerPieceColour 
-        : CheckersConstants.aiPieceColour;
+    // Colour constants
+    const Color redPieceColour = Color(0xFFDC143C);
+    const Color blackPieceColour = Color(0xFF1C1C1C);
+    const Color selectedColour = Color(0xFFFFD700);
+    const Color kingBorderColour = Color(0xFFFFD700);
+    const double crownSize = 18.0;
+    
+    // Determine if this is a king piece
+    final isKing = pieceType == redKing || pieceType == blackKing;
+    
+    // Determine actual colour of piece
+    final Color pieceColour;
+    if (pieceType == redPiece || pieceType == redKing) {
+      pieceColour = redPieceColour;  // Red pieces
+    } else if (pieceType == blackPiece || pieceType == blackKing) {
+      pieceColour = blackPieceColour;  // Black pieces
+    } else {
+      pieceColour = Colors.grey;  // Fallback (shouldn't happen)
+    }
     
     // Draw outer circle (border) if selected
     if (isSelected) {
       final borderPaint = Paint()
-        ..color = CheckersConstants.selectedColour
+        ..color = selectedColour
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.0;
       
@@ -91,14 +115,14 @@ class CheckersPiece extends PositionComponent {
     
     // Draw crown if king
     if (isKing) {
-      _drawCrown(canvas);
+      _drawCrown(canvas, crownSize, kingBorderColour);
     }
   }
   
   /// Draw a crown symbol for king pieces
-  void _drawCrown(Canvas canvas) {
+  void _drawCrown(Canvas canvas, double crownSize, Color kingBorderColour) {
     final crownPaint = Paint()
-      ..color = CheckersConstants.kingBorderColour
+      ..color = kingBorderColour
       ..style = PaintingStyle.fill;
     
     final crownBorderPaint = Paint()
@@ -108,8 +132,8 @@ class CheckersPiece extends PositionComponent {
     
     final centerX = size.x / 2;
     final centerY = size.y / 2;
-    final crownWidth = CheckersConstants.crownSize;
-    final crownHeight = CheckersConstants.crownSize * 0.8;
+    final crownWidth = crownSize;
+    final crownHeight = crownSize * 0.8;
     
     // Draw simple crown shape
     final crownPath = Path();
@@ -141,8 +165,52 @@ class CheckersPiece extends PositionComponent {
     add(
       MoveEffect.to(
         newPosition,
-        EffectController(duration: CheckersConstants.moveAnimationDuration.inSeconds.toDouble()),
+        EffectController(duration: 0.3),  // 300ms animation
       ),
     );
   }
+}
+
+// ====================================
+// CONSTANTS (for backward compatibility)
+// ====================================
+
+class CheckersConstants {
+  // Board dimensions
+  static const int boardSize = 8;
+  static const double squareSize = 48.0;
+  static const double pieceSize = 36.0;
+  static const double crownSize = 18.0;
+  
+  // Colours
+  static const Color darkSquare = Color(0xFF000000);
+  static const Color lightSquare = Color(0xFFF5F5DC);
+  static const Color highlightColour = Color(0xFFFFA500);
+  static const Color selectedColour = Color(0xFFFFD700);
+  static const Color validMoveColour = Color(0xFF4169E1);
+  static const Color kingBorderColour = Color(0xFFFFD700);
+  
+  // Piece colours
+  static const Color playerPieceColour = Color(0xFFDC143C);  // Red (for single-player)
+  static const Color aiPieceColour = Color(0xFF1C1C1C);      // Black (for single-player)
+  static const Color redPieceColour = Color(0xFFDC143C);     // Red (for multiplayer)
+  static const Color blackPieceColour = Color(0xFF1C1C1C);   // Black (for multiplayer)
+  
+  // Game settings
+  static const Duration moveAnimationDuration = Duration(milliseconds: 300);
+  static const Duration aiThinkingDelay = Duration(milliseconds: 800);
+  
+  // Piece types (single-player compatibility)
+  static const int emptySquare = 0;
+  static const int playerPiece = 1;
+  static const int playerKing = 2;
+  static const int aiPiece = 3;
+  static const int aiKing = 4;
+  
+  // Piece types (multiplayer - actual colours)
+  // Note: These use the same values as single-player for compatibility
+  static const int redPiece = 1;
+  static const int redKing = 2;
+  static const int blackPiece = 3;
+  static const int blackKing = 4;
 }
