@@ -54,7 +54,7 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
   final Function(String) onGameOver;
   final Function(bool) onTurnChanged;
 
-  late CheckersBoard board;
+  CheckersBoard? board;
   String myColour = '';  // 'red' or 'black'
   bool shouldRotateBoard = false;  // true for Player 2 (black)
   List<Position> validMoves = [];
@@ -78,9 +78,12 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     super.onLoad();
 
     // Create board (8x8 checkers board, centre anchored)
-    board = CheckersBoard()
-      ..position = size / 2;  // Centre of screen
-    await add(board);
+    board = CheckersBoard();
+    await add(board!);
+
+    // Wait for proper sizing, then center the board
+    await Future.delayed(const Duration(milliseconds: 100));
+    board!.position = Vector2(size.x / 2, size.y / 2);
 
     print('🎮 Multiplayer checkers game loaded');
   }
@@ -121,7 +124,7 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
               ? Position(7 - row, 7 - col)  // Rotate 180°
               : Position(row, col);
             
-            final screenPos = board.boardToScreen(displayPos);
+            final screenPos = board!.boardToScreen(displayPos);
             
             final piece = CheckersPiece(
               pieceType: pieceType,
@@ -173,8 +176,8 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
       return;
     }
     
-    final tapPos = info.eventPosition.global;
-    final boardPos = board.screenToBoard(tapPos);
+    final tapPos = info.eventPosition.widget; 
+    final boardPos = board!.screenToBoard(tapPos);
     
     if (boardPos == null || !boardPos.isValid()) {
       print('❌ Invalid board position');
@@ -257,8 +260,8 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     // Clear selection
     selectedPiece = null;
     validMoves.clear();
-    board.clearHighlights();
-    board.deselectSquare();
+    board!.clearHighlights();
+    board!.deselectSquare();
   }
 
   /// Handle valid moves from server
@@ -278,14 +281,14 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
         : serverPos;
     }).toList();
     
-    board.highlightSquares(displayMoves);
+    board!.highlightSquares(displayMoves);
     
     // Highlight selected piece (transform for display)
     if (selectedPiece != null) {
       final displayPos = shouldRotateBoard
         ? Position(7 - selectedPiece!.row, 7 - selectedPiece!.col)
         : selectedPiece!;
-      board.selectSquare(displayPos);
+      board!.selectSquare(displayPos);
     }
   }
 
@@ -321,7 +324,7 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
         ? Position(7 - toPos.row, 7 - toPos.col)
         : toPos;
       
-      final newScreenPos = board.boardToScreen(displayPos);
+      final newScreenPos = board!.boardToScreen(displayPos);
       
       // Create new piece at new position
       final newPiece = CheckersPiece(
@@ -347,8 +350,8 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
     }
     
     // Clear selection
-    board.clearHighlights();
-    board.deselectSquare();
+    board!.clearHighlights();
+    board!.deselectSquare();
     selectedPiece = null;
     validMoves.clear();
   }
@@ -391,6 +394,23 @@ class MultiplayerCheckersGame extends FlameGame with TapDetector {
       onGameOver('You won! $reason');
     } else {
       onGameOver('You lost! $reason');
+    }
+  }
+
+  void onGameResize(Vector2 newSize) {
+    super.onGameResize(newSize);
+    
+    // Recenter the board when game size changes
+    if (board != null) {
+      board!.position = Vector2(newSize.x / 2, newSize.y / 2);
+      
+      // Reposition all existing pieces
+      for (var piece in pieces) {
+        final displayPos = shouldRotateBoard 
+          ? Position(7 - piece.boardPosition.row, 7 - piece.boardPosition.col)
+          : piece.boardPosition;
+        piece.position = board!.boardToScreen(displayPos);
+      }
     }
   }
 }

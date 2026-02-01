@@ -125,6 +125,7 @@ class _MultiplayerCheckersGameScreenState
     });
 
     // Player joined
+    // Player joined OR reconnected
     _playerJoinedSub = _socketService.onPlayerJoined.listen((data) {
       if (mounted) {
         final room = data['room'];
@@ -133,7 +134,15 @@ class _MultiplayerCheckersGameScreenState
         setState(() {
           _players = players.cast<Map<String, dynamic>>();
           _playerCount = players.length;
-          _statusMessage = '${data['player']['username']} joined';
+          
+          // Handle both player_joined and player_reconnected events
+          if (data.containsKey('player')) {
+            // This is a player_joined event
+            _statusMessage = '${data['player']['username']} joined';
+          } else {
+            // This is a player_reconnected event
+            _statusMessage = '${data['username']} reconnected';
+          }
         });
       }
     });
