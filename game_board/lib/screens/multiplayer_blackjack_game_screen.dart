@@ -4,7 +4,7 @@
 // ====================================
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import 'package:game_board/services/mobile_voice_service.dart';
+import '../utils/platform_utils.dart';
 import 'package:game_board/widgets/voice_indicator.dart';
 import 'dart:async';
 import '../games/multiplayer_blackjack_game.dart';

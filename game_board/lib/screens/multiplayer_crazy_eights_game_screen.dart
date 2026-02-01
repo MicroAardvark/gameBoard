@@ -9,7 +9,7 @@ import '../models/user.dart';
 import '../services/socket_service.dart';
 import '../widgets/chat_overlay.dart';
 import '../theme/app_theme.dart';
-import '../services/mobile_voice_service.dart';
+import '../utils/platform_utils.dart';
 
 class MultiplayerCrazyEightsGameScreen extends StatefulWidget {
   final User user;

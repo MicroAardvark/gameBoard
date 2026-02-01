@@ -476,43 +476,93 @@ class SocketService {
     // ===========================================
     // VOICE CHAT EVENTS
     // ===========================================
+    // ================================
+    // VOICE CHAT + WEBRTC SOCKET EVENTS
+    // ================================
+
     _socket!.on('voice_participants_updated', (data) {
-      _voiceParticipantsUpdatedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (!_voiceParticipantsUpdatedController.isClosed) {
+        _voiceParticipantsUpdatedController.add(data);
+      }
     });
 
     _socket!.on('voice_joined', (data) {
-      _voiceJoinedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['userId'] == null) return;
+
+      if (!_voiceJoinedController.isClosed) {
+        _voiceJoinedController.add(data);
+      }
     });
 
     _socket!.on('voice_participant_left', (data) {
-      _voiceParticipantLeftController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['userId'] == null) return;
+
+      if (!_voiceParticipantLeftController.isClosed) {
+        _voiceParticipantLeftController.add(data);
+      }
     });
 
     _socket!.on('voice_mute_updated', (data) {
-      _voiceMuteUpdatedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['userId'] == null || data['muted'] == null) return;
+
+      if (!_voiceMuteUpdatedController.isClosed) {
+        _voiceMuteUpdatedController.add(data);
+      }
     });
 
     _socket!.on('voice_user_kicked', (data) {
-      _voiceUserKickedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['userId'] == null) return;
+
+      if (!_voiceUserKickedController.isClosed) {
+        _voiceUserKickedController.add(data);
+      }
     });
 
     _socket!.on('voice_error', (data) {
-      _voiceErrorController.add(data);
+      if (data is! Map<String, dynamic>) return;
+
+      if (!_voiceErrorController.isClosed) {
+        _voiceErrorController.add(data);
+      }
     });
 
+    // ================================
+    // WEBRTC SIGNALING
+    // ================================
+
     _socket!.on('webrtc_offer_received', (data) {
-      _webrtcOfferReceivedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['offer'] == null || data['fromUserId'] == null) return;
+
+      if (!_webrtcOfferReceivedController.isClosed) {
+        _webrtcOfferReceivedController.add(data);
+      }
     });
 
     _socket!.on('webrtc_answer_received', (data) {
-      _webrtcAnswerReceivedController.add(data);
+      if (data is! Map<String, dynamic>) return;
+      if (data['answer'] == null || data['fromUserId'] == null) return;
+
+      if (!_webrtcAnswerReceivedController.isClosed) {
+        _webrtcAnswerReceivedController.add(data);
+      }
     });
 
     _socket!.on('webrtc_ice_candidate_received', (data) {
-      _webrtcIceCandidateReceivedController.add(data);
-    });
-  }
+      if (data is! Map<String, dynamic>) return;
+      if (data['candidate'] == null || data['fromUserId'] == null) return;
 
+      if (!_webrtcIceCandidateReceivedController.isClosed) {
+        _webrtcIceCandidateReceivedController.add(data);
+      }
+    });
+
+  }
   // ===========================================
   // ROOM MANAGEMENT
   // ===========================================

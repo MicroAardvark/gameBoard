@@ -9,7 +9,7 @@ import 'package:flame/game.dart';
 
 import '../models/user.dart';
 import '../services/socket_service.dart';
-import '../services/mobile_voice_service.dart';
+import '../utils/platform_utils.dart';
 import '../games/multiplayer_checkers_game.dart';
 import '../widgets/chat_overlay.dart';
 

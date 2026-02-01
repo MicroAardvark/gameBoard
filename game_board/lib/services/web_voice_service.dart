@@ -22,16 +22,25 @@ class VoiceParticipant {
     this.muted = false,
   });
 
-  factory VoiceParticipant.fromJson(Map<String, dynamic> json) {
+  factory VoiceParticipant.fromJson(dynamic json) {
+    if (json == null || json is! Map) {
+      return VoiceParticipant(
+        userId: '',
+        username: '',
+        muted: false,
+      );
+    }
+
     return VoiceParticipant(
-      userId: json['userId'] ?? '',
-      username: json['username'] ?? '',
-      muted: json['muted'] ?? false,
+      userId: json['userId']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      muted: json['muted'] == true,
     );
   }
 }
 
 class VoiceChatService {
+  static VoiceChatService? _instance;
   final SocketService _socketService;
 
   final Map<String, RTCPeerConnection> _peerConnections = {};
@@ -72,10 +81,15 @@ class VoiceChatService {
 
   // ================= CONSTRUCTOR =================
 
-  VoiceChatService(this._socketService) {
-    _setupSocketListeners();
-    print('🌐 VoiceChatService (WEB) initialized');
+  factory VoiceChatService(SocketService socketService) {
+    return _instance ??= VoiceChatService._internal(socketService);
   }
+
+  VoiceChatService._internal(this._socketService) {
+    _setupSocketListeners();
+    print('🌐 VoiceChatService (WEB) initialized (singleton)');
+  }
+
 
   // ================= JOIN / LEAVE =================
 
@@ -203,6 +217,7 @@ class VoiceChatService {
   // ================= SOCKETS =================
 
   void _setupSocketListeners() {
+    // 👥 participants list
     _socketService.onVoiceParticipantsUpdated.listen((data) {
       final list = data['participants'] as List?;
       if (list == null) return;
@@ -211,7 +226,96 @@ class VoiceChatService {
         ..clear()
         ..addAll(list.map((e) => VoiceParticipant.fromJson(e)));
 
-      _participantsController.add(_participants);
+      if (!_participantsController.isClosed) {
+        _participantsController.add(_participants);
+      }
+    });
+
+    // 👤 someone joined voice → I initiate offer
+    _socketService.onVoiceJoined.listen((data) async {
+      final peerId = data['userId'];
+      if (peerId == _currentUserId) return;
+      if (_peerConnections.containsKey(peerId)) return;
+
+      final pc = await _createPeerConnection(peerId);
+
+      final offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      _socketService.sendWebRTCOffer(
+        roomId: _currentRoomId!,
+        targetUserId: peerId,
+        fromUserId: _currentUserId!,
+        offer: offer.toMap(),
+      );
+    });
+
+    // 📥 OFFER
+    _socketService.onWebRTCOfferReceived.listen((data) async {
+      final peerId = data['fromUserId'];
+      final offer = data['offer'];
+
+      // 🚨 HARD GUARD — REQUIRED
+      if (peerId == null || peerId is! String) {
+        print('⚠️ WebRTC offer received without valid peerId, ignoring');
+        return;
+      }
+
+      if (offer == null) return;
+
+      final pc = await _createPeerConnection(peerId);
+
+      await pc.setRemoteDescription(
+        RTCSessionDescription(offer['sdp'], offer['type']),
+      );
+
+      final answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      _socketService.sendWebRTCAnswer(
+        roomId: _currentRoomId!,
+        targetUserId: peerId,
+        fromUserId: _currentUserId!,
+        answer: answer.toMap(),
+      );
+    });
+
+
+    // 📥 ANSWER
+    _socketService.onWebRTCAnswerReceived.listen((data) async {
+      final peerId = data['fromUserId'];
+      final answer = data['answer'];
+
+      final pc = _peerConnections[peerId];
+      if (pc == null) return;
+
+      await pc.setRemoteDescription(
+        RTCSessionDescription(answer['sdp'], answer['type']),
+      );
+    });
+
+    // 🧊 ICE
+    _socketService.onWebRTCIceCandidateReceived.listen((data) async {
+      final peerId = data['fromUserId'];
+      final candidate = data['candidate'];
+
+      if (peerId == null || peerId is! String) {
+        print('⚠️ ICE candidate without peerId, ignoring');
+        return;
+      }
+
+      if (candidate == null) return;
+
+      final pc = _peerConnections[peerId];
+      if (pc == null) return;
+
+      await pc.addCandidate(
+        RTCIceCandidate(
+          candidate['candidate'],
+          candidate['sdpMid'],
+          candidate['sdpMLineIndex'],
+        ),
+      );
     });
   }
 
@@ -245,7 +349,7 @@ class VoiceChatService {
 
   void dispose() {
     leaveVoiceChat();
-    _participantsController.close();
-    _errorController.close();
+    // _participantsController.close();
+    // _errorController.close();
   }
 }
