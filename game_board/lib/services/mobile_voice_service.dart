@@ -299,6 +299,22 @@ class VoiceChatService {
       Helper.setSpeakerphoneOn(true);
     };
 
+    pc.onIceCandidate = (RTCIceCandidate candidate) {
+      if (candidate.candidate == null) return;
+
+      _socketService.sendWebRTCIceCandidate(
+        roomId: _currentRoomId!,
+        targetUserId: peerId,
+        fromUserId: _currentUserId!,
+        candidate: {
+          'candidate': candidate.candidate,
+          'sdpMid': candidate.sdpMid,
+          'sdpMLineIndex': candidate.sdpMLineIndex,
+        },
+      );
+    };
+
+
     // 📤 SEND LOCAL AUDIO
     if (_localStream != null) {
       for (final track in _localStream!.getAudioTracks()) {
