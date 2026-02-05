@@ -2,7 +2,6 @@
 // Minimal voice chat indicator - shows when chat overlay is closed
 import 'package:flutter/material.dart';
 import '../services/voice_chat_service.dart';
-import '../theme/app_theme.dart';
 
 class VoiceIndicator extends StatelessWidget {
   final VoiceChatService voiceService;
