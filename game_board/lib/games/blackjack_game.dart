@@ -637,31 +637,8 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     // Now render all components (cards, chips, etc.) ON TOP of background
     super.render(canvas);
 
-    // Finally draw HUD panel on top of everything
-    if (hudGradientShader == null) {
-      final rect = Rect.fromLTWH(
-        0,
-        screenHeight - hudPanelHeight,
-        screenWidth,
-        hudPanelHeight,
-      );
-      hudGradientShader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF0d1b2a), Color(0xFF1a1a2e)],
-      ).createShader(rect);
-      hudPanelPaint.shader = hudGradientShader;
-    }
-
-    canvas.drawRect(
-      Rect.fromLTWH(
-        0,
-        screenHeight - hudPanelHeight,
-        screenWidth,
-        hudPanelHeight,
-      ),
-      hudPanelPaint,
-    );
+    // REMOVED: HUD panel no longer drawn (hidden on both web and mobile)
+    // The HUD panel draw code has been removed entirely
   }
 
   void onDispose() {

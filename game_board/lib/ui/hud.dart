@@ -108,21 +108,35 @@ class HudManager {
     ];
 
     // Playing buttons
+    // Playing buttons - NOW ON LEFT SIDE for both web and mobile
+    const buttonX = 0.08;  // 8% from left edge
+    const buttonSpacing = 0.12;  // 12% vertical spacing
+    const baseY = 0.35;  // 35% down from top
+    
     _playingBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.35, game.screenHeight - 70),
+        position: Vector2(
+          game.screenWidth * buttonX,
+          game.screenHeight * baseY
+        ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
       ),
       GameButton(
-        position: Vector2(game.screenWidth * 0.55, game.screenHeight - 70),
+        position: Vector2(
+          game.screenWidth * buttonX,
+          game.screenHeight * (baseY + buttonSpacing)
+        ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
       ),
       GameButton(
-        position: Vector2(game.screenWidth * 0.75, game.screenHeight - 70),
+        position: Vector2(
+          game.screenWidth * buttonX,
+          game.screenHeight * (baseY + buttonSpacing * 2)
+        ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
@@ -130,9 +144,13 @@ class HudManager {
     ];
 
     // Game over buttons
+    // Game over buttons - NOW ON LEFT SIDE for both web and mobile
     _gameOverBtns = [
       GameButton(
-        position: Vector2(game.screenWidth * 0.5, game.screenHeight - 70),
+        position: Vector2(
+          game.screenWidth * 0.08,  // Left side
+          game.screenHeight * 0.35  // Same position as Hit button
+        ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'New Round',
         onTap: () => game.newRound(),
