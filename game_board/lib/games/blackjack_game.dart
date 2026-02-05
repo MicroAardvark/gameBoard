@@ -5,7 +5,7 @@
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../components/card_component.dart';
 import '../components/chip_components.dart';
 import '../models/playing_card.dart';
@@ -46,7 +46,15 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   double get screenWidth => size.x;
   double get screenHeight => size.y;
   double get uiScale => (screenHeight / 720.0).clamp(0.6, 1.0);
-  double get cardHeight => screenHeight * 0.34 * uiScale;
+  // WEB ONLY: Slightly smaller cards on web
+  // WEB FIX: Slightly smaller cards on web
+  double get cardHeight {
+    if (kIsWeb) {
+      return screenHeight * 0.28 * uiScale;  // Smaller on web
+    }
+    return screenHeight * 0.34 * uiScale;  // Original for mobile
+  }
+  
   double get cardWidth => cardHeight * 0.68;
   double get hudPanelHeight => screenHeight * 0.15 * uiScale;
   double get chipRadius => screenWidth * 0.026 * uiScale;
@@ -56,8 +64,21 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   double get largeFontSize => screenWidth * 0.028 * uiScale;
   double get margin => screenWidth * 0.011 * uiScale;
 
-  double get playerCardY => screenHeight * 0.70;
-  double get dealerCardY => screenHeight * 0.22;
+  // WEB ONLY: Adjust card positions slightly on web
+  // WEB FIX: Better positioning for web
+  double get playerCardY {
+    if (kIsWeb) {
+      return screenHeight * 0.60;  // Much higher on web
+    }
+    return screenHeight * 0.70;  // Original for mobile
+  }
+  
+  double get dealerCardY {
+    if (kIsWeb) {
+      return screenHeight * 0.25;  // Lower on web
+    }
+    return screenHeight * 0.22;  // Original for mobile
+  }
   Vector2 get deckPosition => Vector2(screenWidth / 2, -cardHeight);
 
   Vector2 get bettingCenter => Vector2(screenWidth / 2, screenHeight / 2);
@@ -638,30 +659,30 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     super.render(canvas);
 
     // Finally draw HUD panel on top of everything
-    if (hudGradientShader == null) {
-      final rect = Rect.fromLTWH(
-        0,
-        screenHeight - hudPanelHeight,
-        screenWidth,
-        hudPanelHeight,
-      );
-      hudGradientShader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF0d1b2a), Color(0xFF1a1a2e)],
-      ).createShader(rect);
-      hudPanelPaint.shader = hudGradientShader;
-    }
+    // if (hudGradientShader == null) {
+    //   final rect = Rect.fromLTWH(
+    //     0,
+    //     screenHeight - hudPanelHeight,
+    //     screenWidth,
+    //     hudPanelHeight,
+    //   );
+    //   hudGradientShader = const LinearGradient(
+    //     begin: Alignment.topCenter,
+    //     end: Alignment.bottomCenter,
+    //     colors: [Color(0xFF0d1b2a), Color(0xFF1a1a2e)],
+    //   ).createShader(rect);
+    //   hudPanelPaint.shader = hudGradientShader;
+    // }
 
-    canvas.drawRect(
-      Rect.fromLTWH(
-        0,
-        screenHeight - hudPanelHeight,
-        screenWidth,
-        hudPanelHeight,
-      ),
-      hudPanelPaint,
-    );
+    // canvas.drawRect(
+    //   Rect.fromLTWH(
+    //     0,
+    //     screenHeight - hudPanelHeight,
+    //     screenWidth,
+    //     hudPanelHeight,
+    //   ),
+    //   hudPanelPaint,
+    // );
   }
 
   void onDispose() {

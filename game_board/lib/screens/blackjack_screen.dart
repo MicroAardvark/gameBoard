@@ -80,6 +80,170 @@ class _BlackjackScreenState extends State<BlackjackScreen> {
     
     return Scaffold(
       backgroundColor: AppColors.primaryNavyDark,
+      appBar: AppBar(
+        toolbarHeight: 35,  // Slightly taller for more info
+        backgroundColor: AppColors.primaryNavyDark,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: AppColors.textPrimary,
+            size: 20,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: Row(
+          children: [
+            // Title
+            Text(
+              'Blackjack',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: 8),
+            // Divider
+            Container(
+              height: 20,
+              width: 1,
+              color: AppColors.textSecondary.withValues(alpha: 0.3),
+            ),
+            SizedBox(width: 8),
+            // Bankroll
+            Icon(
+              Icons.account_balance_wallet,
+              color: Colors.amber,
+              size: 13,
+            ),
+            SizedBox(width: 4),
+            Text(
+              '£${_game.bankroll.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: Colors.amber[300],
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: 8),
+            // Bet info
+            if (_game.currentBet > 0 || _game.stagedBet > 0) ...[
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.blue.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Bet: £${_game.currentBet.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.blue[200],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              SizedBox(width: 4),
+            ],
+            if (_game.stagedBet > 0) ...[
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.purple.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  'Staged: £${_game.stagedBet.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.purple[200],
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          // Win/Loss badge
+          Container(
+            margin: EdgeInsets.only(right: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: AppColors.primaryNavyLight.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${_game.playerWins}W',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.green[300],
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  ' / ',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+                Text(
+                  '${_game.dealerWins}L',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: Colors.red[300],
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Info button
+          IconButton(
+            icon: Icon(
+              Icons.info_outline,
+              color: AppColors.textPrimary,
+              size: 19,
+            ),
+            padding: EdgeInsets.all(6),
+            constraints: BoxConstraints(),
+            onPressed: () {
+              GameRulesPopup.show(
+                context: context,
+                gameType: 'blackjack',
+                isMultiplayer: false,
+              );
+            },
+          ),
+          SizedBox(width: 4),
+        ],
+      ),
       body: Stack(
         children: [
           // Game widget
