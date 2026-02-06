@@ -40,9 +40,8 @@ class HudManager {
   Future<void> createHUD() async {
     if (_hudPanelShown) return;
 
-    // Calculate safe left position
+    // Simple left margin - button left edge will be at this position
     final leftMargin = 16.0;
-    final safeLeftX = leftMargin + (game.buttonWidth / 2);
     
     const buttonSpacing = 0.12;
     const baseY = 0.35;
@@ -50,46 +49,45 @@ class HudManager {
     _playingBtns = [
       GameButton(
         position: Vector2(
-          safeLeftX,
+          leftMargin,  // Simple! No calculations needed
           game.screenHeight * baseY
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Hit',
         onTap: () => game.hit(),
-      ),
+      )..priority = 100,
       GameButton(
         position: Vector2(
-          safeLeftX,
+          leftMargin,
           game.screenHeight * (baseY + buttonSpacing)
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Stand',
         onTap: () => game.stand(),
-      ),
+      )..priority = 100,
       GameButton(
         position: Vector2(
-          safeLeftX,
+          leftMargin,
           game.screenHeight * (baseY + buttonSpacing * 2)
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'Double',
         onTap: () => game.doubleDown(),
-      ),
+      )..priority = 100,
     ];
 
     _gameOverBtns = [
       GameButton(
         position: Vector2(
-          safeLeftX,
+          leftMargin,
           game.screenHeight * 0.35
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
         text: 'New Round',
         onTap: () => game.newRound(),
-      ),
+      )..priority = 100,
     ];
 
-    // Add buttons directly to game (no HUD panel)
     game.addAll(_playingBtns + _gameOverBtns);
     _hudPanelShown = true;
 
@@ -133,10 +131,7 @@ class HudManager {
   }
 
   void repositionButtons() {
-    // Calculate safe left position that keeps entire button visible
-    // Buttons are anchored at center, so we need: margin + (buttonWidth / 2)
-    final leftMargin = 16.0; // Minimum margin from edge
-    final safeLeftX = leftMargin + (game.buttonWidth / 2);
+    final leftMargin = 16.0;
     
     const buttonSpacing = 0.12;
     const baseY = 0.35;
@@ -144,7 +139,7 @@ class HudManager {
     // Reposition playing buttons
     for (int i = 0; i < _playingBtns.length; i++) {
       _playingBtns[i].position = Vector2(
-        safeLeftX,
+        leftMargin,
         game.screenHeight * (baseY + buttonSpacing * i)
       );
       _playingBtns[i].size = Vector2(game.buttonWidth, game.buttonHeight);
@@ -153,7 +148,7 @@ class HudManager {
     // Reposition game over buttons
     for (int i = 0; i < _gameOverBtns.length; i++) {
       _gameOverBtns[i].position = Vector2(
-        safeLeftX,
+        leftMargin,
         game.screenHeight * (baseY + buttonSpacing * i)
       );
       _gameOverBtns[i].size = Vector2(game.buttonWidth, game.buttonHeight);
