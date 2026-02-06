@@ -46,7 +46,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   double get screenWidth => size.x;
   double get screenHeight => size.y;
   double get uiScale => (screenHeight / 720.0).clamp(0.6, 1.0);
-  double get cardHeight => screenHeight * 0.34 * uiScale;
+  double get cardHeight => screenHeight * 0.15 * uiScale;
   double get cardWidth => cardHeight * 0.68;
   double get hudPanelHeight => screenHeight * 0.15 * uiScale;
   double get chipRadius => screenWidth * 0.026 * uiScale;
@@ -56,7 +56,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   double get largeFontSize => screenWidth * 0.028 * uiScale;
   double get margin => screenWidth * 0.011 * uiScale;
 
-  double get playerCardY => screenHeight * 0.70;
+  double get playerCardY => screenHeight * 0.90;
   double get dealerCardY => screenHeight * 0.22;
   Vector2 get deckPosition => Vector2(screenWidth / 2, -cardHeight);
 
@@ -112,6 +112,90 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
     
     debugPrint('🎮 [BLACKJACK] onLoad() completed - Game ready!');
   }
+
+  void onGameResize(Vector2 newSize) {
+    super.onGameResize(newSize);
+    
+    debugPrint('🔄 [BLACKJACK] Window resized to: ${newSize.x} x ${newSize.y}');
+    
+    // 1. Update card sizes and reposition
+    _resizeAndRepositionCards();
+    
+    // 2. Recreate palette chips with new size
+    _recreatePaletteChips();
+    
+    // 3. Update bet chips size and reposition
+    _resizeBetChips();
+    
+    // 4. Update staged chips size and reposition
+    _resizeStagedChips();
+    
+    // 5. Reposition buttons
+    _repositionButtons();
+    
+    // 6. Rebuild cached shaders with new dimensions
+    _buildCachedPaintsAndShaders();
+  }
+
+  void _resizeAndRepositionCards() {
+    final newCardSize = Vector2(cardWidth, cardHeight);
+    final spacing = cardWidth * 1.15;
+    
+    // Resize and reposition player cards
+    for (int i = 0; i < playerCards.length; i++) {
+      playerCards[i].size = newCardSize;
+      final offset = (i - (playerCards.length - 1) / 2) * spacing;
+      playerCards[i].position = Vector2(screenWidth / 2 + offset, playerCardY);
+    }
+    
+    // Resize and reposition dealer cards
+    for (int i = 0; i < dealerCards.length; i++) {
+      dealerCards[i].size = newCardSize;
+      final offset = (i - (dealerCards.length - 1) / 2) * spacing;
+      dealerCards[i].position = Vector2(screenWidth / 2 + offset, dealerCardY);
+    }
+  }
+
+  void _recreatePaletteChips() {
+    // Remove old palette chips
+    for (final chip in paletteChips) {
+      chip.removeFromParent();
+    }
+    paletteChips.clear();
+    
+    // Recreate with new size
+    _setupChips();
+  }
+
+  void _resizeBetChips() {
+    if (betChips.isEmpty) return;
+    
+    // For bet chips, update their size property
+    final newChipSize = chipRadius * 2;
+    
+    for (int i = 0; i < betChips.length; i++) {
+      betChips[i].size = Vector2.all(newChipSize);
+      betChips[i].position = _computeChipPosition(i, bettingCenter);
+    }
+  }
+
+  void _resizeStagedChips() {
+    if (stagedChips.isEmpty) return;
+    
+    final newChipSize = chipRadius * 2;
+    
+    for (int i = 0; i < stagedChips.length; i++) {
+      stagedChips[i].size = Vector2.all(newChipSize);
+      stagedChips[i].position = _computeChipPosition(i, stagedCenter);
+    }
+  }
+
+  void _repositionButtons() {
+    if (_hudInit) {
+      hud.repositionButtons();
+    }
+  }
+
 
   // NEW: Method to confirm bet directly from side menu and start game
   void confirmBetAndStart(double betAmount) {

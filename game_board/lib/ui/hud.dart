@@ -40,18 +40,17 @@ class HudManager {
   Future<void> createHUD() async {
     if (_hudPanelShown) return;
 
-    // DISABLED: No HUD panel or text components created
-    // All info now shown in AppBar
+    // Calculate safe left position
+    final leftMargin = 16.0;
+    final safeLeftX = leftMargin + (game.buttonWidth / 2);
     
-    // Only create buttons (positioned on left side, not in HUD)
-    const buttonX = 0.08;
     const buttonSpacing = 0.12;
     const baseY = 0.35;
     
     _playingBtns = [
       GameButton(
         position: Vector2(
-          game.screenWidth * buttonX,
+          safeLeftX,
           game.screenHeight * baseY
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -60,7 +59,7 @@ class HudManager {
       ),
       GameButton(
         position: Vector2(
-          game.screenWidth * buttonX,
+          safeLeftX,
           game.screenHeight * (baseY + buttonSpacing)
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -69,7 +68,7 @@ class HudManager {
       ),
       GameButton(
         position: Vector2(
-          game.screenWidth * buttonX,
+          safeLeftX,
           game.screenHeight * (baseY + buttonSpacing * 2)
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -81,7 +80,7 @@ class HudManager {
     _gameOverBtns = [
       GameButton(
         position: Vector2(
-          game.screenWidth * 0.08,
+          safeLeftX,
           game.screenHeight * 0.35
         ),
         size: Vector2(game.buttonWidth, game.buttonHeight),
@@ -130,6 +129,34 @@ class HudManager {
       _showOnlyButtons(const []);
     } else if (g.gameState == GameState.gameOver) {
       _showOnlyButtons(_gameOverBtns);
+    }
+  }
+
+  void repositionButtons() {
+    // Calculate safe left position that keeps entire button visible
+    // Buttons are anchored at center, so we need: margin + (buttonWidth / 2)
+    final leftMargin = 16.0; // Minimum margin from edge
+    final safeLeftX = leftMargin + (game.buttonWidth / 2);
+    
+    const buttonSpacing = 0.12;
+    const baseY = 0.35;
+    
+    // Reposition playing buttons
+    for (int i = 0; i < _playingBtns.length; i++) {
+      _playingBtns[i].position = Vector2(
+        safeLeftX,
+        game.screenHeight * (baseY + buttonSpacing * i)
+      );
+      _playingBtns[i].size = Vector2(game.buttonWidth, game.buttonHeight);
+    }
+    
+    // Reposition game over buttons
+    for (int i = 0; i < _gameOverBtns.length; i++) {
+      _gameOverBtns[i].position = Vector2(
+        safeLeftX,
+        game.screenHeight * (baseY + buttonSpacing * i)
+      );
+      _gameOverBtns[i].size = Vector2(game.buttonWidth, game.buttonHeight);
     }
   }
 
