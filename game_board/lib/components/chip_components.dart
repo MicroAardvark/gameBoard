@@ -70,7 +70,7 @@ abstract class ChipGameInterface {
 }
 
 /// Palette chip with +/- buttons. `size` guarantees safe spacing to neighbors.
-/// FIXED: Now uses FlameGame as base type instead of specific BlackjackGame
+/// FIXED: Defers button creation until component is mounted to avoid game reference error
 class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
   final double value;
   final Color chipColor;
@@ -82,6 +82,7 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
   ChipButton? _plus;
   ChipButton? _minus;
   TextComponent? _label;
+  bool _buttonsCreated = false; // Track if buttons have been created
 
   static const double _btnR = 13.0;
 
@@ -146,7 +147,17 @@ class PaletteChip extends PositionComponent with HasGameReference<FlameGame> {
     );
     add(_label!);
 
-    _buildButtons();
+    // DON'T build buttons here - wait until onMount when game is available
+  }
+
+  @override
+  void onMount() {
+    super.onMount();
+    // NOW we can safely build buttons because game is available
+    if (!_buttonsCreated) {
+      _buildButtons();
+      _buttonsCreated = true;
+    }
   }
 
   // 🔧 FIX: Override to only respond to taps on the chip circle itself

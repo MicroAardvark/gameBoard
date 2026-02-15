@@ -5,7 +5,7 @@
 import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-
+import '../components/result_popup_component.dart';
 import '../components/card_component.dart';
 import '../components/chip_components.dart';
 import '../models/playing_card.dart';
@@ -569,26 +569,62 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   void _endRound(RoundOutcome outcome) {
     gameState = GameState.gameOver;
 
+    String mainText;
+    String amountText;
+    bool isWin = false;
+    double payout = 0.0;
+
     switch (outcome) {
       case RoundOutcome.playerBlackjack:
-        bankroll += currentBet * 2.5;
+        payout = currentBet * 2.5;
+        bankroll += payout;
+        mainText = 'BLACKJACK!';
+        amountText = '+£${payout.toStringAsFixed(0)}';
+        isWin = true;
         gameResult = 'Blackjack! You win!';
         playerWins++;
         break;
+        
       case RoundOutcome.playerWin:
-        bankroll += currentBet * 2;
+        payout = currentBet * 2;
+        bankroll += payout;
+        mainText = 'YOU WIN!';
+        amountText = '+£${payout.toStringAsFixed(0)}';
+        isWin = true;
         gameResult = 'You win!';
         playerWins++;
         break;
+        
       case RoundOutcome.push:
-        bankroll += currentBet;
+        payout = currentBet;
+        bankroll += payout;
+        mainText = 'PUSH';
+        amountText = '£0';
+        isWin = false;
         gameResult = 'Push';
         break;
+        
       case RoundOutcome.dealerWin:
+        payout = 0;
+        mainText = 'DEALER WINS';
+        amountText = '-£${currentBet.toStringAsFixed(0)}';
+        isWin = false;
         gameResult = 'Dealer wins';
         dealerWins++;
         break;
     }
+    
+    // Show the centered popup (ADDED)
+    final popup = ResultPopupComponent(
+      mainText: mainText,
+      amountText: amountText,
+      isWin: isWin,
+      onDismiss: () {
+        debugPrint('📱 Popup dismissed');
+      },
+    );
+    add(popup);
+  
 
     currentBet = 0;
     _clearBetChips();
