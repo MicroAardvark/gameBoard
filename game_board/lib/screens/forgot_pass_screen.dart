@@ -1,8 +1,14 @@
+// lib/screens/forgot_pass_screen.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'reset_pass_screen.dart';
 
+/// Step 1 of the two-step password reset flow.
+///
+/// Validates the email address client-side before hitting the API, then
+/// navigates to [ResetPasswordScreen] on success so the user can enter
+/// the 6-digit code that was emailed to them.
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
@@ -12,7 +18,7 @@ class ForgotPasswordScreen extends StatefulWidget {
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
-  bool _isLoading = false;
+  bool   _isLoading    = false;
   String _errorMessage = '';
 
   @override
@@ -22,48 +28,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _submitForgotPassword() async {
-    if (_emailController.text.trim().isEmpty) {
+    final email = _emailController.text.trim();
+
+    // Basic presence check before the regex so the error message is specific.
+    if (email.isEmpty) {
       setState(() => _errorMessage = 'Please enter your email address');
       return;
     }
 
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(_emailController.text.trim())) {
+    // Simple format check — the server validates more thoroughly, but this
+    // avoids an unnecessary round-trip for clearly invalid input.
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       setState(() => _errorMessage = 'Please enter a valid email address');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
+    setState(() { _isLoading = true; _errorMessage = ''; });
 
     try {
-      final result = await AuthService.forgotPassword(
-        email: _emailController.text.trim(),
-      );
-
+      final result = await AuthService.forgotPassword(email: email);
       setState(() => _isLoading = false);
 
       if (result['success']) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ResetPasswordScreen(
-              email: _emailController.text.trim(),
-            ),
-          ),
-        );
+        // Navigate to code-entry screen, passing the email so it can be
+        // displayed as a reminder and submitted with the verification code.
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ResetPasswordScreen(email: email)),
+          );
+        }
       } else {
-        setState(() {
-          _errorMessage = result['error'] ?? 'Failed to send verification code';
-        });
+        setState(() => _errorMessage = result['error'] ?? 'Failed to send verification code');
       }
     } catch (_) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'An error occurred. Please try again.';
-      });
+      setState(() { _isLoading = false; _errorMessage = 'An error occurred. Please try again.'; });
     }
   }
 
@@ -73,15 +72,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       backgroundColor: AppColors.primaryNavyDark,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: Text(
+        title: const Text(
           'Forgot Password',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            color: AppColors.textPrimary,
-          ),
+          style: TextStyle(fontFamily: 'Montserrat', color: AppColors.textPrimary),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -91,7 +87,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Reset Your Password',
                 style: TextStyle(
                   fontSize: 24,
@@ -101,12 +97,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Enter your email address and we’ll send you a 6-digit verification code.',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                ),
+              const Text(
+                'Enter your email address and we\'ll send you a 6-digit verification code.',
+                style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 32),
 
@@ -124,10 +117,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       const Icon(Icons.error_outline, color: Colors.red),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          _errorMessage,
-                          style: const TextStyle(color: Colors.red),
-                        ),
+                        child: Text(_errorMessage, style: const TextStyle(color: Colors.red)),
                       ),
                     ],
                   ),
@@ -137,7 +127,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 controller: _emailController,
                 decoration: InputDecoration(
                   labelText: 'Email Address',
-                  prefixIcon: Icon(Icons.email_outlined),
+                  prefixIcon: const Icon(Icons.email_outlined),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -160,10 +150,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Send Code',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                      : const Text('Send Code', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

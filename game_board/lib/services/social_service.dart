@@ -1,19 +1,49 @@
 // lib/services/friends_service.dart
+//
+// FriendsService — manages all social interactions between users on the platform.
+//
+// Responsibilities:
+//   - User search by username
+//   - Friends list retrieval
+//   - Friend request management (send, accept, reject, cancel)
+//   - Friend removal
+//   - User blocking and unblocking
+//   - User reporting for inappropriate behaviour
+//
+// All methods require a valid JWT token from [AuthService] for authentication.
+// All methods return a Map<String, dynamic> with at minimum a 'success' boolean.
+//
+// Base API endpoint: https://microaardvark.co.uk/api/social
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
 class FriendsService {
+  /// Base URL for all social/friends API endpoints.
   static const String baseUrl = 'https://microaardvark.co.uk/api/social';
-  
-  /// Search users by username
+
+  // ==================== USER SEARCH ====================
+
+  /// Searches for users by their username.
+  ///
+  /// Used in the friend search UI to find other players to add. Results
+  /// typically exclude the current user and already-added friends, as
+  /// determined by the server.
+  ///
+  /// Parameters:
+  ///   - [username]: The search query string to match against usernames.
+  ///
+  /// Returns:
+  ///   - `success: true` with a `users` list on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> searchUsers(String username) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/search?username=$username'),
         headers: {
@@ -21,7 +51,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -43,15 +73,21 @@ class FriendsService {
       };
     }
   }
-  
-  /// Get friends list
+
+  // ==================== FRIENDS LIST ====================
+
+  /// Retrieves the current user's list of confirmed friends.
+  ///
+  /// Returns:
+  ///   - `success: true` with a `friends` list on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> getFriends() async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {
@@ -59,7 +95,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -81,15 +117,24 @@ class FriendsService {
       };
     }
   }
-  
-  /// Get friend requests (received and sent)
+
+  // ==================== FRIEND REQUESTS ====================
+
+  /// Retrieves all pending friend requests for the current user.
+  ///
+  /// Returns both incoming requests (awaiting the user's response) and
+  /// outgoing requests (sent by the user, awaiting others' responses).
+  ///
+  /// Returns:
+  ///   - `success: true` with `received` and `sent` request lists on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> getRequests() async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/requests'),
         headers: {
@@ -97,7 +142,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -120,15 +165,22 @@ class FriendsService {
       };
     }
   }
-  
-  /// Send friend request
+
+  /// Sends a friend request to another user.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user to send the request to.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` (e.g., already friends, request pending) on failure.
   static Future<Map<String, dynamic>> sendRequest(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/request'),
         headers: {
@@ -137,7 +189,7 @@ class FriendsService {
         },
         body: jsonEncode({'userId': userId}),
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -159,15 +211,22 @@ class FriendsService {
       };
     }
   }
-  
-  /// Accept friend request
+
+  /// Accepts an incoming friend request from another user.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user whose request is being accepted.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> acceptRequest(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/accept/$userId'),
         headers: {
@@ -175,7 +234,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -197,15 +256,22 @@ class FriendsService {
       };
     }
   }
-  
-  /// Reject friend request
+
+  /// Rejects an incoming friend request from another user.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user whose request is being rejected.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> rejectRequest(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/reject/$userId'),
         headers: {
@@ -213,7 +279,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -235,15 +301,24 @@ class FriendsService {
       };
     }
   }
-  
-  /// Remove friend
+
+  /// Removes an existing friend from the current user's friends list.
+  ///
+  /// This is a mutual removal — the other user also loses this user as a friend.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the friend to remove.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> removeFriend(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.delete(
         Uri.parse('$baseUrl/$userId'),
         headers: {
@@ -251,7 +326,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -273,15 +348,22 @@ class FriendsService {
       };
     }
   }
-  
-  /// Cancel sent friend request
+
+  /// Cancels a previously sent friend request that has not yet been accepted.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user to whom the request was sent.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> cancelRequest(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.delete(
         Uri.parse('$baseUrl/request/$userId'),
         headers: {
@@ -289,7 +371,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -311,17 +393,24 @@ class FriendsService {
       };
     }
   }
-  
+
   // ==================== BLOCKING METHODS ====================
-  
-  /// Get blocked users list
+
+  /// Retrieves the list of users that the current user has blocked.
+  ///
+  /// Blocked users cannot send friend requests, chat messages, or interact
+  /// with the current user within the platform.
+  ///
+  /// Returns:
+  ///   - `success: true` with a `blocked` list on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> getBlocked() async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.get(
         Uri.parse('$baseUrl/blocked'),
         headers: {
@@ -329,7 +418,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -351,15 +440,24 @@ class FriendsService {
       };
     }
   }
-  
-  /// Block a user
+
+  /// Blocks a user, preventing them from interacting with the current user.
+  ///
+  /// If the blocked user is currently a friend, the friendship is also removed.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user to block.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> blockUser(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/block/$userId'),
         headers: {
@@ -367,7 +465,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -389,15 +487,22 @@ class FriendsService {
       };
     }
   }
-  
-  /// Unblock a user
+
+  /// Removes a block, allowing the previously blocked user to interact again.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user to unblock.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> unblockUser(String userId) async {
     try {
       final token = await AuthService.getToken();
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.delete(
         Uri.parse('$baseUrl/block/$userId'),
         headers: {
@@ -405,7 +510,7 @@ class FriendsService {
           'Authorization': 'Bearer $token',
         },
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
@@ -427,16 +532,27 @@ class FriendsService {
       };
     }
   }
-  
+
   // ==================== REPORTING METHODS ====================
-  
-  /// Report a user for inappropriate behaviour
-  /// 
-  /// [userId] - ID of the user to report
-  /// [reason] - Reason for reporting (must be one of: 'harassment', 'inappropriate_content', 
-  ///            'cheating', 'spam', 'offensive_language', 'other')
-  /// [message] - Optional additional context (max 500 characters)
-  /// [chatMessageId] - Optional ID of specific chat message being reported
+
+  /// Reports a user to the platform moderation team for inappropriate behaviour.
+  ///
+  /// Reports are stored server-side for review in accordance with the platform's
+  /// moderation obligations under the UK Online Safety Act 2023.
+  ///
+  /// Parameters:
+  ///   - [userId]: The ID of the user being reported.
+  ///   - [reason]: A category string describing the nature of the report.
+  ///     Must be one of: 'harassment', 'inappropriate_content', 'cheating',
+  ///     'spam', 'offensive_language', 'other'.
+  ///   - [message]: Optional additional context provided by the reporter
+  ///     (maximum 500 characters).
+  ///   - [chatMessageId]: Optional ID of a specific chat message that prompted
+  ///     the report, enabling moderators to review the exact content in question.
+  ///
+  /// Returns:
+  ///   - `success: true` with `message` on HTTP 200.
+  ///   - `success: false` with `error` on failure.
   static Future<Map<String, dynamic>> reportUser({
     required String userId,
     required String reason,
@@ -448,7 +564,7 @@ class FriendsService {
       if (token == null) {
         return {'success': false, 'error': 'No authentication token found'};
       }
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/report/$userId'),
         headers: {
@@ -461,7 +577,7 @@ class FriendsService {
           'chatMessageId': chatMessageId,
         }),
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {

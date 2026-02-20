@@ -1,19 +1,26 @@
-// ====================================
 // lib/screens/multiplayer_crazy_eights_lobby_screen.dart
-// Multiplayer lobby for Crazy Eights (same flow as Blackjack lobby)
-// ====================================
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../models/user.dart';
-import '../services/auth_service.dart';
-import '../services/socket_service.dart';
-import '../theme/app_theme.dart';
+import '../../models/user.dart';
+import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
+import '../../theme/app_theme.dart';
 import 'multiplayer_crazy_eights_game_screen.dart';
 
+/// Room browser and creation screen for multiplayer Crazy Eights.
+///
+/// Mirrors the Blackjack lobby flow but supports 2–4 players instead of 2–3.
+/// Available rooms are fetched via the REST API so the list loads without
+/// waiting for a socket event. Creating a room fires a Socket.IO event;
+/// the server responds with [onRoomCreated] and we navigate to
+/// [MultiplayerCrazyEightsGameScreen] as host.
+///
+/// Joining a room sets [currentRoomId] and navigates immediately, letting
+/// the game screen handle the server-side join confirmation.
 class MultiplayerCrazyEightsLobbyScreen extends StatefulWidget {
   final User user;
 
@@ -30,28 +37,25 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
   List<Map<String, dynamic>> _availableRooms = [];
   bool _isLoadingRooms = false;
-  bool _isConnecting = false;
+  bool _isConnecting   = false;
   bool _isCreatingRoom = false;
 
   StreamSubscription? _roomCreatedSub;
   StreamSubscription? _errorSub;
   StreamSubscription? _connectionSub;
 
-  // Crazy Eights supports 2–4 players
-  int _selectedMaxPlayers = 4;
-  bool _isConnected = false;
+  /// Crazy Eights supports 2–4 players; default to maximum.
+  int  _selectedMaxPlayers = 4;
+  bool _isConnected        = false;
 
+  /// Game-type string used for both room creation and the REST endpoint.
   static const String _gameType = 'crazyEights';
 
   @override
   void initState() {
     super.initState();
     if (_socketService.isConnected) {
-      print('✅ Socket already connected, using existing connection');
-      setState(() {
-        _isConnected = true;
-        _isConnecting = false;
-      });
+      setState(() { _isConnected = true; _isConnecting = false; });
       _loadAvailableRooms();
     } else {
       _connectToSocket();
@@ -61,13 +65,11 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
   void _connectToSocket() {
     setState(() => _isConnecting = true);
+    _socketService.connect(widget.user.id, widget.user.username);
 
-    _socketService.connect(
-      widget.user.id,
-      widget.user.username,
-    );
-
-    // Give it a moment to connect
+    // Poll after 2 s as a fallback in case the connection event fires before
+    // the listener is registered. The connection listener will also trigger
+    // _loadAvailableRooms when the socket connects successfully.
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) _loadAvailableRooms();
     });
@@ -76,15 +78,8 @@ class _MultiplayerCrazyEightsLobbyScreenState
   void _setupSocketListeners() {
     _connectionSub = _socketService.onConnectionChange.listen((connected) {
       if (!mounted) return;
-
-      setState(() {
-        _isConnected = connected;
-        _isConnecting = false;
-      });
-
-      if (connected) {
-        _loadAvailableRooms();
-      }
+      setState(() { _isConnected = connected; _isConnecting = false; });
+      if (connected) _loadAvailableRooms();
     });
 
     _roomCreatedSub = _socketService.onRoomCreated.listen((data) {
@@ -97,19 +92,20 @@ class _MultiplayerCrazyEightsLobbyScreenState
         return;
       }
 
-      // IMPORTANT: Set currentRoomId immediately
+      // Set currentRoomId before navigation so the game screen can reference
+      // it during initState before any socket events arrive.
       _socketService.currentRoomId = roomId;
-
       _showMessage('Room created successfully!');
 
+      // Brief delay ensures the socket is fully registered in the room on the
+      // server before the game screen starts listening for player events.
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
-
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MultiplayerCrazyEightsGameScreen(
-              user: widget.user,
+            builder: (_) => MultiplayerCrazyEightsGameScreen(
+              user:   widget.user,
               roomId: roomId,
               isHost: true,
             ),
@@ -125,7 +121,6 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
     _errorSub = _socketService.onError.listen((error) {
       if (!mounted) return;
-
       _showError(error);
       setState(() => _isCreatingRoom = false);
     });
@@ -133,11 +128,10 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
   Future<void> _loadAvailableRooms() async {
     if (!_isConnected) return;
-
     setState(() => _isLoadingRooms = true);
 
     try {
-      final token = await _getToken();
+      final token    = await _getToken();
       final response = await http
           .get(
             Uri.parse('${_socketService.baseUrl}/api/rooms/available/$_gameType'),
@@ -151,7 +145,6 @@ class _MultiplayerCrazyEightsLobbyScreenState
       if (response.statusCode == 200) {
         final List<dynamic> rooms = jsonDecode(response.body);
         if (!mounted) return;
-
         setState(() {
           _availableRooms = rooms.cast<Map<String, dynamic>>();
           _isLoadingRooms = false;
@@ -162,26 +155,15 @@ class _MultiplayerCrazyEightsLobbyScreenState
     } catch (e) {
       debugPrint('Error loading rooms: $e');
       if (!mounted) return;
-
-      setState(() {
-        _isLoadingRooms = false;
-        _availableRooms = [];
-      });
+      setState(() { _isLoadingRooms = false; _availableRooms = []; });
     }
   }
 
-  Future<String?> _getToken() async {
-    return AuthService.getToken();
-  }
+  Future<String?> _getToken() => AuthService.getToken();
 
   void _createRoom() {
-    if (!_isConnected) {
-      _showError('Not connected to server');
-      return;
-    }
-
+    if (!_isConnected) { _showError('Not connected to server'); return; }
     setState(() => _isCreatingRoom = true);
-
     _socketService.createRoom(
       userId: widget.user.id,
       username: widget.user.username,
@@ -191,33 +173,23 @@ class _MultiplayerCrazyEightsLobbyScreenState
   }
 
   void _joinRoom(String roomId) {
-    if (!_isConnected) {
-      _showError('Not connected to server');
-      return;
-    }
+    if (!_isConnected) { _showError('Not connected to server'); return; }
 
-    // Set the room ID before joining
+    // Set room ID before emitting joinRoom so the game screen finds it
+    // immediately if it reads currentRoomId in initState.
     _socketService.currentRoomId = roomId;
-
     _socketService.joinRoom(
-      roomId: roomId,
-      userId: widget.user.id,
-      username: widget.user.username,
+      roomId: roomId, userId: widget.user.id, username: widget.user.username,
     );
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MultiplayerCrazyEightsGameScreen(
-          user: widget.user,
-          roomId: roomId,
-          isHost: false,
+        builder: (_) => MultiplayerCrazyEightsGameScreen(
+          user: widget.user, roomId: roomId, isHost: false,
         ),
       ),
-    ).then((_) {
-      _socketService.currentRoomId = null;
-      _loadAvailableRooms();
-    });
+    ).then((_) { _socketService.currentRoomId = null; _loadAvailableRooms(); });
   }
 
   void _showCreateRoomDialog() {
@@ -226,52 +198,26 @@ class _MultiplayerCrazyEightsLobbyScreenState
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2D2D2D),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Create Room',
-          style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary),
-        ),
+        title: Text('Create Room', style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Max Players',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text('Max Players', style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
             const SizedBox(height: 12),
             SegmentedButton<int>(
               segments: [
-                ButtonSegment(
-                  value: 2,
-                  label: Text('2', style: Theme.of(context).textTheme.bodyMedium),
-                ),
-                ButtonSegment(
-                  value: 3,
-                  label: Text('3', style: Theme.of(context).textTheme.bodyMedium),
-                ),
-                ButtonSegment(
-                  value: 4,
-                  label: Text('4', style: Theme.of(context).textTheme.bodyMedium),
-                ),
+                ButtonSegment(value: 2, label: Text('2', style: Theme.of(context).textTheme.bodyMedium)),
+                ButtonSegment(value: 3, label: Text('3', style: Theme.of(context).textTheme.bodyMedium)),
+                ButtonSegment(value: 4, label: Text('4', style: Theme.of(context).textTheme.bodyMedium)),
               ],
               selected: {_selectedMaxPlayers},
-              onSelectionChanged: (Set<int> selected) {
-                setState(() => _selectedMaxPlayers = selected.first);
-              },
+              onSelectionChanged: (selected) => setState(() => _selectedMaxPlayers = selected.first),
             ),
             const SizedBox(height: 16),
             Text(
               'Room will be created with ${widget.user.username} as host.',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
+              style: TextStyle(fontFamily: 'Inter', fontSize: 14, color: Colors.grey[400]),
             ),
           ],
         ),
@@ -281,13 +227,8 @@ class _MultiplayerCrazyEightsLobbyScreenState
             child: Text('Cancel', style: Theme.of(context).textTheme.bodyMedium),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _createRoom();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryNavyDark,
-            ),
+            onPressed: () { Navigator.pop(context); _createRoom(); },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryNavyDark),
             child: Text('Create', style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
@@ -297,26 +238,20 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
   void _showMessage(String message) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.primaryNavyLight,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: AppColors.primaryNavyLight,
+      duration: const Duration(seconds: 2),
+    ));
   }
 
   void _showError(String error) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error),
-        backgroundColor: Colors.red.shade700,
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(error),
+      backgroundColor: Colors.red.shade700,
+      duration: const Duration(seconds: 5),
+    ));
   }
 
   @override
@@ -331,20 +266,17 @@ class _MultiplayerCrazyEightsLobbyScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.primaryNavyDark,
-        ),
+        color: AppColors.primaryNavyDark,
         child: SafeArea(
           child: Column(
             children: [
-              // Header
+              // Header with connection status dot and refresh.
               Container(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
                     IconButton(
-                      icon:
-                          const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
                       onPressed: () => Navigator.pop(context),
                     ),
                     Expanded(
@@ -353,39 +285,21 @@ class _MultiplayerCrazyEightsLobbyScreenState
                         children: [
                           const Text(
                             'Multiplayer Crazy Eights',
-                            style: TextStyle(
-                              fontFamily: 'Montserrat',
-                              color: AppColors.textPrimary,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(fontFamily: 'Montserrat', color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
                           ),
                           Row(
                             children: [
                               Container(
-                                width: 8,
-                                height: 8,
+                                width: 8, height: 8,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: _isConnecting
-                                      ? Colors.orange
-                                      : _isConnected
-                                          ? AppColors.primaryNavyLight
-                                          : Colors.red,
+                                  color: _isConnecting ? Colors.orange : _isConnected ? AppColors.primaryNavyLight : Colors.red,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                _isConnecting
-                                    ? 'Connecting...'
-                                    : _isConnected
-                                        ? 'Connected'
-                                        : 'Disconnected',
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: AppColors.textPrimary,
-                                  fontSize: 14,
-                                ),
+                                _isConnecting ? 'Connecting...' : _isConnected ? 'Connected' : 'Disconnected',
+                                style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 14),
                               ),
                             ],
                           ),
@@ -395,57 +309,37 @@ class _MultiplayerCrazyEightsLobbyScreenState
                     IconButton(
                       icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
                       onPressed: _isLoadingRooms ? null : _loadAvailableRooms,
-                      style: IconButton.styleFrom(
-                        backgroundColor:
-                            AppColors.primaryNavyDark.withValues(alpha: 0.3),
-                      ),
+                      style: IconButton.styleFrom(backgroundColor: AppColors.primaryNavyDark.withValues(alpha: 0.3)),
                     ),
                   ],
                 ),
               ),
 
-              // Create Room Button
+              // Create room CTA — disabled while not connected or a creation is in flight.
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: SizedBox(
-                  width: double.infinity,
-                  height: 56,
+                  width: double.infinity, height: 56,
                   child: ElevatedButton.icon(
-                    onPressed: _isCreatingRoom || !_isConnected
-                        ? null
-                        : _showCreateRoomDialog,
+                    onPressed: _isCreatingRoom || !_isConnected ? null : _showCreateRoomDialog,
                     icon: _isCreatingRoom
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation(AppColors.textPrimary),
-                            ),
-                          )
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(AppColors.textPrimary)))
                         : const Icon(Icons.add_circle, size: 28),
                     label: Text(
                       _isCreatingRoom ? 'Creating Room...' : 'Create New Room',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryNavyDark,
                       foregroundColor: AppColors.textPrimary,
                       disabledBackgroundColor: AppColors.surfaceDark,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
               ),
 
-              // Divider
+              // Divider with "Available Rooms" label.
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
@@ -453,21 +347,13 @@ class _MultiplayerCrazyEightsLobbyScreenState
                     Expanded(child: Divider(color: AppColors.textPrimary)),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Available Rooms',
-                        style: TextStyle(
-                          fontFamily: 'Montserrat',
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: Text('Available Rooms', style: TextStyle(fontFamily: 'Montserrat', color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
                     ),
                     Expanded(child: Divider(color: AppColors.textPrimary)),
                   ],
                 ),
               ),
 
-              // Rooms List
               Expanded(child: _buildRoomsList()),
             ],
           ),
@@ -478,11 +364,7 @@ class _MultiplayerCrazyEightsLobbyScreenState
 
   Widget _buildRoomsList() {
     if (_isLoadingRooms) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(Colors.amber),
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.amber)));
     }
 
     if (!_isConnected) {
@@ -492,22 +374,13 @@ class _MultiplayerCrazyEightsLobbyScreenState
           children: [
             const Icon(Icons.wifi_off, size: 64, color: AppColors.textPrimary),
             const SizedBox(height: 16),
-            const Text(
-              'Not connected to server',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: AppColors.textPrimary,
-                fontSize: 18,
-              ),
-            ),
+            const Text('Not connected to server', style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 18)),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _connectToSocket,
               icon: const Icon(Icons.refresh),
               label: Text('Retry', style: Theme.of(context).textTheme.bodyMedium),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryNavyDark,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryNavyDark),
             ),
           ],
         ),
@@ -515,29 +388,15 @@ class _MultiplayerCrazyEightsLobbyScreenState
     }
 
     if (_availableRooms.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Icon(Icons.style, size: 64, color: AppColors.textPrimary),
             SizedBox(height: 16),
-            Text(
-              'No rooms available',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: AppColors.textPrimary,
-                fontSize: 18,
-              ),
-            ),
+            Text('No rooms available', style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 18)),
             SizedBox(height: 8),
-            Text(
-              'Create a room to start playing!',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                color: AppColors.textPrimary,
-                fontSize: 14,
-              ),
-            ),
+            Text('Create a room to start playing!', style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 14)),
           ],
         ),
       );
@@ -546,31 +405,26 @@ class _MultiplayerCrazyEightsLobbyScreenState
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: _availableRooms.length,
-      itemBuilder: (context, index) => _buildRoomCard(_availableRooms[index]),
+      itemBuilder: (_, index) => _buildRoomCard(_availableRooms[index]),
     );
   }
 
   Widget _buildRoomCard(Map<String, dynamic> room) {
-    final players = (room['players'] as List?) ?? const [];
+    final players   = (room['players'] as List?) ?? const [];
     final maxPlayers = room['maxPlayers'] ?? 4;
-    final roomId = room['roomId'] ?? '';
+    final roomId    = room['roomId'] ?? '';
     final createdAt = room['createdAt'];
 
-    // Calculate time since creation
+    // Human-readable creation time shown on each room card.
     var timeAgo = 'Just now';
     if (createdAt != null) {
       final created = DateTime.tryParse(createdAt.toString());
       if (created != null) {
         final diff = DateTime.now().difference(created);
-        if (diff.inMinutes < 1) {
-          timeAgo = 'Just now';
-        } else if (diff.inMinutes < 60) {
-          timeAgo = '${diff.inMinutes}m ago';
-        } else if (diff.inHours < 24) {
-          timeAgo = '${diff.inHours}h ago';
-        } else {
-          timeAgo = '${diff.inDays}d ago';
-        }
+        if      (diff.inMinutes < 1)  timeAgo = 'Just now';
+        else if (diff.inMinutes < 60) timeAgo = '${diff.inMinutes}m ago';
+        else if (diff.inHours   < 24) timeAgo = '${diff.inHours}h ago';
+        else                           timeAgo = '${diff.inDays}d ago';
       }
     }
 
@@ -597,82 +451,43 @@ class _MultiplayerCrazyEightsLobbyScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Crazy Eights Room',
-                          style: TextStyle(
-                            fontFamily: 'Montserrat',
-                            color: AppColors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          timeAgo,
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            color: AppColors.textPrimary,
-                            fontSize: 12,
-                          ),
-                        ),
+                        const Text('Crazy Eights Room', style: TextStyle(fontFamily: 'Montserrat', color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                        Text(timeAgo, style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 12)),
                       ],
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.amber.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: Colors.amber, width: 1),
                     ),
-                    child: Text(
-                      '${players.length}/$maxPlayers',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
+                    child: Text('${players.length}/$maxPlayers', style: const TextStyle(fontFamily: 'Inter', color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
+              // Show a chip for each player already in the room.
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: players.map((player) {
                   final username = (player as Map?)?['username']?.toString() ?? 'Unknown';
                   return Chip(
-                    avatar: const Icon(Icons.person,
-                        size: 16, color: AppColors.textPrimary),
-                    label: Text(
-                      username,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        color: AppColors.textPrimary,
-                        fontSize: 14,
-                      ),
-                    ),
+                    avatar: const Icon(Icons.person, size: 16, color: AppColors.textPrimary),
+                    label: Text(username, style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 14)),
                     backgroundColor: AppColors.primaryNavyDark,
                   );
                 }).toList(growable: false),
               ),
               const SizedBox(height: 12),
-              Row(
+              const Row(
                 mainAxisAlignment: MainAxisAlignment.end,
-                children: const [
+                children: [
                   Icon(Icons.arrow_forward, color: Colors.amber, size: 20),
                   SizedBox(width: 4),
-                  Text(
-                    'Join Room',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                  Text('Join Room', style: TextStyle(fontFamily: 'Inter', color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
             ],

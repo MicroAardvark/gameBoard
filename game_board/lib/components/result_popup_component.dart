@@ -1,56 +1,52 @@
-// ====================================
 // lib/components/result_popup_component.dart
-// Centered pop-up for displaying round results
-// ====================================
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import '../theme/app_theme.dart';
 
+/// A full-screen modal popup that displays the result of a Blackjack round.
+///
+/// Animates in with a scale-and-fade effect, displays for 3 seconds, then
+/// fades out and removes itself. Can also be dismissed early by tapping anywhere
+/// on screen. [onDismiss] is called after the fade-out completes.
 class ResultPopupComponent extends PositionComponent with TapCallbacks {
   final String mainText;
   final String amountText;
   final bool isWin;
   final VoidCallback? onDismiss;
-  
+
   double _opacity = 0.0;
   double _scale = 0.5;
   late Vector2 _screenSize;
   bool isDismissed = false;
-  
+
+  /// Priority 1000 ensures the popup renders above all other game components.
   ResultPopupComponent({
     required this.mainText,
     required this.amountText,
     required this.isWin,
     this.onDismiss,
-  }) : super(priority: 1000); // Very high priority to render on top
+  }) : super(priority: 1000);
 
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    
-    // Get screen size from game
+
+    // Cover the full game canvas so the overlay blocks all interaction beneath.
     final game = findGame();
-    if (game != null) {
-      _screenSize = game.size.clone();
-    } else {
-      _screenSize = Vector2(800, 600); // Fallback
-    }
-    
-    // Position at origin with size covering full screen
+    _screenSize = game?.size.clone() ?? Vector2(800, 600);
     position = Vector2.zero();
     size = _screenSize;
     anchor = Anchor.topLeft;
-    
-    // Auto-dismiss after 3 seconds
+
+    // Auto-dismiss if the player does not tap within 3 seconds.
     Future.delayed(const Duration(seconds: 3), () {
-      if (!isDismissed) {
-        dismiss();
-      }
+      if (!isDismissed) dismiss();
     });
   }
 
+  /// Triggers the fade-out sequence. Idempotent — safe to call multiple times.
   void dismiss() {
     if (isDismissed) return;
     isDismissed = true;
@@ -58,24 +54,26 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
 
   @override
   void onTapDown(TapDownEvent event) {
-    // Dismiss popup when tapped
-    if (!isDismissed) {
-      dismiss();
-    }
+    if (!isDismissed) dismiss();
   }
 
+  /// Drives the entry and exit animations each frame.
+  ///
+  /// Entry: opacity and scale rise together so the box appears to grow into
+  /// view. Exit: opacity falls faster than scale shrinks to give a "snap away"
+  /// feel rather than a plain fade. The component removes itself once fully
+  /// transparent to keep the component tree clean.
   @override
   void update(double dt) {
     super.update(dt);
-    
-    // Smooth animation towards target values
+
     if (_opacity < 1.0 && !isDismissed) {
       _opacity = (_opacity + dt * 4.0).clamp(0.0, 1.0);
       _scale = 0.5 + (_opacity * 0.5);
     } else if (isDismissed) {
       _opacity = (_opacity - dt * 5.0).clamp(0.0, 1.0);
       _scale = 1.0 - ((1.0 - _opacity) * 0.2);
-      
+
       if (_opacity <= 0.0) {
         removeFromParent();
         onDismiss?.call();
@@ -86,158 +84,142 @@ class ResultPopupComponent extends PositionComponent with TapCallbacks {
   @override
   void render(Canvas canvas) {
     if (_opacity <= 0.0) return;
-    
-    final paint = Paint();
-    
-    // Draw semi-transparent overlay covering entire screen
-    paint.color = AppColors.primaryNavyDark.withValues(alpha: 0.7 * _opacity);
+
+    // Navy scrim drawn first across the full screen to dim the game behind
+    // the popup without completely obscuring it.
     canvas.drawRect(
       Rect.fromLTWH(0, 0, _screenSize.x, _screenSize.y),
-      paint,
+      Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.7 * _opacity),
     );
-    
-    // Calculate center of screen
-    final centerX = _screenSize.x / 2;
-    final centerY = _screenSize.y / 2;
-    
-    // Apply scale transform at center
+
+    // All subsequent drawing is done in a translated+scaled context centred
+    // on screen, so coordinates below treat (0,0) as the popup centre.
     canvas.save();
-    canvas.translate(centerX, centerY);
+    canvas.translate(_screenSize.x / 2, _screenSize.y / 2);
     canvas.scale(_scale);
-    
-    // Calculate dimensions
-    final boxWidth = _screenSize.x * 0.6;
+
+    final boxWidth  = _screenSize.x * 0.6;
     final boxHeight = _screenSize.y * 0.3;
-    
-    // Draw background box with rounded corners (centered at 0,0 after transform)
+
     final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset.zero,
-        width: boxWidth,
-        height: boxHeight,
-      ),
+      Rect.fromCenter(center: Offset.zero, width: boxWidth, height: boxHeight),
       const Radius.circular(20),
     );
-    
-    // Gradient background
-    final gradient = ui.Gradient.linear(
-      Offset(0, -boxHeight / 2),
-      Offset(0, boxHeight / 2),
-      isWin 
-          ? [
-              Color(0xFF2E7D32).withValues(alpha: 0.95 * _opacity),
-              Color(0xFF1B5E20).withValues(alpha: 0.95 * _opacity),
-            ]
-          : [
-              Color(0xFFC62828).withValues(alpha: 0.95 * _opacity),
-              Color(0xFF8E0000).withValues(alpha: 0.95 * _opacity),
-            ],
+
+    // Green gradient for wins, red for losses — colours chosen to be
+    // immediately readable without relying on the text alone.
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, -boxHeight / 2),
+          Offset(0,  boxHeight / 2),
+          isWin
+              ? [
+                  Color(0xFF2E7D32).withValues(alpha: 0.95 * _opacity),
+                  Color(0xFF1B5E20).withValues(alpha: 0.95 * _opacity),
+                ]
+              : [
+                  Color(0xFFC62828).withValues(alpha: 0.95 * _opacity),
+                  Color(0xFF8E0000).withValues(alpha: 0.95 * _opacity),
+                ],
+        ),
     );
-    
-    paint.shader = gradient;
-    canvas.drawRRect(rect, paint);
-    
-    // Draw border
-    paint.shader = null;
-    paint.style = PaintingStyle.stroke;
-    paint.strokeWidth = 3;
-    paint.color = (isWin ? AppColors.primaryNavyLight : Colors.redAccent)
-        .withValues(alpha: 0.8 * _opacity);
-    canvas.drawRRect(rect, paint);
-    
-    // Draw icon (emoji)
-    final iconStyle = TextStyle(fontFamily: 'Inter', 
-      fontSize: boxHeight * 0.25,
-      color: AppColors.textPrimary.withValues(alpha: _opacity),
+
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = (isWin ? AppColors.primaryNavyLight : Colors.redAccent)
+            .withValues(alpha: 0.8 * _opacity),
     );
-    
-    final iconPainter = TextPainter(
-      text: TextSpan(
-        text: isWin ? '🎉' : '💔',
-        style: iconStyle,
+
+    _paintCentred(
+      canvas,
+      text: isWin ? '🎉' : '💔',
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: boxHeight * 0.25,
+        color: AppColors.textPrimary.withValues(alpha: _opacity),
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    
-    iconPainter.paint(
+      yOffset: -boxHeight * 0.3,
+    );
+
+    _paintCentred(
       canvas,
-      Offset(-iconPainter.width / 2, -boxHeight * 0.3),
+      text: mainText,
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: boxHeight * 0.15,
+        fontWeight: FontWeight.bold,
+        color: AppColors.textPrimary.withValues(alpha: _opacity),
+        shadows: [
+          Shadow(
+            blurRadius: 4,
+            color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      yOffset: -boxHeight * 0.05,
     );
-    
-    // Draw main text
-    final mainStyle = TextStyle(fontFamily: 'Inter', 
-      fontSize: boxHeight * 0.15,
-      fontWeight: FontWeight.bold,
-      color: AppColors.textPrimary.withValues(alpha: _opacity),
-      shadows: [
-        Shadow(
-          blurRadius: 4,
-          color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
-          offset: const Offset(2, 2),
-        ),
-      ],
-    );
-    
-    final mainPainter = TextPainter(
-      text: TextSpan(text: mainText, style: mainStyle),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-    
-    mainPainter.paint(
+
+    // Amount is yellow on a win to draw the eye; white on a loss to stay neutral.
+    _paintCentred(
       canvas,
-      Offset(-mainPainter.width / 2, -boxHeight * 0.05),
+      text: amountText,
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: boxHeight * 0.18,
+        fontWeight: FontWeight.bold,
+        color: (isWin ? Colors.yellowAccent : AppColors.textPrimary)
+            .withValues(alpha: _opacity),
+        shadows: [
+          Shadow(
+            blurRadius: 6,
+            color: AppColors.primaryNavyDark.withValues(alpha: 0.6),
+            offset: const Offset(2, 2),
+          ),
+        ],
+      ),
+      yOffset: boxHeight * 0.12,
     );
-    
-    // Draw amount text
-    final amountStyle = TextStyle(fontFamily: 'Inter', 
-      fontSize: boxHeight * 0.18,
-      fontWeight: FontWeight.bold,
-      color: (isWin ? Colors.yellowAccent : AppColors.textPrimary)
-          .withValues(alpha: _opacity),
-      shadows: [
-        Shadow(
-          blurRadius: 6,
-          color: AppColors.primaryNavyDark.withValues(alpha: 0.6),
-          offset: const Offset(2, 2),
-        ),
-      ],
-    );
-    
-    final amountPainter = TextPainter(
-      text: TextSpan(text: amountText, style: amountStyle),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-    
-    amountPainter.paint(
+
+    _paintCentred(
       canvas,
-      Offset(-amountPainter.width / 2, boxHeight * 0.12),
+      text: 'Tap to continue',
+      style: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: boxHeight * 0.08,
+        fontStyle: FontStyle.italic,
+        color: AppColors.textPrimary.withValues(alpha: _opacity * 0.8),
+      ),
+      yOffset: boxHeight * 0.35,
     );
-    
-    // Draw "Tap to continue" hint
-    final hintStyle = TextStyle(fontFamily: 'Inter', 
-      fontSize: boxHeight * 0.08,
-      color: AppColors.textPrimary.withValues(alpha: _opacity * 0.8),
-      fontStyle: FontStyle.italic,
-    );
-    
-    final hintPainter = TextPainter(
-      text: TextSpan(text: 'Tap to continue', style: hintStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    
-    hintPainter.paint(
-      canvas,
-      Offset(-hintPainter.width / 2, boxHeight * 0.35),
-    );
-    
+
     canvas.restore();
   }
 
-  @override
-  bool containsLocalPoint(Vector2 point) {
-    // Popup covers entire screen, so all points are within bounds when not dismissed
-    return !isDismissed;
+  /// Lays out [text] with [style] and paints it horizontally centred at [yOffset]
+  /// relative to the current canvas origin (the popup centre after translation).
+  void _paintCentred(
+    Canvas canvas, {
+    required String text,
+    required TextStyle style,
+    required double yOffset,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout();
+
+    painter.paint(canvas, Offset(-painter.width / 2, yOffset));
   }
+
+  /// The popup covers the full screen so every local point is a valid tap target
+  /// while it is visible, blocking interaction with components beneath.
+  @override
+  bool containsLocalPoint(Vector2 point) => !isDismissed;
 }

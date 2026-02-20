@@ -2,25 +2,31 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../games/checkers_game.dart';
 
-/// Represents the checkers board
+/// The visual board, composed of an 8×8 grid of [SquareComponent] children.
+///
+/// Owns highlight and selection state so that game logic can drive the UI
+/// through simple method calls rather than manipulating squares directly.
 class CheckersBoard extends PositionComponent {
   final List<List<SquareComponent>> squares = [];
   final List<Position> highlightedSquares = [];
   Position? selectedSquare;
-  
+
   CheckersBoard()
       : super(
           size: Vector2.all(CheckersConstants.squareSize * CheckersConstants.boardSize),
           anchor: Anchor.center,
         );
-  
+
   @override
   Future<void> onLoad() async {
     super.onLoad();
     _createBoard();
   }
-  
-  /// Create the board squares
+
+  /// Populates [squares] and adds each [SquareComponent] as a child.
+  ///
+  /// Dark squares are those where (row + col) is odd, matching the standard
+  /// checkerboard colouring convention.
   void _createBoard() {
     for (int row = 0; row < CheckersConstants.boardSize; row++) {
       squares.add([]);
@@ -30,34 +36,32 @@ class CheckersBoard extends PositionComponent {
           boardPosition: Position(row, col),
           isDark: isDark,
         );
-        
-        // Position squares relative to board's top-left (0,0)
+
+        // Children of a PositionComponent are positioned relative to the
+        // parent's top-left corner, which is (0,0) in local space.
         square.position = Vector2(
           col * CheckersConstants.squareSize,
           row * CheckersConstants.squareSize,
         );
-        
+
         squares[row].add(square);
         add(square);
       }
     }
   }
-  
-  /// Highlight valid move squares
+
+  /// Clears any existing highlights and applies new ones to [positions].
   void highlightSquares(List<Position> positions) {
-    // Clear previous highlights
     clearHighlights();
-    
     highlightedSquares.addAll(positions);
-    
     for (var pos in positions) {
       if (pos.isValid()) {
         squares[pos.row][pos.col].isHighlighted = true;
       }
     }
   }
-  
-  /// Clear all highlights
+
+  /// Removes highlight state from all previously highlighted squares.
   void clearHighlights() {
     for (var pos in highlightedSquares) {
       if (pos.isValid()) {
@@ -66,69 +70,60 @@ class CheckersBoard extends PositionComponent {
     }
     highlightedSquares.clear();
   }
-  
-  /// Select a square
+
+  /// Marks [pos] as selected, deselecting the previous square if one exists.
   void selectSquare(Position pos) {
-    // Deselect previous square
     if (selectedSquare != null && selectedSquare!.isValid()) {
       squares[selectedSquare!.row][selectedSquare!.col].isSelected = false;
     }
-    
     selectedSquare = pos;
     if (pos.isValid()) {
       squares[pos.row][pos.col].isSelected = true;
     }
   }
-  
-  /// Deselect current square
+
+  /// Clears the current selection without selecting a new square.
   void deselectSquare() {
     if (selectedSquare != null && selectedSquare!.isValid()) {
       squares[selectedSquare!.row][selectedSquare!.col].isSelected = false;
     }
     selectedSquare = null;
   }
-  
-  /// Convert screen coordinates to board position
+
+  /// Converts a screen-space tap position to a board [Position], or null if
+  /// the tap falls outside the board bounds.
+  ///
+  /// Because the board uses [Anchor.center], its top-left corner in game
+  /// coordinates is `position - (size / 2)`, not simply `position`.
   Position? screenToBoard(Vector2 screenPosition) {
-    // Since board uses Anchor.center:
-    // - 'position' is where the CENTER of the board is
-    // - 'size' is the full board size
-    // - Top-left corner is at: position - (size / 2)
-    
     final halfSize = size / 2;
     final boardTopLeft = position - halfSize;
     final boardBottomRight = position + halfSize;
-    
-    // Check if tap is within board bounds
-    if (screenPosition.x < boardTopLeft.x || screenPosition.x > boardBottomRight.x ||
-        screenPosition.y < boardTopLeft.y || screenPosition.y > boardBottomRight.y) {
+
+    if (screenPosition.x < boardTopLeft.x ||
+        screenPosition.x > boardBottomRight.x ||
+        screenPosition.y < boardTopLeft.y ||
+        screenPosition.y > boardBottomRight.y) {
       return null;
     }
-    
-    // Convert to board-local coordinates (0,0 is top-left of board)
+
+    // Translate to board-local coordinates before dividing by square size.
     final localX = screenPosition.x - boardTopLeft.x;
     final localY = screenPosition.y - boardTopLeft.y;
-    
-    // Convert to grid position
+
     final col = (localX / CheckersConstants.squareSize).floor();
     final row = (localY / CheckersConstants.squareSize).floor();
-    
+
     final pos = Position(row, col);
-    
-    if (!pos.isValid()) {
-      return null;
-    }
-    
-    return pos;
+    return pos.isValid() ? pos : null;
   }
-  
-  /// Convert board position to screen coordinates (center of square)
+
+  /// Converts a board [Position] to the screen-space centre of that square.
+  ///
+  /// Used when placing or animating pieces so they snap to the visual centre
+  /// of their target square regardless of board positioning on screen.
   Vector2 boardToScreen(Position pos) {
-    // Board's top-left corner in game coordinates
-    final halfSize = size / 2;
-    final boardTopLeft = position - halfSize;
-    
-    // Center of the square in game coordinates
+    final boardTopLeft = position - (size / 2);
     return boardTopLeft + Vector2(
       (pos.col * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
       (pos.row * CheckersConstants.squareSize) + (CheckersConstants.squareSize / 2),
@@ -136,13 +131,16 @@ class CheckersBoard extends PositionComponent {
   }
 }
 
-/// Represents a single square on the board
+/// A single square on the board, responsible only for rendering its own state.
+///
+/// Visual state (selected, highlighted) is set externally by [CheckersBoard]
+/// so that game logic remains decoupled from rendering.
 class SquareComponent extends PositionComponent {
   final Position boardPosition;
   final bool isDark;
   bool isHighlighted = false;
   bool isSelected = false;
-  
+
   SquareComponent({
     required this.boardPosition,
     required this.isDark,
@@ -150,51 +148,44 @@ class SquareComponent extends PositionComponent {
           size: Vector2.all(CheckersConstants.squareSize),
           anchor: Anchor.topLeft,
         );
-  
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    
-    // Base square colour
+
+    // Selection takes visual priority over highlighting.
     Color squareColour = isDark ? CheckersConstants.darkSquare : CheckersConstants.lightSquare;
-    
-    // Override colour if selected or highlighted
     if (isSelected) {
       squareColour = CheckersConstants.selectedColour.withOpacity(0.6);
     } else if (isHighlighted) {
       squareColour = CheckersConstants.validMoveColour.withOpacity(0.4);
     }
-    
-    final paint = Paint()..color = squareColour;
-    
+
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.x, size.y),
-      paint,
+      Paint()..color = squareColour,
     );
-    
-    // Draw border for dark squares
+
+    // A faint border on dark squares helps the grid read clearly at small sizes.
     if (isDark) {
-      final borderPaint = Paint()
-        ..color = Colors.black.withOpacity(0.2)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0;
-      
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.x, size.y),
-        borderPaint,
+        Paint()
+          ..color = Colors.black.withOpacity(0.2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
       );
     }
-    
-    // Draw highlight indicator if this is a valid move square
+
+    // A small filled circle provides a secondary valid-move indicator that
+    // remains visible even when the square is occupied by a piece.
     if (isHighlighted && !isSelected) {
-      final indicatorPaint = Paint()
-        ..color = CheckersConstants.validMoveColour
-        ..style = PaintingStyle.fill;
-      
       canvas.drawCircle(
         Offset(size.x / 2, size.y / 2),
         size.x / 6,
-        indicatorPaint,
+        Paint()
+          ..color = CheckersConstants.validMoveColour
+          ..style = PaintingStyle.fill,
       );
     }
   }

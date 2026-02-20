@@ -1,29 +1,33 @@
+// lib/screens/reset_pass_screen.dart
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
+/// Step 2 of the two-step password reset flow (after [ForgotPasswordScreen]).
+///
+/// The user enters the 6-digit code emailed to them alongside a new password.
+/// On success the screen swaps to a confirmation view and then navigates back
+/// to the root route (login), clearing the entire back stack so the user
+/// cannot return to the reset form.
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
 
-  const ResetPasswordScreen({
-    super.key,
-    required this.email,
-  });
+  const ResetPasswordScreen({super.key, required this.email});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
-  final _codeController = TextEditingController();
-  final _newPasswordController = TextEditingController();
+  final _codeController            = TextEditingController();
+  final _newPasswordController     = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _isLoading = false;
-  bool _passwordReset = false;
-  String _errorMessage = '';
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
+  bool   _isLoading              = false;
+  bool   _passwordReset          = false; // Switches build output to success view.
+  String _errorMessage           = '';
+  bool   _obscurePassword        = true;
+  bool   _obscureConfirmPassword = true;
 
   @override
   void dispose() {
@@ -34,30 +38,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   }
 
   Future<void> _submitPasswordReset() async {
+    // Client-side validation before hitting the API.
     if (_codeController.text.length != 6) {
       setState(() => _errorMessage = 'Enter the 6-digit code');
       return;
     }
-
     if (_newPasswordController.text.length < 6) {
       setState(() => _errorMessage = 'Password must be at least 6 characters');
       return;
     }
-
     if (_newPasswordController.text != _confirmPasswordController.text) {
       setState(() => _errorMessage = 'Passwords do not match');
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
+    setState(() { _isLoading = true; _errorMessage = ''; });
 
     try {
       final result = await AuthService.resetPasswordWithCode(
-        email: widget.email,
-        code: _codeController.text.trim(),
+        email:       widget.email,
+        code:        _codeController.text.trim(),
         newPassword: _newPasswordController.text,
       );
 
@@ -66,15 +66,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       if (result['success']) {
         setState(() => _passwordReset = true);
       } else {
-        setState(() {
-          _errorMessage = result['error'] ?? 'Invalid or expired code';
-        });
+        setState(() => _errorMessage = result['error'] ?? 'Invalid or expired code');
       }
     } catch (_) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'An error occurred. Please try again.';
-      });
+      setState(() { _isLoading = false; _errorMessage = 'An error occurred. Please try again.'; });
     }
   }
 
@@ -84,12 +79,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       backgroundColor: AppColors.primaryNavyDark,
       appBar: AppBar(
         backgroundColor: AppColors.surface,
-        title: Text(
+        title: const Text(
           'Reset Password',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            color: AppColors.textPrimary,
-          ),
+          style: TextStyle(fontFamily: 'Montserrat', color: AppColors.textPrimary),
         ),
       ),
       body: SafeArea(
@@ -101,6 +93,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 
+  /// Code entry and new password form shown while the reset is pending.
   Widget _buildFormView() {
     return SingleChildScrollView(
       child: Column(
@@ -108,11 +101,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         children: [
           Text(
             'Enter Verification Code',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 8),
           Text(
@@ -123,18 +112,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
           if (_errorMessage.isNotEmpty)
             Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-
           const SizedBox(height: 12),
 
           TextField(
             controller: _codeController,
             keyboardType: TextInputType.number,
             maxLength: 6,
-            decoration: const InputDecoration(
-              labelText: 'Verification Code',
-            ),
+            decoration: const InputDecoration(labelText: 'Verification Code'),
           ),
-
           const SizedBox(height: 16),
 
           TextField(
@@ -143,17 +128,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             decoration: InputDecoration(
               labelText: 'New Password',
               suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
           ),
-
           const SizedBox(height: 16),
 
           TextField(
@@ -162,17 +141,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             decoration: InputDecoration(
               labelText: 'Confirm Password',
               suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureConfirmPassword
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                ),
-                onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
               ),
             ),
           ),
-
           const SizedBox(height: 24),
 
           SizedBox(
@@ -189,6 +162,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     );
   }
 
+  /// Confirmation view shown after a successful reset.
+  ///
+  /// Uses [Navigator.popUntil] with [isFirst] to remove both this screen and
+  /// [ForgotPasswordScreen] from the stack in one go, landing back on login.
   Widget _buildSuccessView() {
     return Center(
       child: Column(
@@ -198,16 +175,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           const SizedBox(height: 24),
           Text(
             'Password Reset Successful',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () =>
-                Navigator.popUntil(context, (route) => route.isFirst),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
             child: const Text('Back to Login'),
           ),
         ],

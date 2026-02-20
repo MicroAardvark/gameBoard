@@ -1,9 +1,4 @@
 // lib/games/multiplayer_crazy_eights_game.dart
-// FIXED: Suit-picker now plays the King/Ace with chosenSuit (no standalone chooseSuit)
-// FIXED: Rank sent to server in expected format (e.g. "6" not "six")
-// FIXED: Stop mutating/sorting playerHand (prevents index mismatch vs server); sort only for display via index map
-// UPDATED: Added optimistic UI with server validation
-
 import 'dart:async' as async_timer;
 import 'dart:math';
 import 'package:flame/components.dart';
@@ -14,10 +9,28 @@ import 'package:flutter/material.dart';
 import '../components/crazy_eights_card_component.dart';
 import '../models/crazy_eights_card.dart';
 import '../models/user.dart';
-import '../screens/multiplayer_crazy_eights_game_screen.dart';
+import '../screens/multi/multiplayer_crazy_eights_game_screen.dart';
 import '../services/socket_service.dart';
 import '../theme/app_theme.dart';
 
+/// Server-authoritative multiplayer Crazy Eights game (2-4 players).
+///
+/// ## Hand order preservation
+/// The server tracks each player's hand by index. To prevent the client and
+/// server from disagreeing about which card is at position N, [playerHand] is
+/// **never sorted or mutated beyond appending**. Cards are presented to the
+/// player in a visually sorted order using [_getSortedHandIndices], which
+/// produces a display-only index list. [playerCardIndexMap] maps each display
+/// slot back to the true [playerHand] index, allowing taps to resolve to the
+/// correct server-side card position.
+///
+/// ## Optimistic UI
+/// When the player plays a card, [_playCard] applies the change immediately to
+/// [discardPile] and [playerHand] without waiting for the server. The card is
+/// stored in [optimisticCard] for rollback. If the server rejects the move
+/// (e.g. due to a race condition), [handleCardPlayRejected] reverts the change.
+/// When the server confirms via [handleCardPlayed], [optimisticCard] is simply
+/// cleared — the discard pile already shows the correct state.
 class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   final User user;
   final String roomId;
@@ -29,217 +42,184 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     required this.socketService,
   });
 
-  // Layer priorities
+  // ─── Layer priorities ─────────────────────────────────────────────────────
   static const int layerBackground = 0;
-  static const int layerTable = 1;
-  static const int layerCards = 2;
-  static const int layerHud = 3;
-  static const int layerOverlay = 4;
+  static const int layerTable      = 1;
+  static const int layerCards      = 2;
+  static const int layerHud        = 3;
+  static const int layerOverlay    = 4;
 
-  // Game state
+  // ─── Core game state ──────────────────────────────────────────────────────
   final List<CrazyEightsCard> discardPile = [];
+
+  /// Active suit override set when a King or Ace is played. Null when the top
+  /// card's own suit applies normally.
   CardSuit? currentChosenSuit;
 
-  // Multiplayer state
+  // ─── Multiplayer state ────────────────────────────────────────────────────
+  /// Hand is kept in server-deal order. See class-level docs on hand order.
   final List<CrazyEightsCard> playerHand = [];
   final Map<String, OtherPlayer> otherPlayers = {};
+
   String? currentTurnUserId;
-  bool isMyTurn = false;
-  bool isHost = false;
-  bool isReady = false;
-  int playerCount = 1;
+  bool isMyTurn  = false;
+  bool isHost    = false;
+  bool isReady   = false;
+  int  playerCount = 1;
   GameState gameState = GameState.waiting;
 
-  // Card components
+  // ─── Card components ──────────────────────────────────────────────────────
   final List<CrazyEightsCardComponent> playerCardComponents = [];
-  final List<int> playerCardIndexMap = []; // component index -> playerHand index
+
+  /// Maps display slot index → [playerHand] index. Rebuilt every [_renderCards].
+  final List<int> playerCardIndexMap = [];
+
   CrazyEightsCardComponent? discardTopComponent;
 
-  // Game flow
+  // ─── Game flow ────────────────────────────────────────────────────────────
   String direction = 'clockwise';
-  int drawCount = 0;
+  int drawCount    = 0;
 
-  // CrazyEights calling state
+  // ─── Crazy Eights call state ──────────────────────────────────────────────
   final Map<String, bool> hasCalledCrazyEights = {};
   bool canChallenge = false;
+
+  /// User ID of the player who failed to call Crazy Eights, or null.
   String? challengeablePlayer;
 
-  // UI state
+  // ─── UI state ─────────────────────────────────────────────────────────────
   CrazyEightsCardComponent? selectedCard;
-  int? selectedCardIndex; // index in playerHand (NOT display index)
+
+  /// Index in [playerHand] (server order) of the selected card, or null.
+  int? selectedCardIndex;
+
   bool showSuitPicker = false;
   bool showJackChoice = false;
   String? winner;
 
-  // NEW: Optimistic UI state
+  // ─── Optimistic UI ────────────────────────────────────────────────────────
+  /// True between [_playCard] being called and the server's confirmation or
+  /// rejection arriving. Blocks further taps to prevent double-sends.
   bool awaitingServerValidation = false;
-  CrazyEightsCard? optimisticCard; // Card played optimistically for rollback
 
-  // Adaptive sizing
-  double get screenWidth => size.x;
+  /// The card removed from [playerHand] optimistically, kept for rollback.
+  CrazyEightsCard? optimisticCard;
+
+  // ─── Adaptive sizing ──────────────────────────────────────────────────────
+  double get screenWidth  => size.x;
   double get screenHeight => size.y;
-  double get uiScale => (screenHeight / 720.0).clamp(0.6, 1.0);
+  double get uiScale  => (screenHeight / 720.0).clamp(0.6, 1.0);
   double get cardHeight => screenHeight * 0.34 * uiScale;
-  double get cardWidth => cardHeight * 0.68;
+  double get cardWidth  => cardHeight * 0.68;
 
   String statusMessage = 'Waiting for players...';
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   Future<void> onLoad() async {
     super.onLoad();
-    debugPrint('🎮 Multiplayer Crazy Eights loaded!');
   }
 
-  // ===========================================
-  // MULTIPLAYER PLAYER MANAGEMENT
-  // ===========================================
+  // ─── Player management ────────────────────────────────────────────────────
 
   void addOtherPlayer(String userId, String username, int position) {
     if (!otherPlayers.containsKey(userId)) {
-      otherPlayers[userId] = OtherPlayer(
-        userId: userId,
-        username: username,
-        position: position,
-      );
-      debugPrint('➕ Added player: $username');
+      otherPlayers[userId] = OtherPlayer(userId: userId, username: username, position: position);
     }
   }
 
-  void removeOtherPlayer(String userId) {
-    otherPlayers.remove(userId);
-    debugPrint('➖ Removed player: $userId');
-  }
+  void removeOtherPlayer(String userId) => otherPlayers.remove(userId);
 
-  // ===========================================
-  // SOCKET EVENT HANDLERS
-  // ===========================================
+  // ─── Socket event handlers ────────────────────────────────────────────────
 
+  /// Initialises the visual board from the server's game-started payload.
+  ///
+  /// The hand is stored exactly as the server delivered it (server order) to
+  /// ensure card indices remain aligned throughout the game.
   void handleGameStarted(Map<String, dynamic> data) {
-    debugPrint('🎮 Handling game started');
-
     gameState = GameState.playing;
-
-    // Clear optimistic state
     awaitingServerValidation = false;
     optimisticCard = null;
 
-    // Parse my hand (KEEP SERVER ORDER - do NOT sort/mutate)
-    final hands = data['hands'] as Map<String, dynamic>;
-    final myHandData = hands[user.id] as List;
+    final hands    = data['hands'] as Map<String, dynamic>;
     playerHand.clear();
-    for (var cardData in myHandData) {
+    for (var cardData in hands[user.id] as List) {
       playerHand.add(CrazyEightsCard.fromMap(cardData));
     }
 
-    // Parse discard pile
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
-    final discardData = gameStateData['discardPile'] as List;
+    final gameStateData = data['room']['gameState']['data'];
     discardPile.clear();
-    for (var cardData in discardData) {
+    for (var cardData in gameStateData['discardPile'] as List) {
       discardPile.add(CrazyEightsCard.fromMap(cardData));
     }
 
-    // Set initial turn
     currentTurnUserId = gameStateData['currentTurn'];
     isMyTurn = (currentTurnUserId == user.id);
 
-    // Initial chosen suit (if any)
-    final chosenSuitString = gameStateData['chosenSuit'];
-    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+    final chosenSuitStr = gameStateData['chosenSuit'];
+    currentChosenSuit = chosenSuitStr != null ? _parseSuit(chosenSuitStr) : null;
 
-    // Game flow values
     drawCount = gameStateData['drawCount'] ?? 0;
     direction = gameStateData['direction'] ?? 'clockwise';
 
-    // Initialise other players' card counts
-    final players = room['players'] as List;
-    for (var player in players) {
-      final playerId = player['userId'];
-      if (playerId != user.id) {
-        if (otherPlayers.containsKey(playerId)) {
-          otherPlayers[playerId]!.cardCount = 7; // Initial deal
-        }
+    for (var player in data['room']['players'] as List) {
+      final id = player['userId'];
+      if (id != user.id && otherPlayers.containsKey(id)) {
+        otherPlayers[id]!.cardCount = 7;
       }
     }
 
     _renderCards();
-
     statusMessage = isMyTurn ? 'Your turn!' : 'Waiting for ${_getPlayerName(currentTurnUserId)}...';
-
-    debugPrint('   My hand: ${playerHand.length} cards');
-    debugPrint('   Discard pile: ${discardPile.length} cards');
-    debugPrint('   My turn: $isMyTurn');
   }
 
-  // UPDATED: Handle card played with optimistic UI support
+  /// Handles a card-played broadcast from the server.
+  ///
+  /// If the card was played by this client, it was already applied optimistically
+  /// so only cleanup is needed. For other players, the discard pile is updated
+  /// and their card count is decremented.
   void handleCardPlayed(Map<String, dynamic> data) {
-    debugPrint('🃏 Handling card played');
-
-    final playerId = data['userId'];
-    final cardData = data['card'];
-    final card = CrazyEightsCard.fromMap(cardData);
+    final playerId  = data['userId'];
+    final card      = CrazyEightsCard.fromMap(data['card']);
     final chosenSuit = data['chosenSuit'];
 
-    // Clear optimistic state
     awaitingServerValidation = false;
     optimisticCard = null;
 
-    // If this is my play, it was already applied optimistically
     if (playerId == user.id) {
+      // Optimistic state already applied — just clear selection UI.
       selectedCardIndex = null;
       selectedCard = null;
       showSuitPicker = false;
     } else {
-      // Add to discard pile for other players
       discardPile.add(card);
-
-      // Update other player's card count
       if (otherPlayers.containsKey(playerId)) {
         otherPlayers[playerId]!.cardCount = max(0, otherPlayers[playerId]!.cardCount - 1);
       }
     }
 
-    // Update chosen suit for King/Ace
-    if (card.canChangeSuit && chosenSuit != null) {
-      currentChosenSuit = _parseSuit(chosenSuit);
-    } else if (!card.canChangeSuit) {
-      currentChosenSuit = null;
-    }
-
-    // Update game state from room
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
     direction = gameStateData['direction'] ?? 'clockwise';
 
-    final chosenSuitString = gameStateData['chosenSuit'];
-    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+    final suitStr = gameStateData['chosenSuit'];
+    currentChosenSuit = suitStr != null ? _parseSuit(suitStr) : null;
 
     _renderCards();
-
-    // Update status
-    final playerName = _getPlayerName(playerId);
-    statusMessage = '$playerName played ${card.displayText}';
-
-    debugPrint('   Card: ${card.displayText}');
-    debugPrint('   Chosen suit: $currentChosenSuit');
-    debugPrint('   Draw count: $drawCount');
+    statusMessage = '${_getPlayerName(playerId)} played ${card.displayText}';
   }
 
-  // NEW: Handle card play rejected (optimistic update rollback)
+  /// Rolls back the optimistic update when the server rejects a move.
+  ///
+  /// The card is re-appended to [playerHand] rather than inserted at its
+  /// original index — the exact position within the server-order list is not
+  /// material to correctness, only the card's presence matters for future moves.
   void handleCardPlayRejected(Map<String, dynamic> data) {
-    debugPrint('❌ Card play rejected: ${data['reason']}');
-
-    // Revert optimistic update
     if (optimisticCard != null) {
-      // Remove from discard pile
       if (discardPile.isNotEmpty && discardPile.last == optimisticCard) {
         discardPile.removeLast();
       }
-
-      // Re-add to hand (server order doesn’t matter for append; you can optionally insert back, but
-      // keeping server order is less important here than consistency)
       playerHand.add(optimisticCard!);
       optimisticCard = null;
     }
@@ -250,259 +230,157 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
     showSuitPicker = false;
 
     _renderCards();
-
     statusMessage = 'Invalid move: ${data['reason']}';
   }
 
-  // NEW: Handle turn changed
+  /// Synchronises turn state and game flow fields from the server's turn-changed event.
   void handleTurnChanged(Map<String, dynamic> data) {
-    debugPrint('🔄 Turn changed');
-
     currentTurnUserId = data['currentTurn'];
     isMyTurn = (currentTurnUserId == user.id);
     direction = data['direction'] ?? 'clockwise';
 
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
-
-    final chosenSuitString = gameStateData['chosenSuit'];
-    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+    final suitStr = gameStateData['chosenSuit'];
+    currentChosenSuit = suitStr != null ? _parseSuit(suitStr) : null;
 
     statusMessage = isMyTurn ? 'Your turn!' : 'Waiting for ${_getPlayerName(currentTurnUserId)}...';
 
-    // Clear any local selection UI when turn changes
+    // Clear stale selection UI when it stops being this player's turn.
     if (!isMyTurn) {
-      if (selectedCard != null) {
-        selectedCard!.setSelected(false);
-      }
-      selectedCard = null;
+      selectedCard?.setSelected(false);
+      selectedCard      = null;
       selectedCardIndex = null;
-      showSuitPicker = false;
-      showJackChoice = false;
+      showSuitPicker    = false;
+      showJackChoice    = false;
     }
 
     _renderCards();
-
-    debugPrint('   Current turn: $currentTurnUserId');
-    debugPrint('   Is my turn: $isMyTurn');
   }
 
-  // NEW: Handle suit chosen (server broadcast)
   void handleSuitChosen(Map<String, dynamic> data) {
-    debugPrint('👑 Suit chosen');
-
-    final suit = data['suit'];
-    final playerId = data['userId'];
-
-    currentChosenSuit = _parseSuit(suit);
-
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    currentChosenSuit = _parseSuit(data['suit']);
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
-
     _renderCards();
-
-    final playerName = _getPlayerName(playerId);
-    final suitDisplay = _getSuitDisplay(currentChosenSuit!);
-    statusMessage = '$playerName chose $suitDisplay';
-
-    debugPrint('   Suit: $suit');
+    statusMessage = '${_getPlayerName(data['userId'])} chose ${_getSuitDisplay(currentChosenSuit!)}';
   }
 
-  // NEW: Handle choose suit required (server asks client)
+  /// Shows the suit picker when the server confirms the current player must
+  /// choose a suit (e.g. after playing a King or Ace).
   void handleChooseSuitRequired(Map<String, dynamic> data) {
-    debugPrint('👑 Choose suit required');
     showSuitPicker = true;
-    statusMessage = 'Choose a suit!';
+    statusMessage  = 'Choose a suit!';
   }
 
-  // NEW: Handle Jack action chosen
   void handleJackActionChosen(Map<String, dynamic> data) {
-    debugPrint('🃏 Jack action chosen');
-
     showJackChoice = false;
-
-    final action = data['action'];
-    final playerId = data['userId'];
-    final newDirection = data['direction'];
-
-    direction = newDirection;
-
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    direction      = data['direction'];
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
-
     _renderCards();
-
-    final playerName = _getPlayerName(playerId);
-    statusMessage = '$playerName chose ${action.toUpperCase()}';
-
-    debugPrint('   Action: $action');
-    debugPrint('   Direction: $direction');
+    statusMessage = '${_getPlayerName(data['userId'])} chose ${(data['action'] as String).toUpperCase()}';
   }
 
-  // NEW: Handle choose Jack action required
   void handleChooseJackActionRequired(Map<String, dynamic> data) {
-    debugPrint('🃏 Choose Jack action required');
     showJackChoice = true;
-    statusMessage = 'Choose Jack action!';
+    statusMessage  = 'Choose Jack action!';
   }
 
+  /// Updates an opposing player's card count when they draw card(s).
   void handleCardDrawn(Map<String, dynamic> data) {
-    debugPrint('📥 Handling card drawn (other player)');
-
     final playerId = data['userId'];
-    final count = data['count'];
+    final count    = (data['count'] as num).toInt();
 
-    if (playerId != user.id) {
-      if (otherPlayers.containsKey(playerId)) {
-        otherPlayers[playerId]!.cardCount += (count as num).toInt();
-      }
+    if (playerId != user.id && otherPlayers.containsKey(playerId)) {
+      otherPlayers[playerId]!.cardCount += count;
     }
 
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
     direction = gameStateData['direction'] ?? 'clockwise';
-
-    final chosenSuitString = gameStateData['chosenSuit'];
-    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+    final suitStr = gameStateData['chosenSuit'];
+    currentChosenSuit = suitStr != null ? _parseSuit(suitStr) : null;
 
     _renderCards();
-
-    final playerName = _getPlayerName(playerId);
-    statusMessage = '$playerName drew $count card(s)';
-
-    debugPrint('   Player drew $count card(s)');
+    statusMessage = '${_getPlayerName(playerId)} drew $count card(s)';
   }
 
-  // NEW: Handle cards drawn (my cards with card data)
+  /// Appends newly drawn cards to this player's hand and re-renders.
   void handleCardsDrawn(Map<String, dynamic> data) {
-    debugPrint('📨 Handling my cards drawn');
-
-    final cardsData = data['cards'] as List;
-    for (var cardData in cardsData) {
+    for (var cardData in data['cards'] as List) {
       playerHand.add(CrazyEightsCard.fromMap(cardData));
     }
 
-    final room = data['room'];
-    final gameStateData = room['gameState']['data'];
+    final gameStateData = data['room']['gameState']['data'];
     drawCount = gameStateData['drawCount'] ?? 0;
     direction = gameStateData['direction'] ?? 'clockwise';
-
-    final chosenSuitString = gameStateData['chosenSuit'];
-    currentChosenSuit = chosenSuitString != null ? _parseSuit(chosenSuitString) : null;
+    final suitStr = gameStateData['chosenSuit'];
+    currentChosenSuit = suitStr != null ? _parseSuit(suitStr) : null;
 
     _renderCards();
-
-    statusMessage = 'You drew ${cardsData.length} card(s)';
-
-    debugPrint('   Drew: ${cardsData.length} cards');
+    statusMessage = 'You drew ${(data['cards'] as List).length} card(s)';
   }
 
+  /// Legacy event handler kept for backward compatibility with older server versions.
   void handleCardsReceived(Map<String, dynamic> data) {
-    debugPrint('📨 Handling cards received (legacy event)');
-
-    final cardsData = data['cards'] as List;
-    for (var cardData in cardsData) {
+    for (var cardData in data['cards'] as List) {
       playerHand.add(CrazyEightsCard.fromMap(cardData));
     }
-
     _renderCards();
-
-    debugPrint('   Received ${cardsData.length} card(s)');
-    debugPrint('   Total cards: ${playerHand.length}');
   }
 
+  /// Legacy turn event handler. Superseded by [handleTurnChanged] but retained
+  /// for servers that still emit the older event format.
   void handlePlayerTurn(Map<String, dynamic> data) {
-    debugPrint('👤 Handling player turn (legacy event)');
-
     currentTurnUserId = data['userId'];
-    isMyTurn = (currentTurnUserId == user.id);
+    isMyTurn          = (currentTurnUserId == user.id);
+    statusMessage     = isMyTurn ? 'Your turn!' : '${data['username']}\'s turn';
 
-    if (isMyTurn) {
-      statusMessage = 'Your turn!';
-    } else {
-      statusMessage = '${data['username']}\'s turn';
-    }
-
-    // When the turn changes, clear any local selection UI
     if (!isMyTurn) {
-      if (selectedCard != null) {
-        selectedCard!.setSelected(false);
-      }
-      selectedCard = null;
+      selectedCard?.setSelected(false);
+      selectedCard      = null;
       selectedCardIndex = null;
-      showSuitPicker = false;
-      showJackChoice = false;
+      showSuitPicker    = false;
+      showJackChoice    = false;
     }
-
-    debugPrint('   Current turn: ${data['username']}');
-    debugPrint('   Is my turn: $isMyTurn');
   }
 
   void handleCrazyEightsCalled(Map<String, dynamic> data) {
-    debugPrint('🎯 Handling Crazy Eights called');
-
     final playerId = data['userId'];
     hasCalledCrazyEights[playerId] = true;
-
     if (otherPlayers.containsKey(playerId)) {
       otherPlayers[playerId]!.calledCrazyEights = true;
     }
-
-    debugPrint('   Player: ${data['username']}');
   }
 
+  /// Opens a 5-second challenge window when a player fails to call Crazy Eights.
   void handleCrazyEightsViolation(Map<String, dynamic> data) {
-    debugPrint('⚠️ Handling Crazy Eights violation');
-
-    final playerId = data['userId'];
-    canChallenge = true;
-    challengeablePlayer = playerId;
+    canChallenge       = true;
+    challengeablePlayer = data['userId'];
 
     async_timer.Future.delayed(const Duration(seconds: 5), () {
-      canChallenge = false;
+      canChallenge       = false;
       challengeablePlayer = null;
     });
-
-    debugPrint('   Player: ${data['username']}');
   }
 
+  /// Legacy Jack-choice event handler for older server versions.
   void handleJackChoiceNeeded(Map<String, dynamic> data) {
-    debugPrint('🃏 Handling Jack choice needed (legacy event)');
-
-    if (data['userId'] == user.id) {
-      showJackChoice = true;
-    }
+    if (data['userId'] == user.id) showJackChoice = true;
   }
 
   void handleGameEnded(Map<String, dynamic> data) {
-    debugPrint('🏆 Handling game ended');
-
     gameState = GameState.finished;
-    winner = data['winnerName'];
-
-    if (data['winnerId'] == user.id) {
-      statusMessage = '🏆 YOU WIN!';
-    } else {
-      statusMessage = '${data['winnerName']} wins!';
-    }
-
+    winner    = data['winnerName'];
+    statusMessage = data['winnerId'] == user.id ? '🏆 YOU WIN!' : '${data['winnerName']} wins!';
     _renderCards();
-
-    debugPrint('   Winner: $winner');
   }
 
-  // ===========================================
-  // PLAYER ACTIONS
-  // ===========================================
+  // ─── Player actions ───────────────────────────────────────────────────────
 
   void _handleCardTap(int handIndex) {
-    if (gameState != GameState.playing) return;
-
-    if (!isMyTurn) {
+    if (gameState != GameState.playing || !isMyTurn) {
       statusMessage = 'Not your turn!';
       return;
     }
@@ -514,139 +392,104 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     if (handIndex < 0 || handIndex >= playerHand.length) return;
 
-    final card = playerHand[handIndex];
+    final card     = playerHand[handIndex];
     final cardComp = _componentForHandIndex(handIndex);
-
-    debugPrint('🃏 Card tapped: ${card.displayText}');
-
     if (cardComp == null) return;
 
-    // Deselect if already selected
+    // Tapping the selected card again deselects it.
     if (selectedCard == cardComp) {
       cardComp.setSelected(false);
-      selectedCard = null;
+      selectedCard      = null;
       selectedCardIndex = null;
-      statusMessage = 'Card deselected';
+      statusMessage     = 'Card deselected';
       return;
     }
 
-    // Check if can play card
     final topCard = discardPile.isNotEmpty ? discardPile.last : null;
     if (topCard != null && !_canPlayCard(card, topCard)) {
       statusMessage = 'Cannot play that card!';
       return;
     }
 
-    // Deselect previous card
-    if (selectedCard != null) {
-      selectedCard!.setSelected(false);
-    }
-
-    // Select new card
-    selectedCard = cardComp;
+    selectedCard?.setSelected(false);
+    selectedCard      = cardComp;
     selectedCardIndex = handIndex;
     cardComp.setSelected(true);
 
-    if (card.canChangeSuit) {
-      statusMessage = '${card.rankText} selected! Tap discard pile to choose suit';
-    } else {
-      statusMessage = 'Tap discard pile to play ${card.displayText}';
-    }
+    statusMessage = card.canChangeSuit
+        ? '${card.rankText} selected! Tap discard pile to choose suit'
+        : 'Tap discard pile to play ${card.displayText}';
   }
 
   void _handleDiscardPileTap() {
-    if (gameState != GameState.playing || !isMyTurn) return;
-
-    if (awaitingServerValidation) {
-      statusMessage = 'Waiting for server...';
-      return;
-    }
-
+    if (gameState != GameState.playing || !isMyTurn || awaitingServerValidation) return;
     if (selectedCardIndex == null) return;
 
     final idx = selectedCardIndex!;
     if (idx < 0 || idx >= playerHand.length) {
       selectedCardIndex = null;
-      selectedCard = null;
-      showSuitPicker = false;
+      selectedCard      = null;
+      showSuitPicker    = false;
       return;
     }
 
     final card = playerHand[idx];
 
-    // If King/Ace, show suit picker (actual play happens when suit picked)
+    // King/Ace require a suit choice — the actual play happens when the suit
+    // is selected via [_handleSuitPickerTap].
     if (card.canChangeSuit) {
       showSuitPicker = true;
-      statusMessage = 'Choose a suit!';
+      statusMessage  = 'Choose a suit!';
       return;
     }
 
-    // Play the card
     _playCard(idx, null);
   }
 
-  // UPDATED: Play card with optimistic UI
+  /// Applies the optimistic update locally and sends the play to the server.
+  ///
+  /// [handIndex] is the index into [playerHand] (server order, not display order).
+  /// [chosenSuit] is non-null only for King/Ace plays.
   void _playCard(int handIndex, CardSuit? chosenSuit) {
     if (handIndex < 0 || handIndex >= playerHand.length) return;
 
     final card = playerHand[handIndex];
 
-    debugPrint('🎮 Playing card: ${card.displayText}');
-
-    // ✅ OPTIMISTIC UPDATE - Add card to discard pile immediately
+    // Optimistic update: reflect the play immediately without waiting for the server.
     awaitingServerValidation = true;
     optimisticCard = card;
     playerHand.removeAt(handIndex);
     discardPile.add(card);
 
-    // Clear selection
     selectedCard?.setSelected(false);
-    selectedCard = null;
+    selectedCard      = null;
     selectedCardIndex = null;
-    showSuitPicker = false;
+    showSuitPicker    = false;
 
-    // Update UI immediately
     _renderCards();
-
     statusMessage = 'Playing ${card.displayText}...';
 
-    // Send to server for validation
-    // IMPORTANT: rank formatting + keeping server index alignment
+    // The server validates and broadcasts the move to all players.
     socketService.playCard(
-      roomId: roomId,
-      userId: user.id,
-      cardIndex: handIndex,
-      cardSuit: card.suit.name,
-      cardRank: _rankToServerString(card.rank),
+      roomId:     roomId,
+      userId:     user.id,
+      cardIndex:  handIndex,
+      cardSuit:   card.suit.name,
+      // Numbers sent as "2".."10"; faces as "ace", "king", "queen", "jack".
+      cardRank:   _rankToServerString(card.rank),
       chosenSuit: chosenSuit?.name,
     );
-
-    debugPrint('   Sent to server for validation');
   }
 
   void _handleDrawCard() {
-    if (gameState != GameState.playing || !isMyTurn) return;
+    if (gameState != GameState.playing || !isMyTurn || awaitingServerValidation) return;
 
-    if (awaitingServerValidation) {
-      statusMessage = 'Waiting for server...';
-      return;
-    }
-
-    debugPrint('📥 Drawing card');
-
-    // Clear selection
-    if (selectedCard != null) {
-      selectedCard!.setSelected(false);
-      selectedCard = null;
-    }
+    selectedCard?.setSelected(false);
+    selectedCard      = null;
     selectedCardIndex = null;
-    showSuitPicker = false;
+    showSuitPicker    = false;
 
-    socketService.drawCard(
-      roomId: roomId,
-      userId: user.id,
-    );
-
+    socketService.drawCard(roomId: roomId, userId: user.id);
     statusMessage = 'Drawing card...';
   }
 
@@ -655,245 +498,190 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
       statusMessage = 'You can only call Crazy Eights with 1 card!';
       return;
     }
-
     if (hasCalledCrazyEights[user.id] == true) {
       statusMessage = 'Already called Crazy Eights!';
       return;
     }
 
-    debugPrint('🎯 Calling Crazy Eights');
-
-    socketService.callCrazyEights(
-      roomId: roomId,
-      userId: user.id,
-    );
-
+    socketService.callCrazyEights(roomId: roomId, userId: user.id);
     hasCalledCrazyEights[user.id] = true;
     statusMessage = '🎯 Crazy Eights called!';
   }
 
   void _handleChallenge() {
     if (!canChallenge || challengeablePlayer == null) return;
-
-    debugPrint('⚡ Challenging player');
-
     socketService.challengePlayer(
-      roomId: roomId,
+      roomId:      roomId,
       challengerId: user.id,
-      targetId: challengeablePlayer!,
+      targetId:    challengeablePlayer!,
     );
-
-    canChallenge = false;
+    canChallenge       = false;
     challengeablePlayer = null;
     statusMessage = 'Challenge sent!';
   }
 
   void _handleJackChoice(String action) {
-    debugPrint('🃏 Choosing Jack action: $action');
-
-    socketService.chooseJackAction(
-      roomId: roomId,
-      userId: user.id,
-      action: action,
-    );
-
+    socketService.chooseJackAction(roomId: roomId, userId: user.id, action: action);
     showJackChoice = false;
-    statusMessage = '$action action chosen!';
+    statusMessage  = '$action action chosen!';
   }
 
-  // ===========================================
-  // GAME LOGIC HELPERS
-  // ===========================================
+  // ─── Game logic helpers ───────────────────────────────────────────────────
 
+  /// Returns true if [card] can legally be played on [topCard] given the
+  /// current game state (draw stack rules, chosen suit override, etc.).
   bool _canPlayCard(CrazyEightsCard card, CrazyEightsCard topCard) {
-    // If there's a draw stack
+    // When a draw stack is active, only the matching stacking card is legal.
     if (drawCount > 0) {
-      // Can only stack Queens with Queens or Aces with Aces
-      if (topCard.isQueen && card.isQueen) return true;
-      if (topCard.isAce && card.isAce) return true;
-      return false;
+      return (topCard.isQueen && card.isQueen) || (topCard.isAce && card.isAce);
     }
-
-    // King or Ace can always be played
+    // Kings and Aces can always be played (suit change cards).
     if (card.isKing || card.isAce) return true;
-
-    // Match chosen suit (from previous King/Ace)
+    // Chosen suit from a previous King/Ace overrides the top card's suit.
     if (currentChosenSuit != null && card.suit == currentChosenSuit) return true;
-
-    // Match suit or rank
-    if (card.suit == topCard.suit || card.rank == topCard.rank) return true;
-
-    return false;
+    // Standard rule: match suit or rank.
+    return card.suit == topCard.suit || card.rank == topCard.rank;
   }
 
   CardSuit _parseSuit(String suit) {
     switch (suit) {
-      case 'hearts':
-        return CardSuit.hearts;
-      case 'diamonds':
-        return CardSuit.diamonds;
-      case 'clubs':
-        return CardSuit.clubs;
-      case 'spades':
-        return CardSuit.spades;
-      default:
-        return CardSuit.hearts;
+      case 'hearts':   return CardSuit.hearts;
+      case 'diamonds': return CardSuit.diamonds;
+      case 'clubs':    return CardSuit.clubs;
+      case 'spades':   return CardSuit.spades;
+      default:         return CardSuit.hearts;
     }
   }
 
   String _getSuitDisplay(CardSuit suit) {
     switch (suit) {
-      case CardSuit.hearts:
-        return '♥ Hearts';
-      case CardSuit.diamonds:
-        return '♦ Diamonds';
-      case CardSuit.clubs:
-        return '♣ Clubs';
-      case CardSuit.spades:
-        return '♠ Spades';
+      case CardSuit.hearts:   return '♥ Hearts';
+      case CardSuit.diamonds: return '♦ Diamonds';
+      case CardSuit.clubs:    return '♣ Clubs';
+      case CardSuit.spades:   return '♠ Spades';
     }
   }
 
   String _getPlayerName(String? userId) {
-    if (userId == null) return 'Unknown';
+    if (userId == null)    return 'Unknown';
     if (userId == user.id) return 'You';
-
-    final player = otherPlayers[userId];
-    return player?.username ?? 'Player';
+    return otherPlayers[userId]?.username ?? 'Player';
   }
 
-  // Convert Dart enum rank naming to the server’s expected strings.
-  // Numbers must be "2".."10" (not "two", "ten"). Faces use lower-case names.
+  /// Converts a [CardRank] to the string format expected by the server.
+  ///
+  /// Number cards use their numeric string ("2".."10"); face cards use
+  /// lower-case names ("ace", "king", "queen", "jack").
   String _rankToServerString(CardRank rank) {
     switch (rank) {
-      case CardRank.ace:
-        return 'ace';
-      case CardRank.king:
-        return 'king';
-      case CardRank.queen:
-        return 'queen';
-      case CardRank.jack:
-        return 'jack';
-      case CardRank.nine:
-        return '9';
-      case CardRank.eight:
-        return '8';
-      case CardRank.seven:
-        return '7';
-      case CardRank.six:
-        return '6';
-      case CardRank.five:
-        return '5';
-      case CardRank.four:
-        return '4';
-      case CardRank.three:
-        return '3';
-      case CardRank.two:
-        return '2';
+      case CardRank.ace:   return 'ace';
+      case CardRank.king:  return 'king';
+      case CardRank.queen: return 'queen';
+      case CardRank.jack:  return 'jack';
+      case CardRank.nine:  return '9';
+      case CardRank.eight: return '8';
+      case CardRank.seven: return '7';
+      case CardRank.six:   return '6';
+      case CardRank.five:  return '5';
+      case CardRank.four:  return '4';
+      case CardRank.three: return '3';
+      case CardRank.two:   return '2';
     }
   }
 
-  // Build a sorted view for display WITHOUT changing playerHand order (prevents server index mismatch).
+  /// Returns a sorted list of [playerHand] indices for display purposes only.
+  ///
+  /// Sorted by suit then rank. Does NOT mutate [playerHand] — see class docs.
   List<int> _getSortedHandIndices() {
     final indices = List<int>.generate(playerHand.length, (i) => i);
     indices.sort((ai, bi) {
       final a = playerHand[ai];
       final b = playerHand[bi];
-      if (a.suit.index != b.suit.index) {
-        return a.suit.index.compareTo(b.suit.index);
-      }
+      if (a.suit.index != b.suit.index) return a.suit.index.compareTo(b.suit.index);
       return a.rank.index.compareTo(b.rank.index);
     });
     return indices;
   }
 
+  /// Looks up the [CrazyEightsCardComponent] responsible for [handIndex].
+  ///
+  /// Uses [playerCardIndexMap] since display order differs from hand order.
   CrazyEightsCardComponent? _componentForHandIndex(int handIndex) {
     final displayIdx = playerCardIndexMap.indexOf(handIndex);
     if (displayIdx < 0 || displayIdx >= playerCardComponents.length) return null;
     return playerCardComponents[displayIdx];
   }
 
-  // ===========================================
-  // RENDERING
-  // ===========================================
+  // ─── Rendering ────────────────────────────────────────────────────────────
 
+  /// Rebuilds all card components from the current hand and discard state.
+  ///
+  /// Cards are displayed in sorted order for readability, but [playerCardIndexMap]
+  /// maintains the mapping back to server-order indices so taps resolve correctly.
+  /// Selection state is restored after the rebuild using [selectedCardIndex].
   Future<void> _renderCards() async {
-    // Remove existing components
-    for (var card in playerCardComponents) {
-      card.removeFromParent();
-    }
+    for (var card in playerCardComponents) card.removeFromParent();
     playerCardComponents.clear();
     playerCardIndexMap.clear();
-
     discardTopComponent?.removeFromParent();
     discardTopComponent = null;
 
-    // Render player hand (sorted for display only)
     final sortedIndices = _getSortedHandIndices();
+    final handSpacing   = cardWidth * 0.8;
+    final totalWidth    = (sortedIndices.length - 1) * handSpacing + cardWidth;
+    final startX        = (screenWidth - totalWidth) / 2 + cardWidth / 2;
+    final cardY         = screenHeight - (cardHeight / 2) - 30.0;
 
-    final handSpacing = cardWidth * 0.8;
-    final totalWidth = (sortedIndices.length - 1) * handSpacing + cardWidth;
-    final startX = (screenWidth - totalWidth) / 2 + cardWidth / 2;
-    const bottomPadding = 30.0;
-    final cardY = screenHeight - (cardHeight / 2) - bottomPadding;
-
-    for (var displayIdx = 0; displayIdx < sortedIndices.length; displayIdx++) {
-      final handIndex = sortedIndices[displayIdx];
-      final cardX = startX + (displayIdx * handSpacing);
-
-      final cardComp = CrazyEightsCardComponent(
-        position: Vector2(cardX, cardY),
+    for (var di = 0; di < sortedIndices.length; di++) {
+      final handIndex = sortedIndices[di];
+      final cardComp  = CrazyEightsCardComponent(
+        position: Vector2(startX + di * handSpacing, cardY),
         size: Vector2(cardWidth, cardHeight),
         card: playerHand[handIndex],
-        onTap: (_) {
-          _handleCardTap(handIndex);
-        },
-      )..priority = layerCards + 10 + displayIdx;
+        onTap: (_) => _handleCardTap(handIndex),
+      )..priority = layerCards + 10 + di;
 
       playerCardComponents.add(cardComp);
       playerCardIndexMap.add(handIndex);
       add(cardComp);
     }
 
-    // Restore selection highlight if possible after rerender
+    // Restore the selection highlight on the same card after re-render.
     if (selectedCardIndex != null) {
       final comp = _componentForHandIndex(selectedCardIndex!);
       if (comp != null) {
         selectedCard = comp;
         selectedCard!.setSelected(true);
       } else {
-        selectedCard = null;
+        selectedCard      = null;
         selectedCardIndex = null;
-        showSuitPicker = false;
+        showSuitPicker    = false;
       }
     } else {
-      selectedCard = null;
+      selectedCard   = null;
       showSuitPicker = false;
     }
 
-    // Render discard pile top card
     if (discardPile.isNotEmpty) {
       final topCard = discardPile.last;
-      final discardX = screenWidth / 2 + cardWidth * 0.7;
-      final discardY = screenHeight / 2;
-
       discardTopComponent = CrazyEightsCardComponent(
-        position: Vector2(discardX, discardY),
+        position: Vector2(screenWidth / 2 + cardWidth * 0.7, screenHeight / 2),
         size: Vector2(cardWidth, cardHeight),
         card: topCard,
+        // Show the chosen suit on King/Ace cards so players know the active suit.
         displaySuit: topCard.canChangeSuit ? currentChosenSuit : null,
         onTap: (_) => _handleDiscardPileTap(),
       )..priority = layerCards;
-
       add(discardTopComponent!);
     }
   }
 
   @override
   void render(Canvas canvas) {
-    // Background
-    final bgPaint = Paint()..color = const Color(0xFF1B5E20);
-    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), bgPaint);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, screenWidth, screenHeight),
+      Paint()..color = const Color(0xFF1B5E20),
+    );
 
     if (gameState == GameState.playing) {
       _drawGameInfo(canvas);
@@ -903,171 +691,97 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
     super.render(canvas);
 
-    if (showSuitPicker) {
-      _drawSuitPicker(canvas);
-    }
+    if (showSuitPicker) _drawSuitPicker(canvas);
+    if (showJackChoice) _drawJackChoice(canvas);
+    if (gameState == GameState.finished) _drawGameOver(canvas);
 
-    if (showJackChoice) {
-      _drawJackChoice(canvas);
-    }
-
-    if (gameState == GameState.finished) {
-      _drawGameOver(canvas);
-    }
-
-    // Show loading indicator during server validation
-    if (awaitingServerValidation) {
-      _drawLoadingOverlay(canvas);
-    }
+    // Dim overlay to signal that a move has been sent and validation is pending.
+    if (awaitingServerValidation) _drawLoadingOverlay(canvas);
   }
 
+  // ─── Game info HUD ────────────────────────────────────────────────────────
+
+  /// Draws the draw stack count, play direction, chosen suit label, and
+  /// the Crazy Eights / Challenge action buttons.
   void _drawGameInfo(Canvas canvas) {
-    // Draw count indicator
     if (drawCount > 0) {
-      final stackStyle = TextStyle(
-        fontFamily: 'Inter',
-        color: Colors.redAccent,
-        fontSize: 24 * uiScale,
-        fontWeight: FontWeight.bold,
-        shadows: [
-          Shadow(
-            blurRadius: 6,
-            color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
-            offset: const Offset(2, 2),
-          ),
-        ],
-      );
-
-      final stackPainter = TextPainter(
-        text: TextSpan(text: '🎴 STACK: +$drawCount', style: stackStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      stackPainter.paint(
+      _paintText(
         canvas,
-        Offset(screenWidth * 0.05, screenHeight * 0.15),
+        text: '🎴 STACK: +$drawCount',
+        style: TextStyle(
+          fontFamily: 'Inter', color: Colors.redAccent, fontSize: 24 * uiScale,
+          fontWeight: FontWeight.bold,
+          shadows: [Shadow(blurRadius: 6, color: AppColors.primaryNavyDark.withValues(alpha: 0.7), offset: const Offset(2, 2))],
+        ),
+        offset: Offset(screenWidth * 0.05, screenHeight * 0.15),
       );
     }
 
-    // Direction indicator
-    final directionText = direction == 'clockwise' ? '→ Clockwise' : '← Counter-Clockwise';
-    final dirStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: Colors.amber,
-      fontSize: 18 * uiScale,
-      fontWeight: FontWeight.bold,
-    );
-
-    final dirPainter = TextPainter(
-      text: TextSpan(text: directionText, style: dirStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    dirPainter.paint(
+    _paintText(
       canvas,
-      Offset(screenWidth * 0.72, screenHeight * 0.08),
+      text: direction == 'clockwise' ? '→ Clockwise' : '← Counter-Clockwise',
+      style: TextStyle(fontFamily: 'Inter', color: Colors.amber, fontSize: 18 * uiScale, fontWeight: FontWeight.bold),
+      offset: Offset(screenWidth * 0.72, screenHeight * 0.08),
     );
 
-    // Chosen suit indicator
     if (currentChosenSuit != null) {
-      final suitNames = {
-        CardSuit.hearts: '♥ Hearts',
-        CardSuit.diamonds: '♦ Diamonds',
-        CardSuit.clubs: '♣ Clubs',
-        CardSuit.spades: '♠ Spades',
-      };
-
-      final suitStyle = TextStyle(
-        fontFamily: 'Inter',
-        color: _getSuitColor(currentChosenSuit!),
-        fontSize: 16 * uiScale,
-        fontWeight: FontWeight.bold,
-      );
-
-      final suitPainter = TextPainter(
-        text: TextSpan(text: 'Suit: ${suitNames[currentChosenSuit]}', style: suitStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      suitPainter.paint(
+      _paintText(
         canvas,
-        Offset(screenWidth * 0.05, screenHeight * 0.08),
+        text: 'Suit: ${_getSuitDisplay(currentChosenSuit!)}',
+        style: TextStyle(fontFamily: 'Inter', color: _getSuitColor(currentChosenSuit!), fontSize: 16 * uiScale, fontWeight: FontWeight.bold),
+        offset: Offset(screenWidth * 0.05, screenHeight * 0.08),
       );
     }
 
-    // Crazy Eights and Challenge buttons
     if (playerHand.length == 1 && hasCalledCrazyEights[user.id] != true) {
       _drawCrazyEightsButton(canvas);
     }
 
-    if (canChallenge) {
-      _drawChallengeButton(canvas);
-    }
+    if (canChallenge) _drawChallengeButton(canvas);
   }
+
+  // ─── Other player rendering ───────────────────────────────────────────────
 
   void _drawOtherPlayers(Canvas canvas) {
     final playerList = otherPlayers.values.toList();
     if (playerList.isEmpty) return;
 
     final positions = _calculatePlayerPositions(playerList.length);
-
     for (var i = 0; i < playerList.length; i++) {
-      final player = playerList[i];
-      final isActive = currentTurnUserId == player.userId;
-      _drawOtherPlayer(canvas, positions[i], player, isActive);
+      _drawOtherPlayer(canvas, positions[i], playerList[i], currentTurnUserId == playerList[i].userId);
     }
   }
 
+  /// Positions players evenly across the top of the screen based on headcount.
   List<Offset> _calculatePlayerPositions(int count) {
-    if (count == 1) {
-      return [Offset(screenWidth * 0.5, screenHeight * 0.15)];
-    } else if (count == 2) {
-      return [
-        Offset(screenWidth * 0.2, screenHeight * 0.25),
-        Offset(screenWidth * 0.8, screenHeight * 0.25),
-      ];
-    } else {
-      return [
-        Offset(screenWidth * 0.15, screenHeight * 0.3),
-        Offset(screenWidth * 0.5, screenHeight * 0.15),
-        Offset(screenWidth * 0.85, screenHeight * 0.3),
-      ];
-    }
+    if (count == 1) return [Offset(screenWidth * 0.5, screenHeight * 0.15)];
+    if (count == 2) return [Offset(screenWidth * 0.2, screenHeight * 0.25), Offset(screenWidth * 0.8, screenHeight * 0.25)];
+    return [
+      Offset(screenWidth * 0.15, screenHeight * 0.3),
+      Offset(screenWidth * 0.5,  screenHeight * 0.15),
+      Offset(screenWidth * 0.85, screenHeight * 0.3),
+    ];
   }
 
+  /// Renders a single opponent's name, card count, and a fan of face-down card backs.
   void _drawOtherPlayer(Canvas canvas, Offset position, OtherPlayer player, bool isActive) {
-    final name = player.username;
-    final cardCount = '${player.cardCount} card${player.cardCount != 1 ? 's' : ''}';
     final ceStatus = player.calledCrazyEights && player.cardCount == 1 ? ' 🎯CE' : '';
-
-    final nameStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: isActive ? Colors.amber : AppColors.textPrimary,
-      fontSize: 16 * uiScale,
-      fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-      shadows: [
-        Shadow(
-          blurRadius: 4,
-          color: AppColors.primaryNavyDark.withValues(alpha: 0.7),
-          offset: const Offset(1, 1),
-        ),
-      ],
-    );
-
-    final namePainter = TextPainter(
-      text: TextSpan(text: '$name\n$cardCount$ceStatus', style: nameStyle),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-
-    namePainter.paint(
+    _paintText(
       canvas,
-      Offset(position.dx - namePainter.width / 2, position.dy),
+      text: '${player.username}\n${player.cardCount} card${player.cardCount != 1 ? 's' : ''}$ceStatus',
+      style: TextStyle(
+        fontFamily: 'Inter',
+        color: isActive ? Colors.amber : AppColors.textPrimary,
+        fontSize: 16 * uiScale,
+        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+        shadows: [Shadow(blurRadius: 4, color: AppColors.primaryNavyDark.withValues(alpha: 0.7), offset: const Offset(1, 1))],
+      ),
+      offset: Offset(position.dx, position.dy),
+      centreX: true,
     );
 
-    // Draw card backs
-    final cardBackSize = Size(cardWidth * 0.6, cardHeight * 0.6);
-    final displayCards = min(player.cardCount, 5);
+    final cardBackSize  = Size(cardWidth * 0.6, cardHeight * 0.6);
+    final displayCards  = min(player.cardCount, 5);
 
     for (var i = 0; i < displayCards; i++) {
       final cardRect = Rect.fromLTWH(
@@ -1076,457 +790,231 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
         cardBackSize.width,
         cardBackSize.height,
       );
-
       final rrect = RRect.fromRectAndRadius(cardRect, const Radius.circular(8));
-      final backPaint = Paint()..color = const Color(0xFF0B3A79);
-      canvas.drawRRect(rrect, backPaint);
-
-      final borderPaint = Paint()
+      canvas.drawRRect(rrect, Paint()..color = const Color(0xFF0B3A79));
+      canvas.drawRRect(rrect, Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = AppColors.textPrimary.withValues(alpha: 0.5);
-      canvas.drawRRect(rrect, borderPaint);
+        ..color = AppColors.textPrimary.withValues(alpha: 0.5));
     }
 
     if (player.cardCount > 5) {
-      final moreStyle = TextStyle(
-        fontFamily: 'Inter',
-        color: AppColors.textPrimary,
-        fontSize: 12 * uiScale,
-      );
-
-      final morePainter = TextPainter(
-        text: TextSpan(text: '+${player.cardCount - 5} more', style: moreStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      morePainter.paint(
+      _paintText(
         canvas,
-        Offset(
-          position.dx - morePainter.width / 2,
-          position.dy + 40 + cardBackSize.height + 5,
-        ),
+        text: '+${player.cardCount - 5} more',
+        style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 12 * uiScale),
+        offset: Offset(position.dx, position.dy + 40 + cardBackSize.height + 5),
+        centreX: true,
       );
     }
   }
 
+  // ─── Draw pile ────────────────────────────────────────────────────────────
+
   void _drawDrawPile(Canvas canvas) {
-    final deckX = screenWidth / 2 - cardWidth * 0.7;
-    final deckY = screenHeight / 2;
+    final deckX  = screenWidth / 2 - cardWidth * 0.7;
+    final deckY  = screenHeight / 2;
+    final rect   = Rect.fromCenter(center: Offset(deckX, deckY), width: cardWidth, height: cardHeight);
+    final rrect  = RRect.fromRectAndRadius(rect, const Radius.circular(12));
 
-    final rect = Rect.fromCenter(
-      center: Offset(deckX, deckY),
-      width: cardWidth,
-      height: cardHeight,
-    );
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12));
+    canvas.drawRRect(rrect, Paint()..color = const Color(0xFF0B3A79));
 
-    final backPaint = Paint()..color = const Color(0xFF0B3A79);
-    canvas.drawRRect(rrect, backPaint);
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: 'DRAW',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: AppColors.textPrimary,
-          fontSize: cardHeight * 0.15,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-
-    textPainter.paint(
+    _paintText(
       canvas,
-      Offset(deckX - textPainter.width / 2, deckY - textPainter.height / 2),
+      text: 'DRAW',
+      style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: cardHeight * 0.15, fontWeight: FontWeight.bold),
+      offset: Offset(deckX, deckY),
+      centreX: true, centreY: true,
     );
 
-    final borderPaint = Paint()
+    canvas.drawRRect(rrect, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = AppColors.textPrimary.withValues(alpha: 0.5);
-    canvas.drawRRect(rrect, borderPaint);
+      ..color = AppColors.textPrimary.withValues(alpha: 0.5));
   }
 
-  void _drawCrazyEightsButton(Canvas canvas) {
-    final buttonWidth = screenWidth * 0.15;
-    final buttonHeight = screenHeight * 0.08;
-    final buttonX = screenWidth * 0.85;
-    final buttonY = screenHeight * 0.85;
+  // ─── Action buttons ───────────────────────────────────────────────────────
 
+  void _drawCrazyEightsButton(Canvas canvas) =>
+      _drawHudButton(canvas, text: 'CrazyEights!', color: Colors.red,
+          cx: screenWidth * 0.85, cy: screenHeight * 0.85);
+
+  void _drawChallengeButton(Canvas canvas) =>
+      _drawHudButton(canvas, text: 'Challenge!', color: Colors.orange,
+          cx: screenWidth * 0.85, cy: screenHeight * 0.73);
+
+  void _drawHudButton(Canvas canvas, {required String text, required Color color, required double cx, required double cy}) {
+    final buttonW = screenWidth * 0.15;
+    final buttonH = screenHeight * 0.08;
     final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(buttonX, buttonY),
-        width: buttonWidth,
-        height: buttonHeight,
-      ),
+      Rect.fromCenter(center: Offset(cx, cy), width: buttonW, height: buttonH),
       const Radius.circular(12),
     );
-
-    final buttonPaint = Paint()..color = Colors.red;
-    canvas.drawRRect(rect, buttonPaint);
-
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: 'CrazyEights!',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-
-    textPainter.paint(
+    canvas.drawRRect(rect, Paint()..color = color);
+    _paintText(
       canvas,
-      Offset(buttonX - textPainter.width / 2, buttonY - textPainter.height / 2),
+      text: text,
+      style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+      offset: Offset(cx, cy),
+      centreX: true, centreY: true,
     );
   }
 
-  void _drawChallengeButton(Canvas canvas) {
-    final buttonWidth = screenWidth * 0.15;
-    final buttonHeight = screenHeight * 0.08;
-    final buttonX = screenWidth * 0.85;
-    final buttonY = screenHeight * 0.73;
+  // ─── Modal dialogs ────────────────────────────────────────────────────────
 
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(buttonX, buttonY),
-        width: buttonWidth,
-        height: buttonHeight,
-      ),
-      const Radius.circular(12),
-    );
-
-    final buttonPaint = Paint()..color = Colors.orange;
-    canvas.drawRRect(rect, buttonPaint);
-
-    final textPainter = TextPainter(
-      text: const TextSpan(
-        text: 'Challenge!',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-
-    textPainter.paint(
-      canvas,
-      Offset(buttonX - textPainter.width / 2, buttonY - textPainter.height / 2),
-    );
-  }
-
+  /// Draws the suit picker dialog — identical geometry to the single-player
+  /// version so [_handleSuitPickerTap] hit regions match exactly.
   void _drawSuitPicker(Canvas canvas) {
-    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.7);
-    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
-
-    final dialogWidth = screenWidth * 0.6;
-    final dialogHeight = screenHeight * 0.25;
-    final dialogRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(screenWidth / 2, screenHeight / 2),
-        width: dialogWidth,
-        height: dialogHeight,
-      ),
-      const Radius.circular(20),
-    );
-
-    final dialogPaint = Paint()..color = AppColors.textPrimary;
-    canvas.drawRRect(dialogRect, dialogPaint);
-
-    final titleStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: AppColors.primaryNavyDark,
-      fontSize: 20 * uiScale,
-      fontWeight: FontWeight.bold,
-    );
-
-    final titlePainter = TextPainter(
-      text: TextSpan(text: 'Choose a Suit', style: titleStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    titlePainter.paint(
-      canvas,
-      Offset(
-        screenWidth / 2 - titlePainter.width / 2,
-        screenHeight / 2 - dialogHeight / 2 + 15,
-      ),
-    );
+    _drawOverlay(canvas);
+    final dialogW = screenWidth * 0.6;
+    final dialogH = screenHeight * 0.25;
+    _drawDialog(canvas, dialogW, dialogH, title: 'Choose a Suit');
 
     final buttonSize = screenWidth * 0.11;
-    final totalWidth = (buttonSize * 4) + (screenWidth * 0.02 * 3);
-    final startX = screenWidth / 2 - totalWidth / 2;
-    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    final gap        = screenWidth * 0.02;
+    final totalWidth = buttonSize * 4 + gap * 3;
+    final startX     = screenWidth / 2 - totalWidth / 2;
+    final buttonY    = screenHeight / 2 + dialogH / 4;
 
     final suits = [
-      {'suit': CardSuit.hearts, 'symbol': '♥', 'color': const Color(0xFFE53935)},
-      {'suit': CardSuit.diamonds, 'symbol': '♦', 'color': const Color(0xFFE53935)},
-      {'suit': CardSuit.clubs, 'symbol': '♣', 'color': AppColors.primaryNavyDark},
-      {'suit': CardSuit.spades, 'symbol': '♠', 'color': AppColors.primaryNavyDark},
+      {'symbol': '♥', 'color': const Color(0xFFE53935)},
+      {'symbol': '♦', 'color': const Color(0xFFE53935)},
+      {'symbol': '♣', 'color': AppColors.primaryNavyDark},
+      {'symbol': '♠', 'color': AppColors.primaryNavyDark},
     ];
 
     for (var i = 0; i < 4; i++) {
-      final x = startX + (i * (buttonSize + screenWidth * 0.02));
-
-      final buttonRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize),
-        const Radius.circular(12),
-      );
-
-      final bgPaint = Paint()..color = Colors.grey.shade200;
-      canvas.drawRRect(buttonRect, bgPaint);
-
-      final symbolStyle = TextStyle(
-        fontFamily: 'Inter',
-        color: suits[i]['color'] as Color,
-        fontSize: buttonSize * 0.5,
-        fontWeight: FontWeight.bold,
-      );
-
-      final symbolPainter = TextPainter(
-        text: TextSpan(text: suits[i]['symbol'] as String, style: symbolStyle),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      symbolPainter.paint(
+      final x      = startX + i * (buttonSize + gap);
+      final rrect  = RRect.fromRectAndRadius(Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize), const Radius.circular(12));
+      canvas.drawRRect(rrect, Paint()..color = Colors.grey.shade200);
+      canvas.drawRRect(rrect, Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = AppColors.primaryNavyDark.withValues(alpha: 0.3));
+      _paintText(
         canvas,
-        Offset(
-          x + buttonSize / 2 - symbolPainter.width / 2,
-          buttonY - symbolPainter.height / 2,
-        ),
+        text: suits[i]['symbol'] as String,
+        style: TextStyle(fontFamily: 'Inter', color: suits[i]['color'] as Color, fontSize: buttonSize * 0.5, fontWeight: FontWeight.bold),
+        offset: Offset(x + buttonSize / 2, buttonY),
+        centreX: true, centreY: true,
       );
-
-      final borderPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
-      canvas.drawRRect(buttonRect, borderPaint);
     }
   }
 
   void _drawJackChoice(Canvas canvas) {
-    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.7);
-    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
+    _drawOverlay(canvas);
+    final dialogW = screenWidth * 0.65;
+    final dialogH = screenHeight * 0.22;
+    _drawDialog(canvas, dialogW, dialogH, title: 'Choose Jack Action');
 
-    final dialogWidth = screenWidth * 0.65;
-    final dialogHeight = screenHeight * 0.22;
-    final dialogRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(screenWidth / 2, screenHeight / 2),
-        width: dialogWidth,
-        height: dialogHeight,
-      ),
-      const Radius.circular(20),
-    );
-
-    final dialogPaint = Paint()..color = AppColors.textPrimary;
-    canvas.drawRRect(dialogRect, dialogPaint);
-
-    final titleStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: AppColors.primaryNavyDark,
-      fontSize: 20 * uiScale,
-      fontWeight: FontWeight.bold,
-    );
-
-    final titlePainter = TextPainter(
-      text: TextSpan(text: 'Choose Jack Action', style: titleStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    titlePainter.paint(
-      canvas,
-      Offset(
-        screenWidth / 2 - titlePainter.width / 2,
-        screenHeight / 2 - dialogHeight / 2 + 15,
-      ),
-    );
-
-    final buttonWidth = screenWidth * 0.25;
-    final buttonHeight = screenHeight * 0.07;
+    final buttonW = screenWidth * 0.25;
+    final buttonH = screenHeight * 0.07;
     final spacing = screenWidth * 0.04;
-    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    final buttonY = screenHeight / 2 + dialogH / 4;
 
-    final skipRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(screenWidth / 2 - buttonWidth / 2 - spacing / 2, buttonY),
-        width: buttonWidth,
-        height: buttonHeight,
-      ),
-      const Radius.circular(12),
-    );
-
-    final skipPaint = Paint()..color = Colors.blue;
-    canvas.drawRRect(skipRect, skipPaint);
-
-    final skipTextPainter = TextPainter(
-      text: const TextSpan(
-        text: 'Skip Next',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    skipTextPainter.paint(
-      canvas,
-      Offset(
-        screenWidth / 2 - buttonWidth / 2 - spacing / 2 - skipTextPainter.width / 2,
-        buttonY - skipTextPainter.height / 2,
-      ),
-    );
-
-    final reverseRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(screenWidth / 2 + buttonWidth / 2 + spacing / 2, buttonY),
-        width: buttonWidth,
-        height: buttonHeight,
-      ),
-      const Radius.circular(12),
-    );
-
-    final reversePaint = Paint()..color = Colors.orange;
-    canvas.drawRRect(reverseRect, reversePaint);
-
-    final reverseTextPainter = TextPainter(
-      text: const TextSpan(
-        text: 'Reverse',
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    reverseTextPainter.paint(
-      canvas,
-      Offset(
-        screenWidth / 2 + buttonWidth / 2 + spacing / 2 - reverseTextPainter.width / 2,
-        buttonY - reverseTextPainter.height / 2,
-      ),
-    );
+    _drawDialogButton(canvas, text: 'Skip Next', color: Colors.blue,
+        cx: screenWidth / 2 - buttonW / 2 - spacing / 2, cy: buttonY, w: buttonW, h: buttonH);
+    _drawDialogButton(canvas, text: 'Reverse',   color: Colors.orange,
+        cx: screenWidth / 2 + buttonW / 2 + spacing / 2, cy: buttonY, w: buttonW, h: buttonH);
   }
 
   void _drawGameOver(Canvas canvas) {
-    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.8);
-    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
+    _drawOverlay(canvas, alpha: 0.8);
+    final isWin    = winner == user.username;
+    final mainText = isWin ? 'YOU WIN!' : 'YOU LOSE!';
+    final subText  = isWin ? '🎉 Congratulations! 🎉' : 'Winner: $winner';
 
-    final resultText = winner == user.username ? 'YOU WIN!' : 'YOU LOSE!';
-    final subtitleText = winner == user.username ? '🎉 Congratulations! 🎉' : 'Winner: $winner';
-
-    final textStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: winner == user.username ? AppColors.primaryNavyLight : Colors.redAccent,
-      fontSize: 48 * uiScale,
-      fontWeight: FontWeight.bold,
-      shadows: [
-        Shadow(
-          blurRadius: 10,
-          color: AppColors.primaryNavyDark,
-          offset: const Offset(2, 2),
-        ),
-      ],
-    );
-
-    final textPainter = TextPainter(
-      text: TextSpan(text: resultText, style: textStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    textPainter.paint(
+    _paintText(
       canvas,
-      Offset(
-        screenWidth / 2 - textPainter.width / 2,
-        screenHeight / 2 - textPainter.height / 2 - 30,
-      ),
+      text: mainText,
+      style: TextStyle(fontFamily: 'Inter', color: isWin ? AppColors.primaryNavyLight : Colors.redAccent,
+          fontSize: 48 * uiScale, fontWeight: FontWeight.bold,
+          shadows: [Shadow(blurRadius: 10, color: AppColors.primaryNavyDark, offset: const Offset(2, 2))]),
+      offset: Offset(screenWidth / 2, screenHeight / 2 - 30),
+      centreX: true, centreY: true,
     );
 
-    final subtitleStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: AppColors.textPrimary,
-      fontSize: 20 * uiScale,
-      fontWeight: FontWeight.normal,
-    );
-
-    final subtitlePainter = TextPainter(
-      text: TextSpan(text: subtitleText, style: subtitleStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    subtitlePainter.paint(
+    _paintText(
       canvas,
-      Offset(
-        screenWidth / 2 - subtitlePainter.width / 2,
-        screenHeight / 2 + 20,
-      ),
+      text: subText,
+      style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 20 * uiScale),
+      offset: Offset(screenWidth / 2, screenHeight / 2 + 50),
+      centreX: true,
     );
   }
 
-  // NEW: Loading overlay during server validation
+  /// Light overlay shown while waiting for the server to validate the last move.
   void _drawLoadingOverlay(Canvas canvas) {
-    final overlayPaint = Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.3);
-    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight), overlayPaint);
-
-    final textStyle = TextStyle(
-      fontFamily: 'Inter',
-      color: AppColors.textPrimary,
-      fontSize: 18 * uiScale,
-      fontWeight: FontWeight.bold,
-      shadows: [
-        Shadow(
-          blurRadius: 4,
-          color: AppColors.primaryNavyDark,
-          offset: const Offset(1, 1),
-        ),
-      ],
-    );
-
-    final textPainter = TextPainter(
-      text: TextSpan(text: 'Sending...', style: textStyle),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    textPainter.paint(
+    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight),
+        Paint()..color = AppColors.primaryNavyDark.withValues(alpha: 0.3));
+    _paintText(
       canvas,
-      Offset(
-        screenWidth / 2 - textPainter.width / 2,
-        screenHeight * 0.1,
-      ),
+      text: 'Sending...',
+      style: TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 18 * uiScale, fontWeight: FontWeight.bold,
+          shadows: [Shadow(blurRadius: 4, color: AppColors.primaryNavyDark, offset: const Offset(1, 1))]),
+      offset: Offset(screenWidth / 2, screenHeight * 0.1),
+      centreX: true,
     );
   }
+
+  // ─── Drawing helpers ──────────────────────────────────────────────────────
 
   Color _getSuitColor(CardSuit suit) {
     switch (suit) {
       case CardSuit.hearts:
-      case CardSuit.diamonds:
-        return const Color(0xFFE53935);
+      case CardSuit.diamonds: return const Color(0xFFE53935);
       case CardSuit.clubs:
-      case CardSuit.spades:
-        return AppColors.primaryNavyDark;
+      case CardSuit.spades:   return AppColors.primaryNavyDark;
     }
   }
 
-  // ===========================================
-  // INPUT HANDLING
-  // ===========================================
+  void _drawOverlay(Canvas canvas, {double alpha = 0.7}) {
+    canvas.drawRect(Rect.fromLTWH(0, 0, screenWidth, screenHeight),
+        Paint()..color = AppColors.primaryNavyDark.withValues(alpha: alpha));
+  }
+
+  void _drawDialog(Canvas canvas, double w, double h, {required String title}) {
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(screenWidth / 2, screenHeight / 2), width: w, height: h),
+      const Radius.circular(20),
+    );
+    canvas.drawRRect(rrect, Paint()..color = AppColors.textPrimary);
+    _paintText(
+      canvas,
+      text: title,
+      style: TextStyle(fontFamily: 'Inter', color: AppColors.primaryNavyDark, fontSize: 20 * uiScale, fontWeight: FontWeight.bold),
+      offset: Offset(screenWidth / 2, screenHeight / 2 - h / 2 + 15),
+      centreX: true,
+    );
+  }
+
+  void _drawDialogButton(Canvas canvas, {required String text, required Color color, required double cx, required double cy, required double w, required double h}) {
+    final rrect = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(cx, cy), width: w, height: h), const Radius.circular(12));
+    canvas.drawRRect(rrect, Paint()..color = color);
+    _paintText(
+      canvas,
+      text: text,
+      style: const TextStyle(fontFamily: 'Inter', color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+      offset: Offset(cx, cy),
+      centreX: true, centreY: true,
+    );
+  }
+
+  /// Shared text painter. Centres horizontally and/or vertically when requested.
+  void _paintText(Canvas canvas, {required String text, required TextStyle style, required Offset offset, bool centreX = false, bool centreY = false, double? maxWidth}) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textAlign: centreX ? TextAlign.center : TextAlign.left,
+    )..layout(maxWidth: maxWidth ?? double.infinity);
+
+    canvas.drawText(
+      painter,
+      Offset(
+        centreX ? offset.dx - painter.width / 2 : offset.dx,
+        centreY ? offset.dy - painter.height / 2 : offset.dy,
+      ),
+    );
+  }
+
+  // ─── Input handling ───────────────────────────────────────────────────────
 
   @override
   void onTapDown(TapDownEvent event) {
@@ -1543,27 +1031,21 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
 
   void _handleSuitPickerTap(Offset position) {
     final buttonSize = screenWidth * 0.11;
-    final totalWidth = (buttonSize * 4) + (screenWidth * 0.02 * 3);
-    final startX = screenWidth / 2 - totalWidth / 2;
-    final dialogHeight = screenHeight * 0.25;
-    final buttonY = screenHeight / 2 + dialogHeight / 4;
-
-    final suits = [CardSuit.hearts, CardSuit.diamonds, CardSuit.clubs, CardSuit.spades];
+    final gap        = screenWidth * 0.02;
+    final totalWidth = buttonSize * 4 + gap * 3;
+    final startX     = screenWidth / 2 - totalWidth / 2;
+    final buttonY    = screenHeight / 2 + screenHeight * 0.25 / 4;
+    final suits      = [CardSuit.hearts, CardSuit.diamonds, CardSuit.clubs, CardSuit.spades];
 
     for (var i = 0; i < 4; i++) {
-      final x = startX + (i * (buttonSize + screenWidth * 0.02));
-      final buttonRect = Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize);
-
-      if (buttonRect.contains(position)) {
-        // ✅ FIX: Actually PLAY the selected King/Ace with the chosen suit
-        // (Do NOT send chooseSuit as a standalone event here)
+      final x = startX + i * (buttonSize + gap);
+      if (Rect.fromLTWH(x, buttonY - buttonSize / 2, buttonSize, buttonSize).contains(position)) {
         final idx = selectedCardIndex;
         if (idx != null && idx >= 0 && idx < playerHand.length) {
           _playCard(idx, suits[i]);
         } else {
-          // Safety fallback
           showSuitPicker = false;
-          statusMessage = 'No card selected';
+          statusMessage  = 'No card selected';
         }
         return;
       }
@@ -1571,85 +1053,61 @@ class MultiplayerCrazyEightsGame extends FlameGame with TapCallbacks {
   }
 
   void _handleJackChoiceTap(Offset position) {
-    final buttonWidth = screenWidth * 0.25;
-    final buttonHeight = screenHeight * 0.07;
+    final buttonW = screenWidth * 0.25;
+    final buttonH = screenHeight * 0.07;
     final spacing = screenWidth * 0.04;
-    final dialogHeight = screenHeight * 0.22;
-    final buttonY = screenHeight / 2 + dialogHeight / 4;
+    final buttonY = screenHeight / 2 + screenHeight * 0.22 / 4;
 
-    final skipRect = Rect.fromCenter(
-      center: Offset(screenWidth / 2 - buttonWidth / 2 - spacing / 2, buttonY),
-      width: buttonWidth,
-      height: buttonHeight,
-    );
+    final skipRect    = Rect.fromCenter(center: Offset(screenWidth / 2 - buttonW / 2 - spacing / 2, buttonY), width: buttonW, height: buttonH);
+    final reverseRect = Rect.fromCenter(center: Offset(screenWidth / 2 + buttonW / 2 + spacing / 2, buttonY), width: buttonW, height: buttonH);
 
-    final reverseRect = Rect.fromCenter(
-      center: Offset(screenWidth / 2 + buttonWidth / 2 + spacing / 2, buttonY),
-      width: buttonWidth,
-      height: buttonHeight,
-    );
-
-    if (skipRect.contains(position)) {
-      _handleJackChoice('skip');
-    } else if (reverseRect.contains(position)) {
-      _handleJackChoice('reverse');
-    }
+    if (skipRect.contains(position))    { _handleJackChoice('skip'); }
+    else if (reverseRect.contains(position)) { _handleJackChoice('reverse'); }
   }
 
+  /// Handles taps on the main game area: draw pile, Crazy Eights button, or
+  /// the challenge button (when a challenge window is open).
   void _handleGameTap(Offset position) {
-    final deckX = screenWidth / 2 - cardWidth * 0.7;
-    final deckY = screenHeight / 2;
     final deckRect = Rect.fromCenter(
-      center: Offset(deckX, deckY),
-      width: cardWidth,
-      height: cardHeight,
+      center: Offset(screenWidth / 2 - cardWidth * 0.7, screenHeight / 2),
+      width: cardWidth, height: cardHeight,
     );
-
-    if (deckRect.contains(position)) {
-      _handleDrawCard();
-      return;
-    }
+    if (deckRect.contains(position)) { _handleDrawCard(); return; }
 
     if (playerHand.length == 1 && hasCalledCrazyEights[user.id] != true) {
-      final buttonX = screenWidth * 0.85;
-      final buttonY = screenHeight * 0.85;
-      final buttonRect = Rect.fromCenter(
-        center: Offset(buttonX, buttonY),
-        width: screenWidth * 0.15,
-        height: screenHeight * 0.08,
+      final ceRect = Rect.fromCenter(
+        center: Offset(screenWidth * 0.85, screenHeight * 0.85),
+        width: screenWidth * 0.15, height: screenHeight * 0.08,
       );
-
-      if (buttonRect.contains(position)) {
-        _handleCrazyEightsCall();
-        return;
-      }
+      if (ceRect.contains(position)) { _handleCrazyEightsCall(); return; }
     }
 
     if (canChallenge) {
-      final buttonX = screenWidth * 0.85;
-      final buttonY = screenHeight * 0.73;
-      final buttonRect = Rect.fromCenter(
-        center: Offset(buttonX, buttonY),
-        width: screenWidth * 0.15,
-        height: screenHeight * 0.08,
+      final challengeRect = Rect.fromCenter(
+        center: Offset(screenWidth * 0.85, screenHeight * 0.73),
+        width: screenWidth * 0.15, height: screenHeight * 0.08,
       );
-
-      if (buttonRect.contains(position)) {
-        _handleChallenge();
-        return;
-      }
+      if (challengeRect.contains(position)) { _handleChallenge(); return; }
     }
   }
 }
 
-// ===========================================
-// OTHER PLAYER CLASS
-// ===========================================
+// ─── Canvas extension ─────────────────────────────────────────────────────────
+
+extension _CanvasTextPainter on Canvas {
+  void drawText(TextPainter painter, Offset offset) => painter.paint(this, offset);
+}
+
+// ─── Other player model ───────────────────────────────────────────────────────
+
+/// Lightweight data model for a remote player.
+///
+/// Used purely for rendering — no game logic lives here.
 class OtherPlayer {
   final String userId;
   final String username;
-  final int position;
-  int cardCount;
+  final int    position;
+  int  cardCount;
   bool isReady;
   bool calledCrazyEights;
 
@@ -1657,12 +1115,10 @@ class OtherPlayer {
     required this.userId,
     required this.username,
     required this.position,
-    this.cardCount = 7,
-    this.isReady = false,
+    this.cardCount         = 7,
+    this.isReady           = false,
     this.calledCrazyEights = false,
   });
 
-  void setReady(bool ready) {
-    isReady = ready;
-  }
+  void setReady(bool ready) => isReady = ready;
 }

@@ -4,15 +4,22 @@ import '../models/user.dart';
 import '../screens/profile_screen.dart';
 import '../theme/app_theme.dart';
 
-/// Reusable profile button component that navigates to the profile screen
-/// Can be used across multiple screens in the application
+/// A circular or pill-shaped button that navigates to [ProfileScreen].
+///
+/// [showUsername] toggles between a compact circular avatar and an extended
+/// pill layout that includes the username and a forward arrow. Both variants
+/// share the same amber gradient and gold border styling.
 class ProfileButton extends StatelessWidget {
   final User user;
   final VoidCallback onLogout;
+
+  /// Overrides the default size, which scales relative to screen height.
   final double? size;
+
+  /// When true, renders the extended pill variant with username text.
   final bool showUsername;
   final EdgeInsetsGeometry? padding;
-  
+
   const ProfileButton({
     super.key,
     required this.user,
@@ -24,21 +31,16 @@ class ProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final buttonSize = size ?? screenSize.height * 0.06;
-    
-    if (showUsername) {
-      // Extended button with username
-      return _buildExtendedButton(context, buttonSize);
-    } else {
-      // Compact circular button
-      return _buildCompactButton(context, buttonSize);
-    }
+    final buttonSize = size ?? MediaQuery.of(context).size.height * 0.06;
+    return showUsername
+        ? _buildExtendedButton(context, buttonSize)
+        : _buildCompactButton(context, buttonSize);
   }
 
+  /// Circular button showing only the user's initial.
   Widget _buildCompactButton(BuildContext context, double buttonSize) {
     return Padding(
-      padding: padding ?? const EdgeInsets.all(0),
+      padding: padding ?? EdgeInsets.zero,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -47,28 +49,7 @@ class ProfileButton extends StatelessWidget {
           child: Container(
             width: buttonSize,
             height: buttonSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.secondaryAmber,
-                  AppColors.secondaryAmberDark,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: AppColors.accentGold,
-                width: 2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: _sharedDecoration(circular: true, buttonSize: buttonSize),
             child: Center(
               child: Text(
                 _getUserInitial(),
@@ -86,9 +67,11 @@ class ProfileButton extends StatelessWidget {
     );
   }
 
+  /// Pill-shaped button showing a navy initial circle, the username, and a
+  /// forward arrow. [Flexible] on the username prevents overflow on narrow screens.
   Widget _buildExtendedButton(BuildContext context, double buttonSize) {
     return Padding(
-      padding: padding ?? const EdgeInsets.all(0),
+      padding: padding ?? EdgeInsets.zero,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -100,32 +83,11 @@ class ProfileButton extends StatelessWidget {
               horizontal: buttonSize * 0.4,
               vertical: buttonSize * 0.15,
             ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(buttonSize / 2),
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.secondaryAmber,
-                  AppColors.secondaryAmberDark,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(
-                color: AppColors.accentGold,
-                width: 2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
+            decoration: _sharedDecoration(circular: false, buttonSize: buttonSize),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // User Initial Circle
+                // Navy circle with the user's initial, inset within the amber pill.
                 Container(
                   width: buttonSize * 0.6,
                   height: buttonSize * 0.6,
@@ -146,7 +108,6 @@ class ProfileButton extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: buttonSize * 0.2),
-                // Username
                 Flexible(
                   child: Text(
                     user.username,
@@ -160,7 +121,6 @@ class ProfileButton extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: buttonSize * 0.2),
-                // Arrow icon
                 Icon(
                   Icons.arrow_forward_ios,
                   size: buttonSize * 0.3,
@@ -174,32 +134,49 @@ class ProfileButton extends StatelessWidget {
     );
   }
 
+  /// Shared amber gradient decoration used by both button variants.
+  ///
+  /// [circular] switches between a full circle and a pill-shaped border radius.
+  BoxDecoration _sharedDecoration({required bool circular, required double buttonSize}) {
+    return BoxDecoration(
+      shape: circular ? BoxShape.circle : BoxShape.rectangle,
+      borderRadius: circular ? null : BorderRadius.circular(buttonSize / 2),
+      gradient: LinearGradient(
+        colors: [AppColors.secondaryAmber, AppColors.secondaryAmberDark],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      border: Border.all(color: AppColors.accentGold, width: 2),
+      boxShadow: const [
+        BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
+      ],
+    );
+  }
+
+  /// Returns the first character of the username, uppercased, or '?' if empty.
   String _getUserInitial() {
-    return user.username.isNotEmpty 
-        ? user.username[0].toUpperCase() 
-        : '?';
+    return user.username.isNotEmpty ? user.username[0].toUpperCase() : '?';
   }
 
   void _navigateToProfile(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProfileScreen(
-          user: user,
-          onLogout: onLogout,
-        ),
+        builder: (context) => ProfileScreen(user: user, onLogout: onLogout),
       ),
     );
   }
 }
 
-/// Alternative profile button with icon instead of initial
+/// A variant of [ProfileButton] that shows a person icon instead of the
+/// user's initial. Useful where a generic avatar is preferred over a
+/// personalised one, such as in compact navigation bars.
 class ProfileIconButton extends StatelessWidget {
   final User user;
   final VoidCallback onLogout;
   final double? size;
   final EdgeInsetsGeometry? padding;
-  
+
   const ProfileIconButton({
     super.key,
     required this.user,
@@ -210,11 +187,9 @@ class ProfileIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final buttonSize = size ?? screenSize.height * 0.06;
-    
+    final buttonSize = size ?? MediaQuery.of(context).size.height * 0.06;
     return Padding(
-      padding: padding ?? const EdgeInsets.all(0),
+      padding: padding ?? EdgeInsets.zero,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -226,23 +201,13 @@ class ProfileIconButton extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [
-                  AppColors.secondaryAmber,
-                  AppColors.secondaryAmberDark,
-                ],
+                colors: [AppColors.secondaryAmber, AppColors.secondaryAmberDark],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(
-                color: AppColors.accentGold,
-                width: 2,
-              ),
+              border: Border.all(color: AppColors.accentGold, width: 2),
               boxShadow: const [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
+                BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
               ],
             ),
             child: Icon(
@@ -260,10 +225,7 @@ class ProfileIconButton extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProfileScreen(
-          user: user,
-          onLogout: onLogout,
-        ),
+        builder: (context) => ProfileScreen(user: user, onLogout: onLogout),
       ),
     );
   }

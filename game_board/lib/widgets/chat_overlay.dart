@@ -1,5 +1,43 @@
+// ====================================
 // lib/widgets/chat_overlay.dart
-// COMPLETE: Voice chat controls + Social features (block/report/friend)
+// Full-screen chat overlay with integrated voice controls and social features
+//
+// PURPOSE:
+//   Provides an in-game chat panel that slides up from the bottom of the
+//   screen.  In addition to text messaging, the overlay surfaces voice-chat
+//   join/leave and mute controls so players can manage both communication
+//   channels in one place.
+//
+// FEATURES:
+//   - Real-time text chat via SocketService (send, receive, history load)
+//   - Typing indicators with a 2-second debounce (stops broadcasting
+//     "is typing" after the player pauses)
+//   - Voice chat join/leave and mute toggle via VoiceChatService
+//   - Live participant count badge shown when in voice
+//   - Tap-on-avatar/username to open a social action sheet (friend request,
+//     block, report)
+//   - System messages rendered in a distinct centred style
+//   - Slide-up/slide-down animation on open/close
+//   - Responsive sizing for small handsets (< 360 px wide)
+//
+// COMPLIANCE:
+//   Report reasons and user-blocking features are implemented in line with
+//   the UK Online Safety Act 2023, which requires user-to-user services to
+//   provide accessible reporting mechanisms.
+//
+// USAGE:
+//   Mount as a full-screen overlay inside a Stack, revealing it on demand.
+//   Example:
+//     ChatOverlay(
+//       roomId: _roomId,
+//       userId: _userId,
+//       username: _username,
+//       socketService: _socketService,
+//       voiceService: _voiceService,
+//       onClose: () => setState(() => _showChat = false),
+//     )
+// ====================================
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/socket_service.dart';
@@ -8,12 +46,30 @@ import '../services/social_service.dart';
 import '../models/chat_message.dart';
 import '../theme/app_theme.dart';
 
+/// Full-screen sliding chat overlay that combines text and voice communication
+/// with social moderation tools.
 class ChatOverlay extends StatefulWidget {
+  /// The game room this chat belongs to.  All socket events are scoped to this
+  /// room ID so messages from other rooms are never shown here.
   final String roomId;
+
+  /// The authenticated user's ID, used to distinguish own messages from others
+  /// and to prevent social actions being taken against oneself.
   final String userId;
+
+  /// Display name of the authenticated user, used for typing events and the
+  /// avatar initial.
   final String username;
+
+  /// Socket service instance for text-chat events.
   final SocketService socketService;
-  final VoiceChatService voiceService;  // NEW: Voice service
+
+  /// Voice chat service instance for join/leave/mute operations and the
+  /// participants stream.
+  final VoiceChatService voiceService;
+
+  /// Called after the close animation finishes so the parent can unmount the
+  /// overlay.
   final VoidCallback onClose;
 
   const ChatOverlay({
@@ -22,7 +78,7 @@ class ChatOverlay extends StatefulWidget {
     required this.userId,
     required this.username,
     required this.socketService,
-    required this.voiceService,  // NEW
+    required this.voiceService,
     required this.onClose,
   });
 
@@ -30,69 +86,108 @@ class ChatOverlay extends StatefulWidget {
   State<ChatOverlay> createState() => _ChatOverlayState();
 }
 
-class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStateMixin {
+class _ChatOverlayState extends State<ChatOverlay>
+    with SingleTickerProviderStateMixin {
+  // ─── Controllers ──────────────────────────────────────────────────────────
+
+  /// Controls the text input field at the bottom of the overlay.
   final TextEditingController _messageController = TextEditingController();
+
+  /// Keeps the message list scrolled to the most recent message.
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
-  final Set<String> _typingUsers = {};
-  
-  Timer? _typingTimer;
-  bool _isTyping = false;
+
+  /// Drives the slide-up/slide-down entrance and exit animation.
   late AnimationController _animationController;
+
+  /// The actual slide offset derived from [_animationController].
+  /// Starts off-screen below (Offset(0, 1)) and animates to the visible
+  /// position (Offset.zero).
   late Animation<Offset> _slideAnimation;
+
+  // ─── State ────────────────────────────────────────────────────────────────
+
+  /// Accumulated chat messages for this session, including history loaded
+  /// on open and any new messages received whilst the overlay is visible.
+  final List<ChatMessage> _messages = [];
+
+  /// Usernames of players who are currently typing; shown as a typing
+  /// indicator above the input bar.
+  final Set<String> _typingUsers = {};
+
+  /// Whether this user is currently broadcasting a "typing" event.
+  bool _isTyping = false;
+
+  /// Debounce timer: resets each keystroke and fires [_onStoppedTyping] after
+  /// 2 seconds of inactivity.
+  Timer? _typingTimer;
+
+  // ─── Stream Subscriptions ─────────────────────────────────────────────────
 
   late StreamSubscription _chatMessageSub;
   late StreamSubscription _chatHistorySub;
   late StreamSubscription _typingSub;
-  StreamSubscription? _voiceParticipantsSub;  // NEW
+
+  /// Subscription to the voice participants stream so the UI rebuilds when
+  /// someone joins or leaves voice chat.
+  StreamSubscription? _voiceParticipantsSub;
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    
-    // Slide animation
+
+    // Slide animation: panel enters from below the visible area.
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 1),
-      end: Offset.zero,
+      begin: const Offset(0, 1), // Start fully below screen.
+      end: Offset.zero,          // End at natural position.
     ).animate(CurvedAnimation(
       parent: _animationController,
       curve: Curves.easeOut,
     ));
-    
+
     _setupListeners();
     _loadChatHistory();
-    _animationController.forward();
+    _animationController.forward(); // Trigger entry animation on mount.
   }
 
+  /// Attaches all socket and service stream listeners.
   void _setupListeners() {
+    // ── Incoming Chat Messages ────────────────────────────────────────────
     _chatMessageSub = widget.socketService.onChatMessage.listen((data) {
       final message = ChatMessage.fromJson(data);
       setState(() {
         _messages.add(message);
+        // When a message arrives from a user, they are no longer "typing".
         _typingUsers.remove(message.username);
       });
       _scrollToBottom();
     });
 
+    // ── Chat History ─────────────────────────────────────────────────────
+    // Replaces the local messages list with the server-side history so the
+    // player can read what was said before they opened the overlay.
     _chatHistorySub = widget.socketService.onChatHistory.listen((data) {
       final List<dynamic> messagesJson = data['messages'] ?? [];
       setState(() {
         _messages.clear();
         _messages.addAll(
-          messagesJson.map((json) => ChatMessage.fromJson(json)).toList()
+          messagesJson.map((json) => ChatMessage.fromJson(json)).toList(),
         );
       });
       _scrollToBottom();
     });
 
+    // ── Typing Indicators ─────────────────────────────────────────────────
     _typingSub = widget.socketService.onUserTyping.listen((data) {
       final username = data['username'];
       final isTyping = data['isTyping'] ?? false;
-      
+
+      // Never show the current player as "typing" to themselves.
       if (username != widget.username) {
         setState(() {
           if (isTyping) {
@@ -104,12 +199,17 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
       }
     });
 
-    // NEW: Voice participants listener
+    // ── Voice Participants ────────────────────────────────────────────────
+    // Trigger a rebuild whenever the voice participant list changes so the
+    // count badge and participant indicator stay up to date.
     _voiceParticipantsSub = widget.voiceService.participantsStream.listen((_) {
       if (mounted) setState(() {});
     });
   }
 
+  // ─── Data Loading ─────────────────────────────────────────────────────────
+
+  /// Requests the last 50 messages from the server for this room.
   void _loadChatHistory() {
     widget.socketService.getChatHistory(
       roomId: widget.roomId,
@@ -117,6 +217,10 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     );
   }
 
+  // ─── Messaging ────────────────────────────────────────────────────────────
+
+  /// Sends the current input text as a chat message and clears the field.
+  /// Does nothing if the trimmed text is empty.
   void _sendMessage() {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
@@ -128,9 +232,14 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     );
 
     _messageController.clear();
-    _onStoppedTyping();
+    _onStoppedTyping(); // Stop broadcasting "typing" immediately after sending.
   }
 
+  /// Called on every keystroke while the message field is non-empty.
+  ///
+  /// Emits a typing-start event the first time it is called after a pause,
+  /// then resets the debounce timer so [_onStoppedTyping] is deferred
+  /// another 2 seconds.
   void _onTyping() {
     if (!_isTyping) {
       _isTyping = true;
@@ -141,10 +250,14 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
       );
     }
 
+    // Reset the debounce timer every keystroke.
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), _onStoppedTyping);
   }
 
+  /// Emits a typing-stop event and marks the user as no longer typing.
+  /// Called either automatically by the debounce timer or immediately when
+  /// a message is sent.
   void _onStoppedTyping() {
     if (_isTyping) {
       _isTyping = false;
@@ -157,6 +270,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     _typingTimer?.cancel();
   }
 
+  // ─── Scroll ───────────────────────────────────────────────────────────────
+
+  /// Smoothly scrolls the message list to reveal the most recent message.
+  /// Deferred to the next frame to ensure the layout has settled after
+  /// [setState] adds the new message.
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -169,12 +287,20 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     });
   }
 
+  // ─── Overlay Lifecycle ────────────────────────────────────────────────────
+
+  /// Plays the exit animation before calling [onClose] so the panel slides
+  /// down gracefully rather than disappearing instantly.
   Future<void> _close() async {
     await _animationController.reverse();
     widget.onClose();
   }
 
-  // NEW: Voice chat controls
+  // ─── Voice Chat ───────────────────────────────────────────────────────────
+
+  /// Joins or leaves the voice channel for this room.  The button label and
+  /// colour update reactively because the build method reads
+  /// [voiceService.inVoiceChat] directly.
   Future<void> _toggleVoice() async {
     if (widget.voiceService.inVoiceChat) {
       await widget.voiceService.leaveVoiceChat();
@@ -188,16 +314,22 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     setState(() {});
   }
 
+  /// Toggles the microphone mute state for the current session.
+  /// Does nothing when the user is not in voice chat.
   Future<void> _toggleMute() async {
     if (!widget.voiceService.inVoiceChat) return;
     await widget.voiceService.toggleMute();
     setState(() {});
   }
 
-  // Show user action modal
+  // ─── Social Actions ───────────────────────────────────────────────────────
+
+  /// Opens a bottom sheet with friend-request, block, and report options for
+  /// [messageUserId].  Silently returns if the target is the current user so
+  /// players cannot accidentally report themselves.
   void _showUserActionModal(String messageUserId, String messageUsername) {
     if (messageUserId == widget.userId) return;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -215,38 +347,57 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     );
   }
 
+  // ─── Disposal ─────────────────────────────────────────────────────────────
+
   @override
   void dispose() {
+    // Cancel all stream subscriptions to prevent memory leaks.
     _chatMessageSub.cancel();
     _chatHistorySub.cancel();
     _typingSub.cancel();
-    _voiceParticipantsSub?.cancel();  // NEW
+    _voiceParticipantsSub?.cancel();
+
+    // Dispose controllers.
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
     _animationController.dispose();
+
+    // Ensure the typing indicator is cleared from other players' screens
+    // when the overlay is closed.
     _onStoppedTyping();
+
     super.dispose();
   }
+
+  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+
+    // Compact mode for very small handsets (e.g. 320 px wide budget devices).
     final isSmall = size.width < 360;
-    
+
     return GestureDetector(
+      // Tapping the semi-transparent backdrop closes the overlay.
       onTap: _close,
       behavior: HitTestBehavior.opaque,
       child: Container(
+        // Semi-transparent dark backdrop.
         color: AppColors.primaryNavyDark.withValues(alpha: 0.5),
         child: Center(
           child: GestureDetector(
+            // Absorb taps inside the panel so they don't propagate to the
+            // backdrop detector above.
             onTap: () {},
             child: SlideTransition(
               position: _slideAnimation,
               child: Container(
                 width: size.width * 0.9,
                 height: size.height * 0.7,
+                // Push the panel slightly above centre so the keyboard does
+                // not cover it on smaller screens.
                 margin: EdgeInsets.only(bottom: size.height * 0.1),
                 decoration: BoxDecoration(
                   color: Colors.grey[900],
@@ -261,7 +412,9 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                 ),
                 child: Column(
                   children: [
-                    // Header with Voice Controls
+                    // ── Header ─────────────────────────────────────────────
+                    // Contains the title, message count, close button, voice
+                    // controls, and the participant count badge.
                     Container(
                       padding: EdgeInsets.all(isSmall ? 12 : 16),
                       decoration: BoxDecoration(
@@ -273,7 +426,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                       ),
                       child: Column(
                         children: [
-                          // Title row
+                          // ── Title Row ────────────────────────────────────
                           Row(
                             children: [
                               Icon(
@@ -293,6 +446,7 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                   ),
                                 ),
                               ),
+                              // Total message count shown for context.
                               Text(
                                 '${_messages.length}',
                                 style: TextStyle(
@@ -310,24 +464,26 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                               ),
                             ],
                           ),
-                          
-                          // NEW: Voice controls row
+
+                          // ── Voice Controls Row ────────────────────────────
+                          // Shown beneath the title so voice and text controls
+                          // are co-located rather than split across screens.
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              // Voice join/leave button
+                              // Join / leave voice button.
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: _toggleVoice,
                                   icon: Icon(
-                                    widget.voiceService.inVoiceChat 
-                                        ? Icons.mic 
+                                    widget.voiceService.inVoiceChat
+                                        ? Icons.mic
                                         : Icons.mic_none,
                                     size: isSmall ? 14 : 16,
                                   ),
                                   label: Text(
-                                    widget.voiceService.inVoiceChat 
-                                        ? 'Leave Voice' 
+                                    widget.voiceService.inVoiceChat
+                                        ? 'Leave Voice'
                                         : 'Join Voice',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
@@ -335,31 +491,34 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                     ),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: widget.voiceService.inVoiceChat 
-                                        ? Colors.green 
-                                        : Colors.purple,
+                                    // Green when in voice to reinforce "active"
+                                    // state; purple when not joined yet.
+                                    backgroundColor:
+                                        widget.voiceService.inVoiceChat
+                                            ? Colors.green
+                                            : Colors.purple,
                                     padding: EdgeInsets.symmetric(
                                       vertical: isSmall ? 8 : 10,
                                     ),
                                   ),
                                 ),
                               ),
-                              
-                              // Mute button (only when in voice)
+
+                              // Mute toggle – only visible whilst in voice.
                               if (widget.voiceService.inVoiceChat) ...[
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: _toggleMute,
                                     icon: Icon(
-                                      widget.voiceService.isMuted 
-                                          ? Icons.mic_off 
+                                      widget.voiceService.isMuted
+                                          ? Icons.mic_off
                                           : Icons.volume_up,
                                       size: isSmall ? 14 : 16,
                                     ),
                                     label: Text(
-                                      widget.voiceService.isMuted 
-                                          ? 'Unmute' 
+                                      widget.voiceService.isMuted
+                                          ? 'Unmute'
                                           : 'Mute',
                                       style: TextStyle(
                                         fontFamily: 'Inter',
@@ -367,9 +526,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                       ),
                                     ),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: widget.voiceService.isMuted 
-                                          ? Colors.red 
-                                          : Colors.grey[700],
+                                      // Red when muted for clear visual feedback.
+                                      backgroundColor:
+                                          widget.voiceService.isMuted
+                                              ? Colors.red
+                                              : Colors.grey[700],
                                       padding: EdgeInsets.symmetric(
                                         vertical: isSmall ? 8 : 10,
                                       ),
@@ -379,9 +540,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                               ],
                             ],
                           ),
-                          
-                          // NEW: Voice participants indicator
-                          if (widget.voiceService.inVoiceChat && 
+
+                          // ── Voice Participant Count ────────────────────────
+                          // Small green badge shown when at least one person
+                          // is in voice so everyone can see who is present.
+                          if (widget.voiceService.inVoiceChat &&
                               widget.voiceService.participants.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Container(
@@ -421,8 +584,11 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                         ],
                       ),
                     ),
-                    
-                    // Messages List
+
+                    // ── Message List ────────────────────────────────────────
+                    // Scrollable area containing all chat messages.  Shows an
+                    // empty-state illustration when no messages have been
+                    // exchanged yet.
                     Expanded(
                       child: _messages.isEmpty
                           ? Center(
@@ -466,7 +632,8 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                             ),
                     ),
 
-                    // Typing Indicator
+                    // ── Typing Indicator ────────────────────────────────────
+                    // Shown above the input bar whilst other players are typing.
                     if (_typingUsers.isNotEmpty)
                       Container(
                         padding: EdgeInsets.symmetric(
@@ -485,7 +652,8 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                         ),
                       ),
 
-                    // Message Input
+                    // ── Message Input ───────────────────────────────────────
+                    // Fixed footer with a rounded text field and send button.
                     Container(
                       padding: EdgeInsets.all(isSmall ? 8 : 12),
                       decoration: BoxDecoration(
@@ -523,21 +691,29 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                                   vertical: isSmall ? 8 : 10,
                                 ),
                               ),
+                              // Enforce the 500-character limit without showing
+                              // the built-in character counter (kept clean).
                               maxLength: 500,
-                              buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
-                                return null;
+                              buildCounter: (context,
+                                  {required currentLength,
+                                  required isFocused,
+                                  maxLength}) {
+                                return null; // Hide the default counter label.
                               },
                               onChanged: (text) {
                                 if (text.isNotEmpty) {
                                   _onTyping();
                                 } else {
+                                  // Field cleared – stop broadcasting "typing".
                                   _onStoppedTyping();
                                 }
                               },
+                              // Allow sending with the keyboard return key.
                               onSubmitted: (_) => _sendMessage(),
                             ),
                           ),
                           SizedBox(width: isSmall ? 6 : 8),
+                          // Send button: tappable arrow icon.
                           SizedBox(
                             width: isSmall ? 36 : 44,
                             height: isSmall ? 36 : 44,
@@ -564,10 +740,19 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     );
   }
 
+  // ─── Message Bubble ───────────────────────────────────────────────────────
+
+  /// Builds the appropriate message bubble for [message].
+  ///
+  /// System messages (e.g. "Player X joined") are displayed centred without
+  /// an avatar.  Regular messages are right-aligned for the current user and
+  /// left-aligned for others, with avatar initials and a tappable username
+  /// that opens the social action modal.
   Widget _buildMessageBubble(ChatMessage message, bool isSmall) {
     final isOwnMessage = message.userId == widget.userId;
     final isSystem = message.isSystemMessage;
 
+    // ── System Message ───────────────────────────────────────────────────
     if (isSystem) {
       return Padding(
         padding: EdgeInsets.symmetric(vertical: isSmall ? 3 : 4),
@@ -596,17 +781,21 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
       );
     }
 
+    // ── Regular Message ──────────────────────────────────────────────────
     return Padding(
       padding: EdgeInsets.symmetric(vertical: isSmall ? 3 : 4),
       child: Row(
-        mainAxisAlignment: isOwnMessage 
-            ? MainAxisAlignment.end 
+        // Own messages on the right; others' on the left.
+        mainAxisAlignment: isOwnMessage
+            ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Left avatar – only for other players, tappable for social actions.
           if (!isOwnMessage) ...[
             GestureDetector(
-              onTap: () => _showUserActionModal(message.userId!, message.username),
+              onTap: () =>
+                  _showUserActionModal(message.userId!, message.username),
               child: CircleAvatar(
                 radius: isSmall ? 14 : 16,
                 backgroundColor: Colors.blue,
@@ -622,15 +811,19 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
             ),
             SizedBox(width: isSmall ? 6 : 8),
           ],
+
+          // Message content column.
           Flexible(
             child: Column(
-              crossAxisAlignment: isOwnMessage 
-                  ? CrossAxisAlignment.end 
+              crossAxisAlignment: isOwnMessage
+                  ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
+                // Tappable username shown above other players' messages.
                 if (!isOwnMessage)
                   GestureDetector(
-                    onTap: () => _showUserActionModal(message.userId!, message.username),
+                    onTap: () => _showUserActionModal(
+                        message.userId!, message.username),
                     child: Padding(
                       padding: EdgeInsets.only(
                         bottom: isSmall ? 2 : 4,
@@ -643,19 +836,23 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                           color: Colors.blue[300],
                           fontSize: isSmall ? 10 : 12,
                           fontWeight: FontWeight.w500,
+                          // Underline hints the username is tappable.
                           decoration: TextDecoration.underline,
                         ),
                       ),
                     ),
                   ),
+
+                // Bubble containing the message text and timestamp.
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: isSmall ? 10 : 12,
                     vertical: isSmall ? 6 : 8,
                   ),
                   decoration: BoxDecoration(
-                    color: isOwnMessage 
-                        ? Colors.blue[700] 
+                    // Own messages: blue.  Others': dark grey.
+                    color: isOwnMessage
+                        ? Colors.blue[700]
                         : Colors.grey[800],
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -671,12 +868,13 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
                         ),
                       ),
                       SizedBox(height: isSmall ? 2 : 4),
+                      // Relative timestamp (e.g. "Just now", "3m ago").
                       Text(
                         _formatTime(message.timestamp),
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          color: isOwnMessage 
-                              ? Colors.blue[200] 
+                          color: isOwnMessage
+                              ? Colors.blue[200]
                               : Colors.grey[500],
                           fontSize: isSmall ? 8 : 10,
                         ),
@@ -687,6 +885,8 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
               ],
             ),
           ),
+
+          // Right avatar – only for the current user's own messages.
           if (isOwnMessage) ...[
             SizedBox(width: isSmall ? 6 : 8),
             CircleAvatar(
@@ -707,6 +907,15 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     );
   }
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Builds a natural-language typing indicator string for the names in
+  /// [_typingUsers].
+  ///
+  /// Examples:
+  ///   - "Alice is typing..."
+  ///   - "Alice and Bob are typing..."
+  ///   - "Alice and 2 others are typing..."
   String _buildTypingText() {
     final users = _typingUsers.toList();
     if (users.isEmpty) return '';
@@ -715,6 +924,13 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     return '${users[0]} and ${users.length - 1} others are typing...';
   }
 
+  /// Formats a [timestamp] as a human-friendly relative string.
+  ///
+  /// Returns:
+  ///   - "Just now"   – less than 1 minute ago
+  ///   - "Xm ago"    – less than 1 hour ago
+  ///   - "Xh ago"    – less than 1 day ago
+  ///   - "HH:MM"     – older messages (absolute time)
   String _formatTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
@@ -722,16 +938,36 @@ class _ChatOverlayState extends State<ChatOverlay> with SingleTickerProviderStat
     if (difference.inMinutes < 1) return 'Just now';
     if (difference.inHours < 1) return '${difference.inMinutes}m ago';
     if (difference.inDays < 1) return '${difference.inHours}h ago';
-    
-    return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+
+    // Fall back to an absolute time for messages older than 24 hours.
+    return '${timestamp.hour.toString().padLeft(2, '0')}:'
+        '${timestamp.minute.toString().padLeft(2, '0')}';
   }
 }
 
-// User Action Modal with Friend Request, Block, and Report
+// ====================================
+// _UserActionModal
+// Bottom sheet providing social actions against another player
+// ====================================
+
+/// A bottom sheet that lets the current player send a friend request to,
+/// block, or report another player encountered in the chat.
+///
+/// Confirmation dialogs are shown before destructive actions (block) to
+/// prevent accidental submissions.  Report submissions are routed through
+/// [_ReportReasonDialog] to capture a categorised reason, as required for
+/// UK Online Safety Act 2023 compliance.
 class _UserActionModal extends StatefulWidget {
+  /// The target player's account ID.
   final String userId;
+
+  /// The target player's display name, shown in dialog titles.
   final String username;
+
+  /// The acting user's ID, used internally by service calls.
   final String currentUserId;
+
+  /// Called after an action completes so the parent can close the sheet.
   final VoidCallback onAction;
 
   const _UserActionModal({
@@ -746,18 +982,24 @@ class _UserActionModal extends StatefulWidget {
 }
 
 class _UserActionModalState extends State<_UserActionModal> {
+  /// Indicates an async operation (friend request / block / report) is in
+  /// progress.  Replaced the action list with a loading spinner whilst true.
   bool _isLoading = false;
 
+  // ─── Actions ──────────────────────────────────────────────────────────────
+
+  /// Sends a friend request to [widget.userId] via [FriendsService].
   Future<void> _handleFriendRequest() async {
     setState(() => _isLoading = true);
-    
+
     final result = await FriendsService.sendRequest(widget.userId);
-    
+
     if (mounted) {
       setState(() => _isLoading = false);
-      
+
       if (result['success']) {
-        _showSnackBar('Friend request sent to ${widget.username}', Colors.green);
+        _showSnackBar(
+            'Friend request sent to ${widget.username}', Colors.green);
         widget.onAction();
       } else {
         _showSnackBar(result['error'], Colors.red);
@@ -765,7 +1007,12 @@ class _UserActionModalState extends State<_UserActionModal> {
     }
   }
 
+  /// Prompts for confirmation and blocks [widget.userId] if confirmed.
+  ///
+  /// Blocking prevents the target from sending this player messages or friend
+  /// requests, consistent with expectations under the UK Online Safety Act.
   Future<void> _handleBlock() async {
+    // Require explicit confirmation before taking an irreversible action.
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -787,7 +1034,8 @@ class _UserActionModalState extends State<_UserActionModal> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -802,14 +1050,15 @@ class _UserActionModalState extends State<_UserActionModal> {
 
     if (confirm == true) {
       setState(() => _isLoading = true);
-      
+
       final result = await FriendsService.blockUser(widget.userId);
-      
+
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         if (result['success']) {
-          _showSnackBar('${widget.username} has been blocked', Colors.orange);
+          _showSnackBar(
+              '${widget.username} has been blocked', Colors.orange);
           widget.onAction();
         } else {
           _showSnackBar(result['error'], Colors.red);
@@ -818,6 +1067,11 @@ class _UserActionModalState extends State<_UserActionModal> {
     }
   }
 
+  /// Opens [_ReportReasonDialog] to collect a category and optional detail,
+  /// then submits the report via [FriendsService].
+  ///
+  /// Providing a structured reason category is a requirement of the UK Online
+  /// Safety Act 2023 to support effective content moderation.
   Future<void> _handleReport() async {
     final reportData = await showDialog<Map<String, String>>(
       context: context,
@@ -826,16 +1080,16 @@ class _UserActionModalState extends State<_UserActionModal> {
 
     if (reportData != null && reportData['reason'] != null) {
       setState(() => _isLoading = true);
-      
+
       final result = await FriendsService.reportUser(
         userId: widget.userId,
         reason: reportData['reason']!,
         message: reportData['message'],
       );
-      
+
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         if (result['success']) {
           _showSnackBar(
             'Thank you for your report. Our moderation team will review it.',
@@ -849,6 +1103,9 @@ class _UserActionModalState extends State<_UserActionModal> {
     }
   }
 
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Shows a brief [message] snackbar with the given background [color].
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -862,6 +1119,8 @@ class _UserActionModalState extends State<_UserActionModal> {
     );
   }
 
+  // ─── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -869,11 +1128,12 @@ class _UserActionModalState extends State<_UserActionModal> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
+          // ── Player Info Header ─────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
+                // Avatar initial circle.
                 CircleAvatar(
                   radius: 20,
                   backgroundColor: Colors.blue,
@@ -902,16 +1162,17 @@ class _UserActionModalState extends State<_UserActionModal> {
               ],
             ),
           ),
-          
+
           Divider(color: Colors.grey[800]),
-          
+
+          // ── Action List / Loading Spinner ──────────────────────────────
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(20),
               child: CircularProgressIndicator(),
             )
           else ...[
-            // Send Friend Request
+            // Send Friend Request.
             ListTile(
               leading: const Icon(Icons.person_add, color: Colors.green),
               title: const Text(
@@ -923,8 +1184,8 @@ class _UserActionModalState extends State<_UserActionModal> {
               ),
               onTap: _handleFriendRequest,
             ),
-            
-            // Block User
+
+            // Block User.
             ListTile(
               leading: const Icon(Icons.block, color: Colors.orange),
               title: const Text(
@@ -936,8 +1197,8 @@ class _UserActionModalState extends State<_UserActionModal> {
               ),
               onTap: _handleBlock,
             ),
-            
-            // Report User
+
+            // Report User.
             ListTile(
               leading: const Icon(Icons.flag, color: Colors.red),
               title: const Text(
@@ -949,7 +1210,7 @@ class _UserActionModalState extends State<_UserActionModal> {
               ),
               onTap: _handleReport,
             ),
-            
+
             const SizedBox(height: 10),
           ],
         ],
@@ -958,8 +1219,20 @@ class _UserActionModalState extends State<_UserActionModal> {
   }
 }
 
-// Report Reason Dialog
+// ====================================
+// _ReportReasonDialog
+// Categorised report submission form
+// ====================================
+
+/// Modal dialog that asks the reporter to select a reason category and
+/// optionally provide additional context before submitting a user report.
+///
+/// Categories are aligned with the harmful content definitions set out in the
+/// UK Online Safety Act 2023.  The structured category data is passed back
+/// to the caller via [Navigator.pop] as a `Map<String, String>` containing
+/// `reason` (category value) and `message` (optional free text).
 class _ReportReasonDialog extends StatefulWidget {
+  /// Display name of the user being reported, shown in the dialog title.
   final String username;
 
   const _ReportReasonDialog({required this.username});
@@ -969,16 +1242,24 @@ class _ReportReasonDialog extends StatefulWidget {
 }
 
 class _ReportReasonDialogState extends State<_ReportReasonDialog> {
+  /// Currently selected report category value (e.g. 'harassment').
   String? _selectedReason;
+
+  /// Optional free-text field for additional context.
   final TextEditingController _messageController = TextEditingController();
 
+  /// Available report reason categories.  Values are stored server-side;
+  /// labels are displayed to the user.
+  ///
+  /// Categories are informed by the UK Online Safety Act 2023 categories of
+  /// regulated content, ensuring reports are actionable by moderators.
   final List<Map<String, String>> _reasons = [
-    {'value': 'harassment', 'label': 'Harassment or Bullying'},
+    {'value': 'harassment',            'label': 'Harassment or Bullying'},
     {'value': 'inappropriate_content', 'label': 'Inappropriate Content'},
-    {'value': 'offensive_language', 'label': 'Offensive Language'},
-    {'value': 'spam', 'label': 'Spam'},
-    {'value': 'cheating', 'label': 'Cheating'},
-    {'value': 'other', 'label': 'Other'},
+    {'value': 'offensive_language',    'label': 'Offensive Language'},
+    {'value': 'spam',                  'label': 'Spam'},
+    {'value': 'cheating',              'label': 'Cheating'},
+    {'value': 'other',                 'label': 'Other'},
   ];
 
   @override
@@ -1012,24 +1293,29 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Radio list of report categories.
             ..._reasons.map((reason) => RadioListTile<String>(
-              value: reason['value']!,
-              groupValue: _selectedReason,
-              title: Text(
-                reason['label']!,
-                style: const TextStyle(
-                  fontFamily: 'Inter',
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                ),
-              ),
-              onChanged: (value) {
-                setState(() => _selectedReason = value);
-              },
-              activeColor: Colors.red,
-              contentPadding: EdgeInsets.zero,
-            )),
+                  value: reason['value']!,
+                  groupValue: _selectedReason,
+                  title: Text(
+                    reason['label']!,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() => _selectedReason = value);
+                  },
+                  activeColor: Colors.red,
+                  contentPadding: EdgeInsets.zero,
+                )),
+
             const SizedBox(height: 16),
+
+            // Optional free-text field for supplementary details.
             const Text(
               'Additional details (optional):',
               style: TextStyle(
@@ -1078,10 +1364,12 @@ class _ReportReasonDialogState extends State<_ReportReasonDialog> {
           ),
         ),
         ElevatedButton(
+          // Submit button remains disabled until a reason category is selected.
           onPressed: _selectedReason == null
               ? null
               : () {
                   final message = _messageController.text.trim();
+                  // Return the category and optional detail to the caller.
                   Navigator.pop(context, {
                     'reason': _selectedReason!,
                     'message': message.isEmpty ? null : message,

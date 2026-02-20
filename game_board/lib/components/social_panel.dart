@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import '../services/social_service.dart';
 import '../theme/app_theme.dart';
 
+/// Slide-in panel displaying a user's friends list, pending requests,
+/// sent requests, and blocked users.
+///
+/// Switches to [_FriendSearchPanel] when the add-friend button is tapped,
+/// then reloads data and notifies [onUpdate] on return.
 class FriendsPanel extends StatefulWidget {
+  /// Called after any action that changes the friends list so parent widgets
+  /// (e.g. a lobby screen showing online friends) can refresh their state.
   final VoidCallback? onUpdate;
-  
-  const FriendsPanel({
-    super.key,
-    this.onUpdate,
-  });
+
+  const FriendsPanel({super.key, this.onUpdate});
 
   @override
   State<FriendsPanel> createState() => _FriendsPanelState();
@@ -19,7 +23,7 @@ class _FriendsPanelState extends State<FriendsPanel> {
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _receivedRequests = [];
   List<Map<String, dynamic>> _sentRequests = [];
-  List<Map<String, dynamic>> _blockedUsers = []; // NEW
+  List<Map<String, dynamic>> _blockedUsers = [];
   bool _isLoading = true;
   bool _showSearch = false;
 
@@ -29,18 +33,21 @@ class _FriendsPanelState extends State<FriendsPanel> {
     _loadData();
   }
 
+  /// Fetches friends, pending requests, and blocked users in parallel,
+  /// then rebuilds the list. Silently degrades to empty lists on failure
+  /// so the panel remains usable even if one endpoint is unavailable.
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    
+
     try {
-      final friendsResult = await FriendsService.getFriends();
+      final friendsResult  = await FriendsService.getFriends();
       final requestsResult = await FriendsService.getRequests();
-      final blockedResult = await FriendsService.getBlocked(); // NEW
-      
+      final blockedResult  = await FriendsService.getBlocked();
+
       if (mounted) {
         setState(() {
-          _friends = friendsResult['success'] 
-              ? List<Map<String, dynamic>>.from(friendsResult['friends']) 
+          _friends = friendsResult['success']
+              ? List<Map<String, dynamic>>.from(friendsResult['friends'])
               : [];
           _receivedRequests = requestsResult['success']
               ? List<Map<String, dynamic>>.from(requestsResult['received'])
@@ -48,23 +55,20 @@ class _FriendsPanelState extends State<FriendsPanel> {
           _sentRequests = requestsResult['success']
               ? List<Map<String, dynamic>>.from(requestsResult['sent'])
               : [];
-          _blockedUsers = blockedResult['success'] // NEW
+          _blockedUsers = blockedResult['success']
               ? List<Map<String, dynamic>>.from(blockedResult['blocked'])
               : [];
           _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading friends data: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint('Error loading friends data: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleAccept(String userId) async {
     final result = await FriendsService.acceptRequest(userId);
-    
     if (result['success']) {
       _showSnackBar('Friend request accepted', Colors.green);
       _loadData();
@@ -76,7 +80,6 @@ class _FriendsPanelState extends State<FriendsPanel> {
 
   Future<void> _handleReject(String userId) async {
     final result = await FriendsService.rejectRequest(userId);
-    
     if (result['success']) {
       _showSnackBar('Friend request rejected', Colors.orange);
       _loadData();
@@ -86,40 +89,15 @@ class _FriendsPanelState extends State<FriendsPanel> {
   }
 
   Future<void> _handleRemoveFriend(String userId, String username) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(
-          'Remove Friend',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            color: AppColors.textPrimary,
-          ),
-        ),
-        content: Text(
-          'Remove $username from your friends list?',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-            ),
-            child: Text('Remove'),
-          ),
-        ],
-      ),
+    final confirmed = await _showConfirmDialog(
+      title: 'Remove Friend',
+      content: 'Remove $username from your friends list?',
+      confirmLabel: 'Remove',
+      confirmColor: Colors.red.shade700,
     );
 
-    if (confirm == true) {
+    if (confirmed) {
       final result = await FriendsService.removeFriend(userId);
-      
       if (result['success']) {
         _showSnackBar('Friend removed', Colors.orange);
         _loadData();
@@ -132,7 +110,6 @@ class _FriendsPanelState extends State<FriendsPanel> {
 
   Future<void> _handleCancelRequest(String userId) async {
     final result = await FriendsService.cancelRequest(userId);
-    
     if (result['success']) {
       _showSnackBar('Request cancelled', Colors.orange);
       _loadData();
@@ -141,42 +118,19 @@ class _FriendsPanelState extends State<FriendsPanel> {
     }
   }
 
-  // NEW: Block user handler
+  /// Blocking also removes the user from the friends list server-side,
+  /// so [onUpdate] is called to let the parent refresh any friend-dependent UI.
   Future<void> _handleBlockUser(String userId, String username) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(
-          'Block User',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            color: AppColors.textPrimary,
-          ),
-        ),
-        content: Text(
+    final confirmed = await _showConfirmDialog(
+      title: 'Block User',
+      content:
           'Block $username? This will remove them from your friends list and prevent all interactions.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade900,
-            ),
-            child: Text('Block'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Block',
+      confirmColor: Colors.red.shade900,
     );
 
-    if (confirm == true) {
+    if (confirmed) {
       final result = await FriendsService.blockUser(userId);
-      
       if (result['success']) {
         _showSnackBar('User blocked', Colors.red.shade700);
         _loadData();
@@ -187,42 +141,16 @@ class _FriendsPanelState extends State<FriendsPanel> {
     }
   }
 
-  // NEW: Unblock user handler
   Future<void> _handleUnblockUser(String userId, String username) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(
-          'Unblock User',
-          style: TextStyle(
-            fontFamily: 'Montserrat',
-            color: AppColors.textPrimary,
-          ),
-        ),
-        content: Text(
-          'Unblock $username?',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentElectricBlue,
-            ),
-            child: Text('Unblock'),
-          ),
-        ],
-      ),
+    final confirmed = await _showConfirmDialog(
+      title: 'Unblock User',
+      content: 'Unblock $username?',
+      confirmLabel: 'Unblock',
+      confirmColor: AppColors.accentElectricBlue,
     );
 
-    if (confirm == true) {
+    if (confirmed) {
       final result = await FriendsService.unblockUser(userId);
-      
       if (result['success']) {
         _showSnackBar('User unblocked', Colors.green);
         _loadData();
@@ -231,6 +159,50 @@ class _FriendsPanelState extends State<FriendsPanel> {
         _showSnackBar(result['error'], AppColors.error);
       }
     }
+  }
+
+  /// Shared confirmation dialog for destructive actions (remove, block, unblock).
+  ///
+  /// Extracted to avoid duplicating the same [AlertDialog] structure across
+  /// every handler — only the title, content, and button styling differ.
+  Future<bool> _showConfirmDialog({
+    required String title,
+    required String content,
+    required String confirmLabel,
+    required Color confirmColor,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: AppColors.surface,
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Montserrat',
+                color: AppColors.textPrimary,
+              ),
+            ),
+            content: Text(
+              content,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: confirmColor),
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   void _showSnackBar(String message, Color color) {
@@ -254,176 +226,148 @@ class _FriendsPanelState extends State<FriendsPanel> {
           _loadData();
           widget.onUpdate?.call();
         },
-        onBlock: _handleBlockUser, // NEW: Pass block handler
+        onBlock: _handleBlockUser,
       );
     }
-    
+
     return Column(
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.all(size.width * 0.04),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.accentElectricBlue,
-                AppColors.accentElectricBlueDark,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        _buildHeader(context, size),
+        Expanded(child: _buildContent(context, size)),
+      ],
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, Size size) {
+    return Container(
+      padding: EdgeInsets.all(size.width * 0.04),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.accentElectricBlue,
+            AppColors.accentElectricBlueDark,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.people, color: AppColors.textPrimary, size: size.height * 0.04),
+          SizedBox(width: size.width * 0.02),
+          Expanded(
+            child: Text(
+              'Friends',
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                fontSize: size.height * 0.03,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.people,
-                color: AppColors.textPrimary,
-                size: size.height * 0.04,
-              ),
-              SizedBox(width: size.width * 0.02),
-              Expanded(
-                child: Text(
-                  'Friends',
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    fontSize: size.height * 0.03,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              
-              // Add Friend Button
-              IconButton(
-                onPressed: () => setState(() => _showSearch = true),
-                icon: Icon(
-                  Icons.person_add,
-                  color: AppColors.textPrimary,
-                  size: size.height * 0.035,
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                ),
-              ),
-              SizedBox(width: size.width * 0.01),
-              
-              // Close button
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(
-                  Icons.close,
-                  color: AppColors.textPrimary,
-                  size: size.height * 0.035,
-                ),
-              ),
-            ],
+          IconButton(
+            onPressed: () => setState(() => _showSearch = true),
+            icon: Icon(Icons.person_add,
+                color: AppColors.textPrimary, size: size.height * 0.035),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.2),
+            ),
           ),
-        ),
-        
-        // Content
-        Expanded(
-          child: _isLoading
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.secondaryAmber,
-                  ),
-                )
-              : RefreshIndicator(
-                  color: AppColors.secondaryAmber,
-                  onRefresh: _loadData,
-                  child: ListView(
-                    padding: EdgeInsets.all(size.width * 0.03),
-                    children: [
-                      // Pending Requests Section
-                      if (_receivedRequests.isNotEmpty) ...[
-                        _SectionHeader(
-                          title: 'Friend Requests',
-                          count: _receivedRequests.length,
-                        ),
-                        ..._receivedRequests.map((request) => _RequestCard(
-                          userId: request['id'],
-                          username: request['username'],
-                          profileImage: request['profileImage'],
-                          onAccept: () => _handleAccept(request['id']),
-                          onReject: () => _handleReject(request['id']),
-                          onBlock: () => _handleBlockUser(request['id'], request['username']), // NEW
-                        )),
-                        SizedBox(height: size.height * 0.02),
-                      ],
-                      
-                      // Sent Requests Section
-                      if (_sentRequests.isNotEmpty) ...[
-                        _SectionHeader(
-                          title: 'Sent Requests',
-                          count: _sentRequests.length,
-                        ),
-                        ..._sentRequests.map((request) => _SentRequestCard(
-                          userId: request['id'],
-                          username: request['username'],
-                          profileImage: request['profileImage'],
-                          onCancel: () => _handleCancelRequest(request['id']),
-                        )),
-                        SizedBox(height: size.height * 0.02),
-                      ],
-                      
-                      // Friends List Section
-                      _SectionHeader(
-                        title: 'Friends',
-                        count: _friends.length,
-                      ),
-                      if (_friends.isEmpty)
-                        _EmptyState(
-                          icon: Icons.people_outline,
-                          message: 'No friends yet',
-                          subtitle: 'Tap the + button to add friends',
-                        )
-                      else
-                        ..._friends.map((friend) => _FriendCard(
-                          userId: friend['id'],
-                          username: friend['username'],
-                          profileImage: friend['profileImage'],
-                          onRemove: () => _handleRemoveFriend(
-                            friend['id'],
-                            friend['username'],
-                          ),
-                          onBlock: () => _handleBlockUser(friend['id'], friend['username']), // NEW
-                        )),
-                      
-                      // NEW: Blocked Users Section
-                      if (_blockedUsers.isNotEmpty) ...[
-                        SizedBox(height: size.height * 0.02),
-                        _SectionHeader(
-                          title: 'Blocked Users',
-                          count: _blockedUsers.length,
-                          color: Colors.red.shade700,
-                        ),
-                        ..._blockedUsers.map((blocked) => _BlockedUserCard(
-                          userId: blocked['id'],
-                          username: blocked['username'],
-                          profileImage: blocked['profileImage'],
-                          onUnblock: () => _handleUnblockUser(
-                            blocked['id'],
-                            blocked['username'],
-                          ),
-                        )),
-                      ],
-                    ],
-                  ),
-                ),
-        ),
-      ],
+          SizedBox(width: size.width * 0.01),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(Icons.close,
+                color: AppColors.textPrimary, size: size.height * 0.035),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the scrollable list, showing a spinner while data loads and a
+  /// pull-to-refresh indicator once loaded.
+  Widget _buildContent(BuildContext context, Size size) {
+    if (_isLoading) {
+      return Center(
+          child: CircularProgressIndicator(color: AppColors.secondaryAmber));
+    }
+
+    return RefreshIndicator(
+      color: AppColors.secondaryAmber,
+      onRefresh: _loadData,
+      child: ListView(
+        padding: EdgeInsets.all(size.width * 0.03),
+        children: [
+          if (_receivedRequests.isNotEmpty) ...[
+            _SectionHeader(title: 'Friend Requests', count: _receivedRequests.length),
+            ..._receivedRequests.map((r) => _RequestCard(
+                  userId: r['id'],
+                  username: r['username'],
+                  profileImage: r['profileImage'],
+                  onAccept: () => _handleAccept(r['id']),
+                  onReject: () => _handleReject(r['id']),
+                  onBlock: () => _handleBlockUser(r['id'], r['username']),
+                )),
+            SizedBox(height: size.height * 0.02),
+          ],
+
+          if (_sentRequests.isNotEmpty) ...[
+            _SectionHeader(title: 'Sent Requests', count: _sentRequests.length),
+            ..._sentRequests.map((r) => _SentRequestCard(
+                  userId: r['id'],
+                  username: r['username'],
+                  profileImage: r['profileImage'],
+                  onCancel: () => _handleCancelRequest(r['id']),
+                )),
+            SizedBox(height: size.height * 0.02),
+          ],
+
+          _SectionHeader(title: 'Friends', count: _friends.length),
+          if (_friends.isEmpty)
+            const _EmptyState(
+              icon: Icons.people_outline,
+              message: 'No friends yet',
+              subtitle: 'Tap the + button to add friends',
+            )
+          else
+            ..._friends.map((f) => _FriendCard(
+                  userId: f['id'],
+                  username: f['username'],
+                  profileImage: f['profileImage'],
+                  onRemove: () => _handleRemoveFriend(f['id'], f['username']),
+                  onBlock: () => _handleBlockUser(f['id'], f['username']),
+                )),
+
+          if (_blockedUsers.isNotEmpty) ...[
+            SizedBox(height: size.height * 0.02),
+            _SectionHeader(
+              title: 'Blocked Users',
+              count: _blockedUsers.length,
+              color: Colors.red.shade700,
+            ),
+            ..._blockedUsers.map((b) => _BlockedUserCard(
+                  userId: b['id'],
+                  username: b['username'],
+                  profileImage: b['profileImage'],
+                  onUnblock: () => _handleUnblockUser(b['id'], b['username']),
+                )),
+          ],
+        ],
+      ),
     );
   }
 }
 
+/// Search panel for finding and adding new friends.
+///
+/// Requires at least two characters before searching to reduce noise from
+/// partial-name queries returning large result sets.
 class _FriendSearchPanel extends StatefulWidget {
   final VoidCallback onBack;
-  final Function(String, String) onBlock; // NEW
-  
-  const _FriendSearchPanel({
-    required this.onBack,
-    required this.onBlock, // NEW
-  });
+  final Function(String userId, String username) onBlock;
+
+  const _FriendSearchPanel({required this.onBack, required this.onBlock});
 
   @override
   State<_FriendSearchPanel> createState() => _FriendSearchPanelState();
@@ -443,7 +387,6 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
 
   Future<void> _search() async {
     final query = _searchController.text.trim();
-    
     if (query.length < 2) {
       _showSnackBar('Enter at least 2 characters', AppColors.error);
       return;
@@ -463,19 +406,15 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
             ? List<Map<String, dynamic>>.from(result['users'])
             : [];
       });
-
-      if (!result['success']) {
-        _showSnackBar(result['error'], AppColors.error);
-      }
+      if (!result['success']) _showSnackBar(result['error'], AppColors.error);
     }
   }
 
   Future<void> _sendRequest(String userId, String username) async {
     final result = await FriendsService.sendRequest(userId);
-
     if (result['success']) {
       _showSnackBar('Friend request sent to $username', Colors.green);
-      _search(); // Refresh results
+      _search(); // Refresh so the card status updates immediately.
     } else {
       _showSnackBar(result['error'], AppColors.error);
     }
@@ -497,7 +436,7 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
 
     return Column(
       children: [
-        // Header
+        // Header with back navigation.
         Container(
           padding: EdgeInsets.all(size.width * 0.04),
           decoration: BoxDecoration(
@@ -514,11 +453,8 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
             children: [
               IconButton(
                 onPressed: widget.onBack,
-                icon: Icon(
-                  Icons.arrow_back,
-                  color: AppColors.textPrimary,
-                  size: size.height * 0.035,
-                ),
+                icon: Icon(Icons.arrow_back,
+                    color: AppColors.textPrimary, size: size.height * 0.035),
               ),
               Expanded(
                 child: Text(
@@ -534,8 +470,8 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
             ],
           ),
         ),
-        
-        // Search Bar
+
+        // Search input. Submitting via keyboard triggers the same search as the button.
         Container(
           padding: EdgeInsets.all(size.width * 0.04),
           color: AppColors.primaryNavy,
@@ -548,7 +484,8 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
                   decoration: InputDecoration(
                     hintText: 'Search username...',
                     hintStyle: TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
+                    prefixIcon:
+                        Icon(Icons.search, color: AppColors.textSecondary),
                     filled: true,
                     fillColor: AppColors.surface,
                     border: OutlineInputBorder(
@@ -566,32 +503,26 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
                   backgroundColor: AppColors.secondaryAmber,
                   padding: EdgeInsets.all(size.width * 0.03),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
+                // Spinner replaces the icon while a request is in flight.
                 child: _isSearching
                     ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.textOnAmber,
-                        ),
+                            strokeWidth: 2, color: AppColors.textOnAmber),
                       )
-                    : Icon(
-                        Icons.search,
-                        color: AppColors.textOnAmber,
-                      ),
+                    : Icon(Icons.search, color: AppColors.textOnAmber),
               ),
             ],
           ),
         ),
-        
-        // Results
+
         Expanded(
           child: _hasSearched
               ? _searchResults.isEmpty
-                  ? _EmptyState(
+                  ? const _EmptyState(
                       icon: Icons.person_search,
                       message: 'No users found',
                       subtitle: 'Try a different username',
@@ -608,16 +539,15 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
                           isFriend: user['isFriend'] ?? false,
                           hasRequestFrom: user['hasRequestFrom'] ?? false,
                           hasSentRequestTo: user['hasSentRequestTo'] ?? false,
-                          isBlocked: user['isBlocked'] ?? false, // NEW
-                          onSendRequest: () => _sendRequest(
-                            user['id'],
-                            user['username'],
-                          ),
-                          onBlock: () => widget.onBlock(user['id'], user['username']), // NEW
+                          isBlocked: user['isBlocked'] ?? false,
+                          onSendRequest: () =>
+                              _sendRequest(user['id'], user['username']),
+                          onBlock: () =>
+                              widget.onBlock(user['id'], user['username']),
                         );
                       },
                     )
-              : _EmptyState(
+              : const _EmptyState(
                   icon: Icons.person_add,
                   message: 'Search for friends',
                   subtitle: 'Enter a username to get started',
@@ -630,26 +560,26 @@ class _FriendSearchPanelState extends State<_FriendSearchPanel> {
 
 // Helper Widgets
 
+// ─── Section header ───────────────────────────────────────────────────────────
+
+/// Bold section label with a pill-shaped count badge.
+///
+/// [color] defaults to amber; pass a custom colour for sections like
+/// "Blocked Users" that warrant a distinct visual treatment.
 class _SectionHeader extends StatelessWidget {
   final String title;
   final int count;
   final Color? color;
-  
-  const _SectionHeader({
-    required this.title,
-    required this.count,
-    this.color,
-  });
+
+  const _SectionHeader({required this.title, required this.count, this.color});
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+    final tint = color ?? AppColors.secondaryAmber;
+
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: size.height * 0.01,
-        top: size.height * 0.01,
-      ),
+      padding: EdgeInsets.symmetric(vertical: size.height * 0.01),
       child: Row(
         children: [
           Text(
@@ -658,7 +588,7 @@ class _SectionHeader extends StatelessWidget {
               fontFamily: 'Montserrat',
               fontSize: size.height * 0.025,
               fontWeight: FontWeight.bold,
-              color: color ?? AppColors.secondaryAmber,
+              color: tint,
             ),
           ),
           SizedBox(width: size.width * 0.02),
@@ -668,7 +598,7 @@ class _SectionHeader extends StatelessWidget {
               vertical: size.height * 0.005,
             ),
             decoration: BoxDecoration(
-              color: color ?? AppColors.secondaryAmber,
+              color: tint,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -687,49 +617,83 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _FriendCard extends StatelessWidget {
-  final String userId;
+// ─── Avatar helper ────────────────────────────────────────────────────────────
+
+/// Shared avatar used by every card variant.
+///
+/// Shows the profile image when available, or falls back to the first letter
+/// of [username] on a coloured background.
+class _UserAvatar extends StatelessWidget {
   final String username;
   final String? profileImage;
-  final VoidCallback onRemove;
-  final VoidCallback onBlock; // NEW
-  
-  const _FriendCard({
-    required this.userId,
+  final Color backgroundColor;
+  final Color textColor;
+
+  const _UserAvatar({
     required this.username,
     this.profileImage,
-    required this.onRemove,
-    required this.onBlock, // NEW
+    required this.backgroundColor,
+    required this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
+    return CircleAvatar(
+      radius: size.height * 0.03,
+      backgroundImage:
+          profileImage != null ? NetworkImage(profileImage!) : null,
+      backgroundColor: backgroundColor,
+      child: profileImage == null
+          ? Text(
+              username[0].toUpperCase(),
+              style: TextStyle(
+                fontFamily: 'Montserrat',
+                color: textColor,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+// ─── Card widgets ─────────────────────────────────────────────────────────────
+
+/// Displays a confirmed friend with remove and block actions.
+class _FriendCard extends StatelessWidget {
+  final String userId;
+  final String username;
+  final String? profileImage;
+  final VoidCallback onRemove;
+  final VoidCallback onBlock;
+
+  const _FriendCard({
+    required this.userId,
+    required this.username,
+    this.profileImage,
+    required this.onRemove,
+    required this.onBlock,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Card(
       color: AppColors.surface,
       margin: EdgeInsets.only(bottom: size.height * 0.01),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
+        leading: _UserAvatar(
+          username: username,
+          profileImage: profileImage,
           backgroundColor: AppColors.secondaryAmber,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: AppColors.textOnAmber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          textColor: AppColors.textOnAmber,
         ),
         title: Text(
           username,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -738,7 +702,7 @@ class _FriendCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // NEW: Block button
+            // Block is darker red than remove to signal a more severe action.
             IconButton(
               icon: Icon(Icons.block, color: Colors.red.shade700),
               onPressed: onBlock,
@@ -754,51 +718,41 @@ class _FriendCard extends StatelessWidget {
   }
 }
 
+/// Displays an incoming friend request with accept, reject, and block actions.
 class _RequestCard extends StatelessWidget {
   final String userId;
   final String username;
   final String? profileImage;
   final VoidCallback onAccept;
   final VoidCallback onReject;
-  final VoidCallback onBlock; // NEW
-  
+  final VoidCallback onBlock;
+
   const _RequestCard({
     required this.userId,
     required this.username,
     this.profileImage,
     required this.onAccept,
     required this.onReject,
-    required this.onBlock, // NEW
+    required this.onBlock,
   });
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
     return Card(
       color: AppColors.surface,
       margin: EdgeInsets.only(bottom: size.height * 0.01),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
+        leading: _UserAvatar(
+          username: username,
+          profileImage: profileImage,
           backgroundColor: AppColors.secondaryAmber,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: AppColors.textOnAmber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          textColor: AppColors.textOnAmber,
         ),
         title: Text(
           username,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -807,13 +761,12 @@ class _RequestCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // NEW: Block button
             IconButton(
               icon: Icon(Icons.block, color: Colors.red.shade900),
               onPressed: onBlock,
             ),
             IconButton(
-              icon: Icon(Icons.check, color: Colors.green),
+              icon: const Icon(Icons.check, color: Colors.green),
               onPressed: onAccept,
             ),
             IconButton(
@@ -827,12 +780,13 @@ class _RequestCard extends StatelessWidget {
   }
 }
 
+/// Displays an outgoing friend request that is awaiting a response.
 class _SentRequestCard extends StatelessWidget {
   final String userId;
   final String username;
   final String? profileImage;
   final VoidCallback onCancel;
-  
+
   const _SentRequestCard({
     required this.userId,
     required this.username,
@@ -843,31 +797,20 @@ class _SentRequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
     return Card(
       color: AppColors.surface,
       margin: EdgeInsets.only(bottom: size.height * 0.01),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
+        leading: _UserAvatar(
+          username: username,
+          profileImage: profileImage,
           backgroundColor: AppColors.secondaryAmber,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: AppColors.textOnAmber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          textColor: AppColors.textOnAmber,
         ),
         title: Text(
           username,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -883,23 +826,23 @@ class _SentRequestCard extends StatelessWidget {
         ),
         trailing: TextButton(
           onPressed: onCancel,
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: Colors.orange),
-          ),
+          child: const Text('Cancel', style: TextStyle(color: Colors.orange)),
         ),
       ),
     );
   }
 }
 
-// NEW: Blocked user card
+/// Displays a blocked user with an unblock action.
+///
+/// The red avatar background visually distinguishes blocked entries from
+/// the rest of the list without relying solely on the "Blocked" label.
 class _BlockedUserCard extends StatelessWidget {
   final String userId;
   final String username;
   final String? profileImage;
   final VoidCallback onUnblock;
-  
+
   const _BlockedUserCard({
     required this.userId,
     required this.username,
@@ -910,31 +853,20 @@ class _BlockedUserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
     return Card(
       color: AppColors.surface,
       margin: EdgeInsets.only(bottom: size.height * 0.01),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
+        leading: _UserAvatar(
+          username: username,
+          profileImage: profileImage,
           backgroundColor: Colors.red.shade700,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+          textColor: AppColors.textPrimary,
         ),
         title: Text(
           username,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -957,13 +889,18 @@ class _BlockedUserCard extends StatelessWidget {
               vertical: size.height * 0.01,
             ),
           ),
-          child: Text('Unblock'),
+          child: const Text('Unblock'),
         ),
       ),
     );
   }
 }
 
+/// Displays a user search result with contextual action buttons.
+///
+/// The available actions adapt to the current relationship state:
+/// friends, pending requests, and blocked users each get a different
+/// subset of buttons so users can't perform contradictory actions.
 class _SearchResultCard extends StatelessWidget {
   final String userId;
   final String username;
@@ -971,10 +908,10 @@ class _SearchResultCard extends StatelessWidget {
   final bool isFriend;
   final bool hasRequestFrom;
   final bool hasSentRequestTo;
-  final bool isBlocked; // NEW
+  final bool isBlocked;
   final VoidCallback onSendRequest;
-  final VoidCallback onBlock; // NEW
-  
+  final VoidCallback onBlock;
+
   const _SearchResultCard({
     required this.userId,
     required this.username,
@@ -982,21 +919,23 @@ class _SearchResultCard extends StatelessWidget {
     required this.isFriend,
     required this.hasRequestFrom,
     required this.hasSentRequestTo,
-    required this.isBlocked, // NEW
+    required this.isBlocked,
     required this.onSendRequest,
-    required this.onBlock, // NEW
+    required this.onBlock,
   });
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
+    // Derive display state from relationship flags. Blocked takes priority
+    // over all others since a blocked user shouldn't be interactable.
     String statusText = '';
     Color? statusColor;
     bool canSendRequest = true;
-    bool showBlockButton = true; // NEW
-    
-    if (isBlocked) { // NEW
+    bool showBlockButton = true;
+
+    if (isBlocked) {
       statusText = 'Blocked';
       statusColor = Colors.red.shade700;
       canSendRequest = false;
@@ -1014,31 +953,22 @@ class _SearchResultCard extends StatelessWidget {
       statusColor = Colors.orange;
       canSendRequest = false;
     }
-    
+
     return Card(
       color: AppColors.surface,
       margin: EdgeInsets.only(bottom: size.height * 0.01),
       child: ListTile(
-        leading: CircleAvatar(
-          radius: size.height * 0.03,
-          backgroundImage: profileImage != null 
-              ? NetworkImage(profileImage!)
-              : null,
-          backgroundColor: isBlocked ? Colors.red.shade700 : AppColors.secondaryAmber,
-          child: profileImage == null
-              ? Text(
-                  username[0].toUpperCase(),
-                  style: TextStyle(
-                    fontFamily: 'Montserrat',
-                    color: isBlocked ? AppColors.textPrimary : AppColors.textOnAmber,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
+        leading: _UserAvatar(
+          username: username,
+          profileImage: profileImage,
+          backgroundColor:
+              isBlocked ? Colors.red.shade700 : AppColors.secondaryAmber,
+          textColor:
+              isBlocked ? AppColors.textPrimary : AppColors.textOnAmber,
         ),
         title: Text(
           username,
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: 'Inter',
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
@@ -1057,16 +987,15 @@ class _SearchResultCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // NEW: Block button (show for non-blocked users)
             if (showBlockButton)
               IconButton(
                 icon: Icon(Icons.block, color: Colors.red.shade700),
                 onPressed: onBlock,
               ),
-            // Add friend button (show if can send request)
             if (canSendRequest)
               IconButton(
-                icon: Icon(Icons.person_add, color: AppColors.accentElectricBlue),
+                icon: Icon(Icons.person_add,
+                    color: AppColors.accentElectricBlue),
                 onPressed: onSendRequest,
               ),
           ],
@@ -1076,32 +1005,27 @@ class _SearchResultCard extends StatelessWidget {
   }
 }
 
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+/// Generic empty state used across list sections when there is no data to show.
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String message;
   final String? subtitle;
-  
-  const _EmptyState({
-    required this.icon,
-    required this.message,
-    this.subtitle,
-  });
+
+  const _EmptyState({required this.icon, required this.message, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    
+
     return Center(
       child: Padding(
         padding: EdgeInsets.all(size.width * 0.08),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: size.height * 0.1,
-              color: AppColors.textSecondary,
-            ),
+            Icon(icon, size: size.height * 0.1, color: AppColors.textSecondary),
             SizedBox(height: size.height * 0.02),
             Text(
               message,
