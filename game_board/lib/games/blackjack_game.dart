@@ -624,7 +624,7 @@ class BlackjackGame extends FlameGame implements ChipGameInterface {
   }
 
   /// Fans cards symmetrically around the horizontal centre of the screen.
-  void _updateCardsPositions({bool animated = true}) {
+  void _updateCardsPositions() {
     final spacing = cardWidth * 1.15;
 
     for (int i = 0; i < playerCards.length; i++) {
