@@ -6,6 +6,7 @@ import '../services/image_upload_service.dart';
 import '../theme/app_theme.dart';
 import '../components/slide_in_panel.dart';
 import '../components/social_panel.dart';
+import '../demo/demo_mode.dart';
 
 class ProfileScreen extends StatefulWidget {
   final User user;
@@ -187,6 +188,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadProfileImage() async {
+    if (isDemo) {
+      _showErrorSnackBar('Photo uploads are turned off in the demo.');
+      return;
+    }
+
     // Show source selection dialog
     final source = await showDialog<ImageSource>(
       context: context,

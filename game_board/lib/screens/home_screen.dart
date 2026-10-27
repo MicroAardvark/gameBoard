@@ -9,6 +9,8 @@ import '../models/user.dart';
 import '../theme/app_theme.dart';
 import '../components/slide_in_panel.dart';
 import 'checkers_screen.dart';
+import '../demo/demo_mode.dart';
+import '../demo/demo_widgets.dart';
 
 class HomeScreen extends StatelessWidget {
   final User user;
@@ -229,6 +231,10 @@ class HomeScreen extends StatelessWidget {
                           title: 'Play Online',
                           icon: Icons.wifi,
                           onPressed: () {
+                            if (isDemo) {
+                              showDemoOnlineDialog(context);
+                              return;
+                            }
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -245,56 +251,59 @@ class HomeScreen extends StatelessWidget {
                         // ==========================================
                         // TEMPORARY: CHAT TEST BUTTON (REMOVE AFTER TESTING)
                         // ==========================================
-                        SizedBox(height: spacing * 2),
+                        // Hidden in the demo: the chat test needs the live server
+                        if (!isDemo) ...[
+                          SizedBox(height: spacing * 2),
                         
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.red,
-                              width: 2,
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.bug_report, color: Colors.red, size: 24),
+                                SizedBox(width: 8),
+                                Text(
+                                  'DEBUG / TESTING',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: (titleSize * 0.4).clamp(14.0, 20.0),
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.bug_report, color: Colors.red, size: 24),
-                              SizedBox(width: 8),
-                              Text(
-                                'DEBUG / TESTING',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: (titleSize * 0.4).clamp(14.0, 20.0),
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: spacing),
+                          SizedBox(height: spacing),
                         
-                        _GameButton(
-                          title: '🧪 Chat Test',
-                          icon: Icons.chat_bubble,
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ChatTestScreen(user: user),
-                              ),
-                            );
-                          },
-                          enabled: true,
-                          width: buttonWidth,
-                          height: buttonHeight,
-                          isDebug: true,
-                        ),
+                          _GameButton(
+                            title: '🧪 Chat Test',
+                            icon: Icons.chat_bubble,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatTestScreen(user: user),
+                                ),
+                              );
+                            },
+                            enabled: true,
+                            width: buttonWidth,
+                            height: buttonHeight,
+                            isDebug: true,
+                          ),
+                        ],
                         // ==========================================
                         // END TEMPORARY SECTION
                         // ==========================================

@@ -6,6 +6,8 @@ import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'models/user.dart';
 import 'theme/app_theme.dart';
+import 'demo/demo_mode.dart';
+import 'demo/demo_widgets.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,8 +70,11 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Microvark Gaming',
+      title: isDemo ? 'Microvark Gaming (demo)' : 'Microvark Gaming',
       debugShowCheckedModeBanner: false,
+      builder: isDemo
+          ? (context, child) => DemoBanner(child: child ?? const SizedBox.shrink())
+          : null,
       theme: AppTheme.darkTheme,
       home: _isLoading
           ? const Scaffold(
