@@ -1,6 +1,6 @@
 // lib/services/auth_service.dart
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -15,7 +15,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/signup'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -49,7 +49,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -83,7 +83,7 @@ class AuthService {
     required String email,
   }) async {
     try {
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/resend-verification'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
@@ -118,7 +118,7 @@ class AuthService {
         return {'success': false, 'error': 'No token found'};
       }
 
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse('$baseUrl/verify'),
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ class AuthService {
         return {'success': false, 'error': 'No token found'};
       }
 
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse('$baseUrl/verify'),
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +179,7 @@ class AuthService {
       final token = await getToken();
       if (token == null) return false;
 
-      final response = await http.put(
+      final response = await apiClient.put(
         Uri.parse('https://microaardvark.co.uk/api/game/update-stats'),
         headers: {
           'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ class AuthService {
         return {'success': false, 'error': 'No authentication token found'};
       }
 
-      final response = await http.put(
+      final response = await apiClient.put(
         Uri.parse('$baseUrl/update-username'),
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +249,7 @@ class AuthService {
         return {'success': false, 'error': 'No authentication token found'};
       }
 
-      final response = await http.put(
+      final response = await apiClient.put(
         Uri.parse('$baseUrl/change-password'),
         headers: {
           'Content-Type': 'application/json',
@@ -290,7 +290,7 @@ class AuthService {
         return {'success': false, 'error': 'No authentication token found'};
       }
 
-      final response = await http.delete(
+      final response = await apiClient.delete(
         Uri.parse('$baseUrl/account'),
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ class AuthService {
     required String email,
   }) async {
     try {
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
@@ -353,7 +353,7 @@ class AuthService {
     required String newPassword,
   }) async {
     try {
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/reset-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({

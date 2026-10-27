@@ -1,6 +1,6 @@
 // lib/services/friends_service.dart
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'api_client.dart';
 import 'auth_service.dart';
 
 class FriendsService {
@@ -14,7 +14,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse('$baseUrl/search?username=$username'),
         headers: {
           'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse(baseUrl),
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse('$baseUrl/requests'),
         headers: {
           'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/request'),
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/accept/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +206,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/reject/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.delete(
+      final response = await apiClient.delete(
         Uri.parse('$baseUrl/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -282,7 +282,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.delete(
+      final response = await apiClient.delete(
         Uri.parse('$baseUrl/request/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -322,7 +322,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.get(
+      final response = await apiClient.get(
         Uri.parse('$baseUrl/blocked'),
         headers: {
           'Content-Type': 'application/json',
@@ -360,7 +360,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/block/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -398,7 +398,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.delete(
+      final response = await apiClient.delete(
         Uri.parse('$baseUrl/block/$userId'),
         headers: {
           'Content-Type': 'application/json',
@@ -449,7 +449,7 @@ class FriendsService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.post(
+      final response = await apiClient.post(
         Uri.parse('$baseUrl/report/$userId'),
         headers: {
           'Content-Type': 'application/json',

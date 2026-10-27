@@ -3,6 +3,8 @@ import '../services/auth_service.dart';
 import '../models/user.dart';
 import '../theme/app_theme.dart';
 import 'forgot_pass_screen.dart';
+import '../demo/demo_mode.dart';
+import '../demo/demo_widgets.dart';
 
 class LoginScreen extends StatefulWidget {
   final Function(User) onLoginSuccess;
@@ -345,6 +347,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+
+                  if (isDemo && _isLogin)
+                    DemoLoginPanel(onLoginSuccess: widget.onLoginSuccess),
                   
                   if (!_isLogin)
                     TextField(

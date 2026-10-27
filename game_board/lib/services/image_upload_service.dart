@@ -1,6 +1,7 @@
 // lib/services/image_upload_service.dart
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'api_client.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 import 'auth_service.dart';
@@ -64,7 +65,7 @@ class ImageUploadService {
       request.files.add(multipartFile);
       
       // Send request
-      final streamedResponse = await request.send();
+      final streamedResponse = await apiClient.send(request);
       final response = await http.Response.fromStream(streamedResponse);
       
       if (response.statusCode == 200) {
@@ -100,7 +101,7 @@ class ImageUploadService {
         return {'success': false, 'error': 'No authentication token found'};
       }
       
-      final response = await http.delete(
+      final response = await apiClient.delete(
         Uri.parse('$baseUrl/delete-profile-image'),
         headers: {
           'Content-Type': 'application/json',
